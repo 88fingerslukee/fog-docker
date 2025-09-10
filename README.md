@@ -14,32 +14,23 @@ A complete Docker Compose stack for running the FOG Project (Free and Open Ghost
 
 ## ⚠️ Current Limitations & Trade-offs
 
-This Docker stack works around FOG's current architecture limitations without modifying the FOG source code. As a result, some compromises were necessary:
+This Docker stack works around FOG's **two fundamental architectural issues** without modifying the FOG source code:
 
-### **Host Networking Required**
-- **Why**: FOG's network booting and multicast features require direct access to network interfaces
-- **Impact**: All containers share the host's network stack, limiting portability
-- **Alternative**: See [FOG-IMPROVEMENTS.md](FOG-IMPROVEMENTS.md) for container-native networking solutions
+### **1. IP Matching Logic Doesn't Work in Containers**
+- **Why**: FOG services use `getIPAddress()` to auto-detect if they're the master storage node by comparing their IP addresses against storage node IPs in the database. In containers, this IP matching fails because the container's view of IPs doesn't match the storage node configuration.
+- **Impact**: Forces the use of host networking to make the IP matching work, limiting portability and preventing true container isolation
+- **Example**: Services can't determine if they're the master storage node without host networking
 
-### **Runtime Configuration Generation**
-- **Why**: FOG generates configuration files at installation time with hardcoded values
-- **Impact**: Configuration must be regenerated at container startup using environment variables
-- **Alternative**: See [FOG-IMPROVEMENTS.md](FOG-IMPROVEMENTS.md) for static configuration approaches
+### **2. Inability to Make it Stateless**
+- **Why**: FOG's install script generates configuration files at installation time with hardcoded values. There's no support for environment variables in the core configuration system, and database settings must be updated at runtime.
+- **Impact**: Can't create static images because configuration depends on runtime environment. Configuration must be regenerated at container startup using environment variables and database updates.
 
-### **Database Dependency at Startup**
-- **Why**: FOG requires database connection and schema updates during initialization
-- **Impact**: Container startup is slower and requires database to be available first
-- **Alternative**: See [FOG-IMPROVEMENTS.md](FOG-IMPROVEMENTS.md) for stateless configuration
+### **Additional Compromises Required:**
+- **Database Dependency at Startup**: FOG requires database connection and schema updates during initialization
+- **Port Conflicts**: FOG assumes standard ports (80, 443, 69, 21, 2049, 3306) are available and has no dynamic port configuration. 
+- **Apache Dependency**: FOG is tightly coupled to Apache as the web server and cannot easily use other web servers (nginx, Caddy, etc.)
 
-### **Port Conflicts**
-- **Why**: FOG assumes standard ports (80, 69, 21, 2049) are available
-- **Impact**: Custom ports required to avoid conflicts with host services
-- **Alternative**: See [FOG-IMPROVEMENTS.md](FOG-IMPROVEMENTS.md) for dynamic port configuration
-
-### **Service Discovery Limitations**
-- **Why**: FOG uses hardcoded localhost references for inter-service communication
-- **Impact**: All services must run on the same host or use host networking
-- **Alternative**: See [FOG-IMPROVEMENTS.md](FOG-IMPROVEMENTS.md) for proper service discovery
+**For solutions to these limitations, see the [FOG Project Improvements](FOG-IMPROVEMENTS.md) document.**
 
 ## 📋 Prerequisites
 
@@ -148,7 +139,7 @@ This stack uses **host networking mode** for optimal performance with network bo
 **Note**: All containers share the host's network stack due to FOG's networking requirements. This limits portability but ensures compatibility with network booting and multicast operations.
 
 ### **Ideal Architecture (Container Networking)**
-For a truly portable, cloud-ready deployment, see [FOG-IMPROVEMENTS.md](FOG-IMPROVEMENTS.md) for the proposed container-native architecture with proper service discovery and networking.
+For a truly portable, cloud-ready deployment, see the [FOG Project Improvements](FOG-IMPROVEMENTS.md) document for the proposed container-native architecture with proper service discovery and networking.
 
 ## 🔄 Services
 
@@ -167,14 +158,14 @@ For a truly portable, cloud-ready deployment, see [FOG-IMPROVEMENTS.md](FOG-IMPR
 - **Purpose**: FOG database
 - **Port**: 3307
 - **Features**: Persistent storage, optimized for FOG
-- **Workarounds**: Custom port to avoid conflicts with host MySQL
+- **Workarounds**: Custom port (3307) required because FOG assumes MySQL runs on standard port 3306, creating configuration complexity
 
 ### fog-tftp
 - **Image**: `fogproject/tftp:latest`
 - **Purpose**: TFTP server for network booting
 - **Port**: 69 (UDP)
 - **Features**: iPXE boot files, network boot support
-- **Workarounds**: Host networking required for PXE booting
+- **Workarounds**: Host networking required because FOG assumes TFTP runs on localhost, though TFTP itself could work on container networks
 
 ### fog-nfs
 - **Image**: `fogproject/nfs:latest`
