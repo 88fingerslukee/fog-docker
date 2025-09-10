@@ -108,9 +108,9 @@ This stack uses **host networking mode** for optimal performance with network bo
 
 | Service | Port | Protocol | Description |
 |---------|------|----------|-------------|
-| Apache | 8080 | HTTP | FOG web interface |
-| Apache | 8443 | HTTPS | FOG web interface (SSL) |
-| MariaDB | 3307 | TCP | Database |
+| Apache | 80 (configurable) | HTTP | FOG web interface |
+| Apache | 443 (configurable) | HTTPS | FOG web interface (SSL) |
+| MariaDB | 3306 (configurable) | TCP | Database |
 | TFTP | 69 | UDP | Network booting |
 | NFS | 2049 | TCP/UDP | Image storage |
 | FTP | 21 | TCP | File transfers |
@@ -124,19 +124,17 @@ This stack uses **host networking mode** for optimal performance with network bo
 │  ┌─────────────────┐    ┌─────────────────┐    ┌──────────┐ │
 │  │   fog-server    │    │    fog-db       │    │fog-tftp  │ │
 │  │   (Apache/PHP)  │◄──►│   (MariaDB)     │    │(TFTP)    │ │
-│  │   Port: 8080    │    │   Port: 3307    │    │Port: 69  │ │
 │  └─────────────────┘    └─────────────────┘    └──────────┘ │
 │           │                                                 │
 │           ▼                                                 │
 │  ┌─────────────────┐    ┌─────────────────┐                 │
 │  │   fog-nfs       │    │   fog-ftp       │                 │
 │  │   (NFS Server)  │    │   (FTP Server)  │                 │
-│  │   Port: 2049    │    │   Port: 21      │                 │
 │  └─────────────────┘    └─────────────────┘                 │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-**Note**: All containers share the host's network stack due to FOG's networking requirements. This limits portability but ensures compatibility with network booting and multicast operations.
+**Note**: All containers share the host's network stack due to FOG's networking requirements. This limits portability but ensures compatibility with the FOG Services
 
 ### **Ideal Architecture (Container Networking)**
 For a truly portable, cloud-ready deployment, see the [FOG Project Improvements](FOG-IMPROVEMENTS.md) document for the proposed container-native architecture with proper service discovery and networking.
@@ -146,7 +144,7 @@ For a truly portable, cloud-ready deployment, see the [FOG Project Improvements]
 ### fog-server
 - **Image**: Custom FOG server image
 - **Purpose**: Main FOG web interface and services
-- **Ports**: 8080 (HTTP), 8443 (HTTPS)
+- **Ports**: 80 (HTTP), 443 (HTTPS)
 - **Features**: Apache, PHP, FOG services, supervisor
 - **Workarounds**: 
   - Runtime configuration generation using environment variables
@@ -156,7 +154,7 @@ For a truly portable, cloud-ready deployment, see the [FOG Project Improvements]
 ### fog-db
 - **Image**: `mariadb:10.11`
 - **Purpose**: FOG database
-- **Port**: 3307
+- **Port**: 3306
 - **Features**: Persistent storage, optimized for FOG
 - **Workarounds**: Custom port (3307) required because FOG assumes MySQL runs on standard port 3306, creating configuration complexity
 
@@ -181,9 +179,9 @@ For a truly portable, cloud-ready deployment, see the [FOG Project Improvements]
 - **Features**: File uploads, image transfers
 - **Workarounds**: Host networking for direct file access
 
-## 🌐 Traefik Integration
+## 🌐 Reverse Proxy Integration
 
-This stack is designed to work with Traefik for reverse proxy functionality:
+This stack can used standalone or in a reverse proxy configuration. Here is a traefik example, but it should work with others.
 
 ```yaml
 # traefik/dynamic/fog.yml
