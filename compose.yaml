@@ -35,32 +35,28 @@ services:
       - FOG_DB_NAME=${FOG_DB_NAME}
       - FOG_DB_USER=${FOG_DB_USER}
       - FOG_DB_PASS=${FOG_DB_PASS}
-      - FOG_FTP_HOST=${FOG_FTP_HOST}
-      - FOG_FTP_PASS=${FOG_FTP_PASS}
       - FOG_WEB_ROOT=${FOG_WEB_ROOT}
       - FOG_APACHE_PORT=${FOG_APACHE_PORT}
       - FOG_APACHE_SSL_PORT=${FOG_APACHE_SSL_PORT}
       - FOG_TFTP_HOST=${FOG_TFTP_HOST}
-      - FOG_NFS_HOST=${FOG_NFS_HOST}
       - FOG_BOOTFILENAME=${FOG_BOOTFILENAME}
       - FOG_USERNAME=${FOG_USERNAME}
       - FOG_PASSWORD=${FOG_PASSWORD}
       - FOG_SSL_PATH=${FOG_SSL_PATH}
       - FOG_HTTPS_ENABLED=${FOG_HTTPS_ENABLED}
-      - FOG_SSLPRIVKEY=${FOG_SSLPRIVKEY}
-      - FOG_TIMEZONE=${FOG_TIMEZONE}
-      - FOG_DEBUG=${FOG_DEBUG}
+      - FOG_SSL_CERT_FILE=${FOG_SSL_CERT_FILE}
+      - FOG_SSL_KEY_FILE=${FOG_SSL_KEY_FILE}
+      - FOG_SSL_GENERATE_SELF_SIGNED=${FOG_SSL_GENERATE_SELF_SIGNED}
+      - FOG_SSL_CN=${FOG_SSL_CN}
+      - FOG_SSL_SAN=${FOG_SSL_SAN}
+      - FOG_IPXE_PROTOCOL=${FOG_IPXE_PROTOCOL}
       - FOG_MULTICAST_INTERFACE=${FOG_MULTICAST_INTERFACE}
-      - FOG_GIT_REPO_URL=${FOG_GIT_REPO_URL}
-      - FOG_GIT_REF=${FOG_GIT_REF}
       - FOG_VERSION=${FOG_VERSION}
     volumes:
-      - ${FOG_MYSQL_PATH}:/var/lib/mysql
       - ${FOG_IMAGES_PATH}:/images
       - ${FOG_TFTP_PATH}:/tftpboot
       - ${FOG_SNAPIN_PATH}:/opt/fog/snapins
       - ${FOG_LOG_PATH}:/opt/fog/log:rw
-      - ${FOG_CONFIG_PATH}:/backup
       
   fog-tftp:
     image: docker.io/kalaksi/tftpd:latest

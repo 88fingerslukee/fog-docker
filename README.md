@@ -96,7 +96,7 @@ The stack is configured through environment variables in the `.env` file. Copy `
 
 | Variable | Description | Example | Default |
 |----------|-------------|---------|---------|
-| `FOG_WEB_HOST` | FQDN for FOG server (required for reverse proxy) | `fog.example.com` | **None** |
+| `FOG_WEB_HOST` | FOG server hostname/IP (must be FQDN if behind reverse proxy) | `192.168.1.100` or `fog.example.com` | **None** |
 | `FOG_DB_ROOT_PASSWORD` | MySQL root password | `secure_password123` | **None** |
 
 #### Optional Variables
@@ -117,6 +117,28 @@ The stack is configured through environment variables in the `.env` file. Copy `
 | `FOG_HTTPS_ENABLED` | Enable HTTPS | `true` | `false` |
 | `FOG_SSL_GENERATE_SELF_SIGNED` | Generate self-signed cert | `true` | `true` |
 | `FOG_SSL_CN` | Certificate Common Name | `fog.example.com` | `${FOG_WEB_HOST}` |
+| `FOG_SSL_SAN` | Subject Alternative Names | `DNS:www.fog.com,IP:192.168.1.100` | **None** |
+
+### FOG_WEB_HOST Configuration
+
+The `FOG_WEB_HOST` variable can be either an IP address or FQDN, but **must be an FQDN if behind a reverse proxy**:
+
+```bash
+# Direct access - can use IP or FQDN
+FOG_WEB_HOST=192.168.1.100
+
+# Behind reverse proxy - must use FQDN
+FOG_WEB_HOST=fog.example.com
+```
+
+**Important**: This variable is used for:
+- Web interface access
+- TFTP service configuration  
+- NFS/Storage service configuration
+- iPXE boot file generation
+- All internal FOG service communication
+
+When behind a reverse proxy, using an IP address will cause issues with iPXE booting and service communication, as the boot files will reference the internal IP instead of the public FQDN.
 
 ### Version Management
 
@@ -147,6 +169,19 @@ FOG_HTTPS_ENABLED=true
 FOG_SSL_GENERATE_SELF_SIGNED=true
 FOG_SSL_CN=fog.yourdomain.com
 ```
+
+#### Self-Signed Certificate with SAN (Subject Alternative Names)
+```bash
+FOG_HTTPS_ENABLED=true
+FOG_SSL_GENERATE_SELF_SIGNED=true
+FOG_SSL_CN=fog.yourdomain.com
+FOG_SSL_SAN=DNS:www.fog.yourdomain.com,DNS:fog.local,IP:192.168.1.100
+```
+
+**SAN Format**: Comma-separated list of alternative names:
+- `DNS:domain.com` - Domain names
+- `IP:192.168.1.100` - IP addresses
+- `DNS:*.example.com` - Wildcard domains
 
 #### Standalone HTTPS (Custom Certificate)
 ```bash

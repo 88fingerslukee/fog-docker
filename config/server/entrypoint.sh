@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-FOG_VERSION=${FOG_VERSION:-unknown}
+FOG_VERSION=${FOG_VERSION:-latest}
 
 echo "=========================================="
 echo "FOG Project Server v$FOG_VERSION with Supervisor"
@@ -9,27 +9,27 @@ echo "=========================================="
 
 # Environment variables
 DB_HOST=${FOG_DB_HOST:-localhost}
-DB_PORT=${FOG_DB_PORT:-3307}
+DB_PORT=${FOG_DB_PORT:-3306}
 DB_NAME=${FOG_DB_NAME:-fog}
 DB_USER=${FOG_DB_USER:-fogmaster}
 DB_PASS=${FOG_DB_PASS:-fogmaster123}
 FOG_MULTICAST_INTERFACE=${FOG_MULTICAST_INTERFACE:-eth0}
 FOG_WEB_ROOT=${FOG_WEB_ROOT:-/fog}
-FOG_APACHE_PORT=${FOG_APACHE_PORT:-8080}
-FOG_APACHE_SSL_PORT=${FOG_APACHE_SSL_PORT:-8443}
+FOG_APACHE_PORT=${FOG_APACHE_PORT:-80}
+FOG_APACHE_SSL_PORT=${FOG_APACHE_SSL_PORT:-443}
 
 FOG_TFTP_HOST=${FOG_TFTP_HOST:-localhost}
-FOG_NFS_HOST=${FOG_NFS_HOST:-localhost}
-FOG_FTP_HOST=${FOG_FTP_HOST:-localhost}
 FOG_USERNAME=${FOG_USERNAME:-fogproject}
 FOG_PASSWORD=${FOG_PASSWORD:-fogftp123}
+FOG_BOOTFILENAME=${FOG_BOOTFILENAME:-undionly.kpxe}
 FOG_SSL_PATH=${FOG_SSL_PATH:-/opt/fog/snapins/ssl}
 FOG_HTTPS_ENABLED=${FOG_HTTPS_ENABLED:-false}
 FOG_SSL_CERT_FILE=${FOG_SSL_CERT_FILE:-server.crt}
 FOG_SSL_KEY_FILE=${FOG_SSL_KEY_FILE:-server.key}
 FOG_SSL_GENERATE_SELF_SIGNED=${FOG_SSL_GENERATE_SELF_SIGNED:-true}
 FOG_SSL_CN=${FOG_SSL_CN:-${FOG_WEB_HOST}}
-FOG_TIMEZONE=${FOG_TIMEZONE:-UTC}
+FOG_SSL_SAN=${FOG_SSL_SAN:-}
+FOG_IPXE_PROTOCOL=${FOG_IPXE_PROTOCOL:-}
 
 # Wait for database to be ready
 echo "Waiting for database connection..."
@@ -39,36 +39,18 @@ until mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" -p"$DB_PASS" -e "SELECT 1" >/
 done
 echo "✓ Database connection established"
 
-# Check if we need to update FOG database schema
-echo "Checking FOG database schema version..."
-if mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" -p"$DB_PASS" -D"$DB_NAME" -e "SHOW TABLES LIKE 'globalSettings'" >/dev/null 2>&1; then
-    # Database exists, check current schema version
-    CURRENT_SCHEMA=$(mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" -p"$DB_PASS" -D"$DB_NAME" -s -N -e "SELECT settingValue FROM globalSettings WHERE settingKey = 'FOG_SCHEMA';" 2>/dev/null || echo "0")
-    EXPECTED_SCHEMA="273"  # FOG 1.5.10.1673 schema version
-    
-    if [ "$CURRENT_SCHEMA" != "$EXPECTED_SCHEMA" ]; then
-        echo "FOG schema version mismatch detected (DB: $CURRENT_SCHEMA, Expected: $EXPECTED_SCHEMA)"
-        echo "Database schema will be updated on first web access"
-    else
-        echo "✓ FOG database schema is up to date (version: $EXPECTED_SCHEMA)"
-        
-        # Update FOG_VERSION in database if it's different
-        CURRENT_VERSION=$(mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" -p"$DB_PASS" -D"$DB_NAME" -s -N -e "SELECT settingValue FROM globalSettings WHERE settingKey = 'FOG_VERSION';" 2>/dev/null || echo "")
-        if [ "$CURRENT_VERSION" != "$FOG_VERSION" ]; then
-            echo "Updating FOG_VERSION in database from $CURRENT_VERSION to $FOG_VERSION"
-            mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" -p"$DB_PASS" -D"$DB_NAME" -e "UPDATE globalSettings SET settingValue = '$FOG_VERSION' WHERE settingKey = 'FOG_VERSION';" 2>/dev/null || echo "Failed to update FOG_VERSION"
-        fi
-    fi
-else
-    echo "FOG database not found, will be initialized on first web access"
-fi
+# Database schema will be handled by the web UI when accessed
 
 # Copy/update FOG web files
 if [ -d "/opt/fogproject/packages/web" ]; then
     echo "Updating FOG web files..."
     cp -r /opt/fogproject/packages/web/* /var/www/html/fog/
+    
+    # Set proper file permissions like the installer does
     chown -R www-data:www-data /var/www/html/fog
-    echo "✓ FOG web files updated"
+    chown -R www-data:www-data /var/www/html/fog/management/other 2>/dev/null || true
+    
+    echo "✓ FOG web files updated with proper permissions"
     # Create symlink to match baremetal installer behavior
     if [ ! -L "/var/www/html/fog/fog" ]; then
         ln -s /var/www/html/fog /var/www/html/fog/fog
@@ -103,8 +85,6 @@ sed -e "s|{{DB_HOST}}|$DB_HOST|g" \
     -e "s|{{DB_USER}}|$DB_USER|g" \
     -e "s|{{DB_PASS}}|$DB_PASS|g" \
     -e "s|{{FOG_TFTP_HOST}}|$FOG_TFTP_HOST|g" \
-    -e "s|{{FOG_NFS_HOST}}|$FOG_NFS_HOST|g" \
-    -e "s|{{FOG_FTP_HOST}}|$FOG_FTP_HOST|g" \
     -e "s|{{FOG_MULTICAST_INTERFACE}}|$FOG_MULTICAST_INTERFACE|g" \
     -e "s|{{FOG_WEB_ROOT}}|$FOG_WEB_ROOT|g" \
     -e "s|{{FOG_WEB_HOST}}|$FOG_WEB_HOST|g" \
@@ -112,7 +92,6 @@ sed -e "s|{{DB_HOST}}|$DB_HOST|g" \
     -e "s|{{FOG_PASSWORD}}|$FOG_PASSWORD|g" \
     -e "s|{{FOG_SSL_PATH}}|$FOG_SSL_PATH|g" \
     -e "s|{{FOG_HTTPS_ENABLED}}|$FOG_HTTPS_ENABLED|g" \
-    -e "s|{{FOG_TIMEZONE}}|$FOG_TIMEZONE|g" \
     -e "s|{{FOG_VERSION}}|$FOG_VERSION|g" \
     /fog-config.php > /var/www/html/fog/lib/fog/config.class.php
 
@@ -127,7 +106,7 @@ if mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" -p"$DB_PASS" -D"$DB_NAME" -e "SE
 UPDATE globalSettings SET settingValue = '$FOG_WEB_HOST' WHERE settingKey = 'FOG_WEB_HOST';
 UPDATE globalSettings SET settingValue = '$FOG_WEB_ROOT' WHERE settingKey = 'FOG_WEB_ROOT';
 UPDATE globalSettings SET settingValue = '$FOG_TFTP_HOST' WHERE settingKey = 'FOG_TFTP_HOST';
-UPDATE globalSettings SET settingValue = '$FOG_NFS_HOST' WHERE settingKey = 'FOG_NFS_HOST';
+UPDATE globalSettings SET settingValue = '$FOG_WEB_HOST' WHERE settingKey = 'FOG_NFS_HOST';
 UPDATE globalSettings SET settingValue = '$FOG_MULTICAST_INTERFACE' WHERE settingKey = 'FOG_MULTICAST_INTERFACE';
 UPDATE globalSettings SET settingValue = '$FOG_USERNAME' WHERE settingKey = 'FOG_TFTP_FTP_USERNAME';
 UPDATE globalSettings SET settingValue = '$FOG_PASSWORD' WHERE settingKey = 'FOG_TFTP_FTP_PASSWORD';
@@ -144,7 +123,7 @@ EOF
     echo "✓ FOG_TFTP_HOST: $FOG_TFTP_HOST"
     echo "✓ Storage Node Hostname: $FOG_WEB_HOST"
     echo "✓ Storage Node Webroot: $FOG_WEB_ROOT"
-    echo "✓ FOG_NFS_HOST: $FOG_NFS_HOST"
+    echo "✓ FOG_NFS_HOST: $FOG_WEB_HOST (using WEB_HOST)"
     echo "✓ FOG_MULTICAST_INTERFACE: $FOG_MULTICAST_INTERFACE"
     echo "✓ FOG_TFTP_FTP_USERNAME: $FOG_USERNAME"
     echo "✓ FOG_TFTP_FTP_PASSWORD: [HIDDEN]"
@@ -219,13 +198,54 @@ if [ "$FOG_HTTPS_ENABLED" = "true" ]; then
     # Generate self-signed certificate if requested and files don't exist
     if [ "$FOG_SSL_GENERATE_SELF_SIGNED" = "true" ] && [ ! -f "$FOG_SSL_PATH/$FOG_SSL_CERT_FILE" ]; then
         echo "Generating self-signed SSL certificate..."
-        openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-            -keyout "$FOG_SSL_PATH/$FOG_SSL_KEY_FILE" \
-            -out "$FOG_SSL_PATH/$FOG_SSL_CERT_FILE" \
-            -subj "/C=US/ST=State/L=City/O=Organization/CN=$FOG_SSL_CN"
+        
+        if [ -n "$FOG_SSL_SAN" ]; then
+            # Create OpenSSL config file for SAN support
+            cat > "$FOG_SSL_PATH/ssl.conf" << EOF
+[req]
+distinguished_name = req_distinguished_name
+req_extensions = v3_req
+prompt = no
+
+[req_distinguished_name]
+C = US
+ST = State
+L = City
+O = Organization
+CN = $FOG_SSL_CN
+
+[v3_req]
+keyUsage = keyEncipherment, dataEncipherment
+extendedKeyUsage = serverAuth
+subjectAltName = @alt_names
+
+[alt_names]
+EOF
+            
+            # Add SAN entries
+            IFS=',' read -ra SAN_ARRAY <<< "$FOG_SSL_SAN"
+            for i in "${!SAN_ARRAY[@]}"; do
+                echo "${SAN_ARRAY[$i]}" >> "$FOG_SSL_PATH/ssl.conf"
+            done
+            
+            # Generate certificate with SAN
+            openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+                -keyout "$FOG_SSL_PATH/$FOG_SSL_KEY_FILE" \
+                -out "$FOG_SSL_PATH/$FOG_SSL_CERT_FILE" \
+                -config "$FOG_SSL_PATH/ssl.conf" \
+                -extensions v3_req
+            echo "✓ Self-signed SSL certificate with SAN generated"
+        else
+            # Generate certificate without SAN (original method)
+            openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+                -keyout "$FOG_SSL_PATH/$FOG_SSL_KEY_FILE" \
+                -out "$FOG_SSL_PATH/$FOG_SSL_CERT_FILE" \
+                -subj "/C=US/ST=State/L=City/O=Organization/CN=$FOG_SSL_CN"
+            echo "✓ Self-signed SSL certificate generated"
+        fi
+        
         chmod 600 "$FOG_SSL_PATH/$FOG_SSL_KEY_FILE"
         chmod 644 "$FOG_SSL_PATH/$FOG_SSL_CERT_FILE"
-        echo "✓ Self-signed SSL certificate generated"
     fi
     
     # Enable SSL module and configure SSL virtual host
