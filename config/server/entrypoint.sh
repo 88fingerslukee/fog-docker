@@ -25,6 +25,10 @@ FOG_USERNAME=${FOG_USERNAME:-fogproject}
 FOG_PASSWORD=${FOG_PASSWORD:-fogftp123}
 FOG_SSL_PATH=${FOG_SSL_PATH:-/opt/fog/snapins/ssl}
 FOG_HTTPS_ENABLED=${FOG_HTTPS_ENABLED:-false}
+FOG_SSL_CERT_FILE=${FOG_SSL_CERT_FILE:-server.crt}
+FOG_SSL_KEY_FILE=${FOG_SSL_KEY_FILE:-server.key}
+FOG_SSL_GENERATE_SELF_SIGNED=${FOG_SSL_GENERATE_SELF_SIGNED:-true}
+FOG_SSL_CN=${FOG_SSL_CN:-${FOG_WEB_HOST}}
 FOG_TIMEZONE=${FOG_TIMEZONE:-UTC}
 
 # Wait for database to be ready
@@ -204,10 +208,70 @@ sed -e "s|{{FOG_APACHE_PORT}}|$FOG_APACHE_PORT|g" \
     -e "s|{{FOG_APACHE_SSL_PORT}}|$FOG_APACHE_SSL_PORT|g" \
     /ports.conf > /etc/apache2/ports.conf
 a2ensite 000-default
+
+# SSL Configuration
+if [ "$FOG_HTTPS_ENABLED" = "true" ]; then
+    echo "Configuring SSL/HTTPS for FOG..."
+    
+    # Create SSL directory
+    mkdir -p "$FOG_SSL_PATH"
+    
+    # Generate self-signed certificate if requested and files don't exist
+    if [ "$FOG_SSL_GENERATE_SELF_SIGNED" = "true" ] && [ ! -f "$FOG_SSL_PATH/$FOG_SSL_CERT_FILE" ]; then
+        echo "Generating self-signed SSL certificate..."
+        openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+            -keyout "$FOG_SSL_PATH/$FOG_SSL_KEY_FILE" \
+            -out "$FOG_SSL_PATH/$FOG_SSL_CERT_FILE" \
+            -subj "/C=US/ST=State/L=City/O=Organization/CN=$FOG_SSL_CN"
+        chmod 600 "$FOG_SSL_PATH/$FOG_SSL_KEY_FILE"
+        chmod 644 "$FOG_SSL_PATH/$FOG_SSL_CERT_FILE"
+        echo "✓ Self-signed SSL certificate generated"
+    fi
+    
+    # Enable SSL module and configure SSL virtual host
+    a2enmod ssl
+    a2enmod rewrite
+    a2enmod headers
+    
+    # Process SSL configuration template
+    sed -e "s|{{FOG_APACHE_SSL_PORT}}|$FOG_APACHE_SSL_PORT|g" \
+        -e "s|{{FOG_WEB_HOST}}|$FOG_WEB_HOST|g" \
+        -e "s|{{FOG_SSL_PATH}}|$FOG_SSL_PATH|g" \
+        -e "s|{{FOG_SSL_CERT_FILE}}|$FOG_SSL_CERT_FILE|g" \
+        -e "s|{{FOG_SSL_KEY_FILE}}|$FOG_SSL_KEY_FILE|g" \
+        /apache-ssl.conf > /etc/apache2/sites-available/000-default-ssl.conf
+    
+    a2ensite 000-default-ssl
+    echo "✓ SSL/HTTPS configuration enabled"
+else
+    echo "SSL/HTTPS disabled"
+fi
 echo "✓ Apache configured for FOG on port $FOG_APACHE_PORT (SSL: $FOG_APACHE_SSL_PORT)"
 
 # Create default.ipxe file for iPXE chainloading
 echo "Creating default.ipxe for iPXE chainloading..."
+
+# Determine protocol and port for iPXE chainloading
+# When behind a reverse proxy, we typically want HTTPS URLs even if the container runs HTTP
+# This can be overridden by setting FOG_IPXE_PROTOCOL explicitly
+if [ -n "$FOG_IPXE_PROTOCOL" ]; then
+    # Explicit protocol override
+    PROTOCOL="$FOG_IPXE_PROTOCOL"
+    if [ "$PROTOCOL" = "https" ]; then
+        PORT=":$FOG_APACHE_SSL_PORT"
+    else
+        PORT=":$FOG_APACHE_PORT"
+    fi
+elif [ "$FOG_HTTPS_ENABLED" = "true" ]; then
+    # Container has SSL enabled
+    PROTOCOL="https"
+    PORT=":$FOG_APACHE_SSL_PORT"
+else
+    # Container runs HTTP only - use HTTPS for iPXE (assumes reverse proxy)
+    PROTOCOL="https"
+    PORT=""  # No port needed for reverse proxy
+fi
+
 cat > /tftpboot/default.ipxe << EOF
 #!ipxe
 set arch \${buildarch}
@@ -224,7 +288,7 @@ param sysuuid \${uuid}
 isset \${net1/mac} && param mac1 \${net1/mac} || goto bootme
 isset \${net2/mac} && param mac2 \${net2/mac} || goto bootme
 :bootme
-chain https://$FOG_WEB_HOST${FOG_WEB_ROOT}service/ipxe/boot.php##params
+chain $PROTOCOL://$FOG_WEB_HOST$PORT${FOG_WEB_ROOT}service/ipxe/boot.php##params
 EOF
 chown www-data:www-data /tftpboot/default.ipxe
 chmod 644 /tftpboot/default.ipxe

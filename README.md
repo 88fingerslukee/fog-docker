@@ -6,7 +6,7 @@ A complete Docker Compose stack for running the FOG Project (Free and Open Ghost
 
 - **Complete FOG Stack**: Web interface, TFTP, NFS, FTP, and database services
 - **Host Networking**: Optimized for network booting and multicast operations
-- **Traefik Integration**: Ready for reverse proxy configuration
+- **Reverse Proxy Ready**: Compatible with any reverse proxy (Traefik, Nginx, Caddy, etc.)
 - **Dynamic Configuration**: Environment-based configuration with templates
 - **Production Ready**: Includes logging, health checks, and proper service management
 - **Easy Deployment**: One-command setup with Docker Compose
@@ -58,10 +58,15 @@ nano .env
 ```
 
 **Required Configuration:**
-- `FOG_WEB_HOST`: Your FQDN (e.g., `fog.example.com`)
-- `FOG_WEB_ROOT`: Web root path (usually `/fog`)
-- `FOG_DB_PASSWORD`: Database password
-- `FOG_DB_ROOT_PASSWORD`: Database root password
+- `FOG_WEB_HOST`: Your FQDN (e.g., `fog.example.com`) - **No default, must be set**
+- `FOG_DB_ROOT_PASSWORD`: Database root password - **No default, must be set for security**
+
+**Optional Configuration (with defaults):**
+- `FOG_VERSION`: FOG version (e.g., `1.5.10.1673`) - **Default: Latest stable release**
+- `FOG_WEB_ROOT`: Web root path - **Default: `/fog`**
+- `FOG_DB_PORT`: Database port - **Default: `3306`**
+- `FOG_APACHE_PORT`: Apache HTTP port - **Default: `80`**
+- `FOG_APACHE_SSL_PORT`: Apache HTTPS port - **Default: `443`**
 
 ### 3. Deploy the Stack
 
@@ -81,21 +86,97 @@ docker compose ps
 - **Web Interface**: `https://your-fqdn/fog/management/`
 - **Default Login**: `fog` / `password`
 
-## 🔧 Configuration
+## ⚙️ Configuration
 
 ### Environment Variables
 
-| Variable | Description | Default | Required |
-|----------|-------------|---------|----------|
-| `FOG_WEB_HOST` | FQDN for FOG server | - | ✅ |
-| `FOG_WEB_ROOT` | Web root path | `/fog` | ✅ |
-| `FOG_DB_HOST` | Database host | `localhost` | ✅ |
-| `FOG_DB_PORT` | Database port | `3307` | ✅ |
-| `FOG_DB_PASSWORD` | Database password | - | ✅ |
-| `FOG_APACHE_PORT` | Apache HTTP port | `8080` | ✅ |
-| `FOG_APACHE_SSL_PORT` | Apache HTTPS port | `8443` | ✅ |
+The stack is configured through environment variables in the `.env` file. Copy `.env.example` to `.env` and modify the values for your environment.
 
-### Network Configuration
+#### Required Variables
+
+| Variable | Description | Example | Default |
+|----------|-------------|---------|---------|
+| `FOG_WEB_HOST` | FQDN for FOG server (required for reverse proxy) | `fog.example.com` | **None** |
+| `FOG_DB_ROOT_PASSWORD` | MySQL root password | `secure_password123` | **None** |
+
+#### Optional Variables
+
+| Variable | Description | Example | Default |
+|----------|-------------|---------|---------|
+| `FOG_VERSION` | FOG version to install | `1.5.10.1673` | `latest` |
+| `FOG_WEB_ROOT` | Web root path | `/fog` | `/fog` |
+| `FOG_DB_PORT` | Database port | `3306` | `3306` |
+| `FOG_APACHE_PORT` | Apache HTTP port | `80` | `80` |
+| `FOG_APACHE_SSL_PORT` | Apache HTTPS port | `443` | `443` |
+| `FOG_DB_NAME` | Database name | `fog` | `fog` |
+| `FOG_DB_USER` | Database user | `fogmaster` | `fogmaster` |
+| `FOG_DB_PASS` | Database password | `fogpass123` | `fogmaster123` |
+| `FOG_USERNAME` | FTP username | `fogproject` | `fogproject` |
+| `FOG_PASSWORD` | FTP password | `ftppass123` | `fogftp123` |
+| `FOG_TIMEZONE` | System timezone | `America/New_York` | `UTC` |
+| `FOG_HTTPS_ENABLED` | Enable HTTPS | `true` | `false` |
+| `FOG_SSL_GENERATE_SELF_SIGNED` | Generate self-signed cert | `true` | `true` |
+| `FOG_SSL_CN` | Certificate Common Name | `fog.example.com` | `${FOG_WEB_HOST}` |
+
+### Version Management
+
+- **Latest Release**: Leave `FOG_VERSION` empty to use the latest stable release
+- **Specific Version**: Set `FOG_VERSION` to a specific version (e.g., `1.5.10.1673`)
+- **Rebuild Required**: Changing the version requires rebuilding the fog-server container
+
+### Port Configuration
+
+If you have conflicts with standard ports, you can change them:
+
+```bash
+# Example: Use custom ports to avoid conflicts
+FOG_DB_PORT=3307
+FOG_APACHE_PORT=8080
+FOG_APACHE_SSL_PORT=8443
+```
+
+**Note**: After changing ports, you may need to update your reverse proxy configuration and rebuild containers.
+
+### SSL/HTTPS Configuration
+
+The stack supports both HTTP and HTTPS configurations:
+
+#### Standalone HTTPS (Self-Signed Certificate)
+```bash
+FOG_HTTPS_ENABLED=true
+FOG_SSL_GENERATE_SELF_SIGNED=true
+FOG_SSL_CN=fog.yourdomain.com
+```
+
+#### Standalone HTTPS (Custom Certificate)
+```bash
+FOG_HTTPS_ENABLED=true
+FOG_SSL_GENERATE_SELF_SIGNED=false
+# Place your certificate files in the SSL path:
+# - /opt/fog/snapins/ssl/server.crt
+# - /opt/fog/snapins/ssl/server.key
+```
+
+#### Behind Reverse Proxy (HTTP)
+```bash
+FOG_HTTPS_ENABLED=false
+# Let reverse proxy handle SSL termination
+# iPXE files will automatically use HTTPS URLs (assumes reverse proxy)
+```
+
+#### Behind Reverse Proxy (Custom Protocol)
+```bash
+FOG_HTTPS_ENABLED=false
+FOG_IPXE_PROTOCOL=http
+# Force iPXE files to use HTTP URLs
+```
+
+**Note**: 
+- When `FOG_HTTPS_ENABLED=false`, iPXE files default to HTTPS URLs (assumes reverse proxy)
+- Use `FOG_IPXE_PROTOCOL` to override this behavior
+- When `FOG_HTTPS_ENABLED=true`, iPXE files use the container's SSL configuration
+
+## 🌐 Network Configuration
 
 This stack uses **host networking mode** for optimal performance with network booting. This means:
 
@@ -237,7 +318,7 @@ To enable SSL:
 
 1. Set `FOG_HTTPS_ENABLED=true` in `.env`
 2. Place SSL certificates in the appropriate directory
-3. Update Traefik configuration for HTTPS
+3. Update reverse proxy configuration for HTTPS
 
 ## 🐛 Troubleshooting
 
@@ -341,7 +422,13 @@ This Docker stack represents a **pragmatic workaround** for FOG's current archit
 
 - [FOG Project](https://fogproject.org/) - The amazing disk imaging solution
 - [Docker](https://www.docker.com/) - Containerization platform
-- [Traefik](https://traefik.io/) - Reverse proxy and load balancer
+- [PHP Official Image](https://hub.docker.com/_/php) - Base image for FOG server
+- [MariaDB Official Image](https://hub.docker.com/_/mariadb) - Database container
+- [kalaksi/tftpd](https://hub.docker.com/r/kalaksi/tftpd) - TFTP server container
+- [erichough/nfs-server](https://hub.docker.com/r/erichough/nfs-server) - NFS server container
+- [stilliard/pure-ftpd](https://hub.docker.com/r/stilliard/pure-ftpd) - FTP server container
+- [Supervisor](http://supervisord.org/) - Process management within containers
+
 
 ---
 

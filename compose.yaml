@@ -19,9 +19,7 @@ services:
     build: 
       context: ./config/server
       args:
-        - FOG_VERSION=${FOG_VERSION}
-        - FOG_GIT_REPO_URL=${FOG_GIT_REPO_URL}
-        - FOG_GIT_REF=${FOG_GIT_REF}
+        - FOG_VERSION=${FOG_VERSION:-latest}
     container_name: fog-server
     restart: unless-stopped
     privileged: true

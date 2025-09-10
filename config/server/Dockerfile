@@ -1,9 +1,7 @@
 FROM php:8.3-apache
 
 # Build arguments
-ARG FOG_VERSION=1.5.10.1673
-ARG FOG_GIT_REPO_URL=https://github.com/FOGProject/fogproject.git
-ARG FOG_GIT_REF=1.5.10.1673
+ARG FOG_VERSION=latest
 
 LABEL maintainer="Progressive Sealing <lucas@progressive-sealing.com>"
 LABEL version="${FOG_VERSION}"
@@ -28,6 +26,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     mariadb-client \
     nfs-common \
     openssh-server \
+    openssl \
     iproute2 \
     net-tools \
     libfreetype6-dev \
@@ -66,7 +65,11 @@ RUN docker-php-ext-install \
 
 # Download and prepare FOG source
 RUN cd /opt && \
-    git clone --depth 1 --branch ${FOG_GIT_REF} ${FOG_GIT_REPO_URL} fogproject && \
+    if [ "${FOG_VERSION}" = "latest" ]; then \
+        git clone --depth 1 --branch master https://github.com/FOGProject/fogproject.git fogproject; \
+    else \
+        git clone --depth 1 --branch ${FOG_VERSION} https://github.com/FOGProject/fogproject.git fogproject; \
+    fi && \
     chmod +x /opt/fogproject/bin/installfog.sh
 
 # Create all needed directories
@@ -87,6 +90,7 @@ RUN cp -r /opt/fogproject/packages/service/* /opt/fog/service/
 # Copy configuration files
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 COPY apache-fog.conf /apache-fog.conf
+COPY apache-ssl.conf /apache-ssl.conf
 COPY ports.conf /ports.conf
 COPY fog-config.php /fog-config.php
 COPY entrypoint.sh /entrypoint.sh
