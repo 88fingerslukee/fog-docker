@@ -23,7 +23,7 @@ This Docker stack works around FOG's **two fundamental architectural issues** wi
 
 ### **2. Inability to Make it Stateless**
 - **Why**: FOG's install script generates configuration files at installation time with hardcoded values. There's no support for environment variables in the core configuration system, and database settings must be updated at runtime.
-- **Impact**: Can't create static images because configuration depends on runtime environment. Configuration must be regenerated at container startup using environment variables and database updates.
+- **Impact**: Can't create static images because configuration depends on runtime environment. Configuration must be regenerated and the main fog-server container must be rebuilt with environment variables and database updates in order to implement changes.
 
 ### **Additional Compromises Required:**
 - **Database Dependency at Startup**: FOG requires database connection and schema updates during initialization
