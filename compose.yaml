@@ -1,0 +1,116 @@
+services:
+  # Database - Core data storage
+  fog-db:
+    image: mariadb:11
+    container_name: fog-db
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      - MYSQL_ROOT_PASSWORD=${FOG_DB_ROOT_PASS}
+      - MYSQL_DATABASE=${FOG_DB_NAME}
+      - MYSQL_USER=${FOG_DB_USER}
+      - MYSQL_PASSWORD=${FOG_DB_PASS}
+      - MYSQL_TCP_PORT=${FOG_DB_PORT}
+    volumes:
+      - ${FOG_MYSQL_PATH}:/var/lib/mysql
+      
+  # FOG Server - Web interface + background services (supervisor-managed)
+  fog-server:
+    build: 
+      context: ./config/server
+      args:
+        - FOG_VERSION=${FOG_VERSION}
+        - FOG_GIT_REPO_URL=${FOG_GIT_REPO_URL}
+        - FOG_GIT_REF=${FOG_GIT_REF}
+    container_name: fog-server
+    restart: unless-stopped
+    privileged: true
+    network_mode: host
+    depends_on: 
+      - fog-db
+    environment:
+      - TZ=${TZ}
+      - FOG_WEB_HOST=${FOG_WEB_HOST}
+      - FOG_DB_HOST=${FOG_DB_HOST}
+      - FOG_DB_PORT=${FOG_DB_PORT}
+      - FOG_DB_ROOT_PASS=${FOG_DB_ROOT_PASS}
+      - FOG_DB_NAME=${FOG_DB_NAME}
+      - FOG_DB_USER=${FOG_DB_USER}
+      - FOG_DB_PASS=${FOG_DB_PASS}
+      - FOG_FTP_HOST=${FOG_FTP_HOST}
+      - FOG_FTP_PASS=${FOG_FTP_PASS}
+      - FOG_WEB_ROOT=${FOG_WEB_ROOT}
+      - FOG_APACHE_PORT=${FOG_APACHE_PORT}
+      - FOG_APACHE_SSL_PORT=${FOG_APACHE_SSL_PORT}
+      - FOG_TFTP_HOST=${FOG_TFTP_HOST}
+      - FOG_NFS_HOST=${FOG_NFS_HOST}
+      - FOG_BOOTFILENAME=${FOG_BOOTFILENAME}
+      - FOG_USERNAME=${FOG_USERNAME}
+      - FOG_PASSWORD=${FOG_PASSWORD}
+      - FOG_SSL_PATH=${FOG_SSL_PATH}
+      - FOG_HTTPS_ENABLED=${FOG_HTTPS_ENABLED}
+      - FOG_SSLPRIVKEY=${FOG_SSLPRIVKEY}
+      - FOG_TIMEZONE=${FOG_TIMEZONE}
+      - FOG_DEBUG=${FOG_DEBUG}
+      - FOG_MULTICAST_INTERFACE=${FOG_MULTICAST_INTERFACE}
+      - FOG_GIT_REPO_URL=${FOG_GIT_REPO_URL}
+      - FOG_GIT_REF=${FOG_GIT_REF}
+      - FOG_VERSION=${FOG_VERSION}
+    volumes:
+      - ${FOG_MYSQL_PATH}:/var/lib/mysql
+      - ${FOG_IMAGES_PATH}:/images
+      - ${FOG_TFTP_PATH}:/tftpboot
+      - ${FOG_SNAPIN_PATH}:/opt/fog/snapins
+      - ${FOG_LOG_PATH}:/opt/fog/log:rw
+      - ${FOG_CONFIG_PATH}:/backup
+      
+  fog-tftp:
+    image: docker.io/kalaksi/tftpd:latest
+    container_name: fog-tftp
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      - TZ=${TZ}
+      # An interface and a port to listen to. "0.0.0.0" means all interfaces
+      - TFTPD_BIND_ADDRESS=0.0.0.0:69
+      # Search the man page for --blocksize to learn more
+      - TFTPD_EXTRA_ARGS=--blocksize 1468
+    cap_drop:
+      - ALL
+    cap_add:
+      - SETUID
+      - SETGID
+      - SYS_CHROOT
+      - NET_BIND_SERVICE
+    volumes:
+      - ${FOG_TFTP_PATH}:/tftpboot
+      
+  # NFS - Image file access (prebuilt)
+  fog-nfs:
+    image: erichough/nfs-server:latest
+    container_name: fog-nfs
+    restart: unless-stopped
+    privileged: true
+    network_mode: host
+    environment:
+      - TZ=${TZ}
+      - NFS_EXPORT_0=/images *(rw,sync,no_subtree_check,no_root_squash,insecure,fsid=0)
+      - NFS_EXPORT_1=/images/dev *(rw,async,no_wdelay,no_subtree_check,no_root_squash,insecure,fsid=1)
+    volumes:
+      - ${FOG_IMAGES_PATH}:/images
+      
+  # FTP - File transfers (prebuilt)
+  fog-ftp:
+    image: stilliard/pure-ftpd:latest
+    container_name: fog-ftp
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      - TZ=${TZ}
+      - PUBLICHOST=${FOG_HOST_IP}
+      - FTP_USER_NAME=${FOG_USERNAME}
+      - FTP_USER_PASS=${FOG_FTP_PASS}
+      - FTP_USER_HOME=/images
+    volumes:
+      - ${FOG_IMAGES_PATH}:/images
+
