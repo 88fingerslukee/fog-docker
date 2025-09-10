@@ -111,8 +111,10 @@ The stack is configured through environment variables in the `.env` file. Copy `
 | `FOG_DB_NAME` | Database name | `fog` | `fog` |
 | `FOG_DB_USER` | Database user | `fogmaster` | `fogmaster` |
 | `FOG_DB_PASS` | Database password | `fogpass123` | `fogmaster123` |
-| `FOG_USERNAME` | FTP username | `fogproject` | `fogproject` |
-| `FOG_PASSWORD` | FTP password | `ftppass123` | `fogftp123` |
+| `FOG_FTP_USER` | FTP username | `fogproject` | `fogproject` |
+| `FOG_FTP_PASS` | FTP password | `ftppass123` | `fogftp123` |
+| `FOG_ADMIN_USER` | FOG admin username | `admin` | `fog` |
+| `FOG_ADMIN_PASS` | FOG admin password | `adminpass123` | `password` |
 | `TZ` | System timezone | `America/New_York` | `UTC` |
 | `FOG_HTTPS_ENABLED` | Enable HTTPS | `true` | `false` |
 | `FOG_SSL_GENERATE_SELF_SIGNED` | Generate self-signed cert | `true` | `true` |

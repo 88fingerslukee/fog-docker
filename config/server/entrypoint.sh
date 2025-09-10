@@ -19,8 +19,10 @@ FOG_APACHE_PORT=${FOG_APACHE_PORT:-80}
 FOG_APACHE_SSL_PORT=${FOG_APACHE_SSL_PORT:-443}
 
 FOG_TFTP_HOST=${FOG_TFTP_HOST:-localhost}
-FOG_USERNAME=${FOG_USERNAME:-fogproject}
-FOG_PASSWORD=${FOG_PASSWORD:-fogftp123}
+FOG_FTP_USER=${FOG_FTP_USER:-fogproject}
+FOG_FTP_PASS=${FOG_FTP_PASS:-fogftp123}
+FOG_ADMIN_USER=${FOG_ADMIN_USER:-fog}
+FOG_ADMIN_PASS=${FOG_ADMIN_PASS:-password}
 FOG_BOOTFILENAME=${FOG_BOOTFILENAME:-undionly.kpxe}
 FOG_SSL_PATH=${FOG_SSL_PATH:-/opt/fog/snapins/ssl}
 FOG_HTTPS_ENABLED=${FOG_HTTPS_ENABLED:-false}
@@ -88,8 +90,10 @@ sed -e "s|{{DB_HOST}}|$DB_HOST|g" \
     -e "s|{{FOG_MULTICAST_INTERFACE}}|$FOG_MULTICAST_INTERFACE|g" \
     -e "s|{{FOG_WEB_ROOT}}|$FOG_WEB_ROOT|g" \
     -e "s|{{FOG_WEB_HOST}}|$FOG_WEB_HOST|g" \
-    -e "s|{{FOG_USERNAME}}|$FOG_USERNAME|g" \
-    -e "s|{{FOG_PASSWORD}}|$FOG_PASSWORD|g" \
+    -e "s|{{FOG_FTP_USER}}|$FOG_FTP_USER|g" \
+    -e "s|{{FOG_FTP_PASS}}|$FOG_FTP_PASS|g" \
+    -e "s|{{FOG_ADMIN_USER}}|$FOG_ADMIN_USER|g" \
+    -e "s|{{FOG_ADMIN_PASS}}|$FOG_ADMIN_PASS|g" \
     -e "s|{{FOG_SSL_PATH}}|$FOG_SSL_PATH|g" \
     -e "s|{{FOG_HTTPS_ENABLED}}|$FOG_HTTPS_ENABLED|g" \
     -e "s|{{FOG_VERSION}}|$FOG_VERSION|g" \
@@ -108,10 +112,11 @@ UPDATE globalSettings SET settingValue = '$FOG_WEB_ROOT' WHERE settingKey = 'FOG
 UPDATE globalSettings SET settingValue = '$FOG_TFTP_HOST' WHERE settingKey = 'FOG_TFTP_HOST';
 UPDATE globalSettings SET settingValue = '$FOG_WEB_HOST' WHERE settingKey = 'FOG_NFS_HOST';
 UPDATE globalSettings SET settingValue = '$FOG_MULTICAST_INTERFACE' WHERE settingKey = 'FOG_MULTICAST_INTERFACE';
-UPDATE globalSettings SET settingValue = '$FOG_USERNAME' WHERE settingKey = 'FOG_TFTP_FTP_USERNAME';
-UPDATE globalSettings SET settingValue = '$FOG_PASSWORD' WHERE settingKey = 'FOG_TFTP_FTP_PASSWORD';
-UPDATE globalSettings SET settingValue = '$FOG_USERNAME' WHERE settingKey = 'FOG_NFS_FTP_USERNAME';
-UPDATE globalSettings SET settingValue = '$FOG_PASSWORD' WHERE settingKey = 'FOG_NFS_FTP_PASSWORD';
+-- Update storage FTP credentials (used by all FOG services for storage access)
+UPDATE globalSettings SET settingValue = '$FOG_FTP_USER' WHERE settingKey = 'FOG_TFTP_FTP_USERNAME';
+UPDATE globalSettings SET settingValue = '$FOG_FTP_PASS' WHERE settingKey = 'FOG_TFTP_FTP_PASSWORD';
+UPDATE globalSettings SET settingValue = '$FOG_FTP_USER' WHERE settingKey = 'FOG_NFS_FTP_USERNAME';
+UPDATE globalSettings SET settingValue = '$FOG_FTP_PASS' WHERE settingKey = 'FOG_NFS_FTP_PASSWORD';
 UPDATE globalSettings SET settingValue = '$FOG_BOOTFILENAME' WHERE settingKey = 'FOG_DHCP_BOOTFILENAME';
 UPDATE nfsGroupMembers SET ngmHostname = '$FOG_WEB_HOST', ngmWebroot = '$FOG_WEB_ROOT', ngmInterface = '$FOG_MULTICAST_INTERFACE' WHERE ngmID = 1;
 EOF
@@ -125,12 +130,18 @@ EOF
     echo "✓ Storage Node Webroot: $FOG_WEB_ROOT"
     echo "✓ FOG_NFS_HOST: $FOG_WEB_HOST (using WEB_HOST)"
     echo "✓ FOG_MULTICAST_INTERFACE: $FOG_MULTICAST_INTERFACE"
-    echo "✓ FOG_TFTP_FTP_USERNAME: $FOG_USERNAME"
-    echo "✓ FOG_TFTP_FTP_PASSWORD: [HIDDEN]"
-    echo "✓ FOG_NFS_FTP_USERNAME: $FOG_USERNAME"
-    echo "✓ FOG_NFS_FTP_PASSWORD: [HIDDEN]"
+    echo "✓ Storage FTP Username: $FOG_FTP_USER (used by all FOG services)"
+    echo "✓ Storage FTP Password: [HIDDEN] (used by all FOG services)"
     echo "✓ FOG_DHCP_BOOTFILENAME: $FOG_BOOTFILENAME"
     echo "✓ Storage node configured with hostname: $FOG_WEB_HOST"
+    
+    # Update admin user credentials if they exist in the database
+    echo "Updating admin user credentials..."
+    mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" -p"$DB_PASS" -D"$DB_NAME" << EOF
+UPDATE users SET uName = '$FOG_ADMIN_USER', uPass = MD5('$FOG_ADMIN_PASS') WHERE uName = 'fog' OR uName = 'admin' LIMIT 1;
+INSERT IGNORE INTO users (uName, uPass, uDesc, uCreatedBy, uCreatedTime) VALUES ('$FOG_ADMIN_USER', MD5('$FOG_ADMIN_PASS'), 'FOG Administrator', 'System', NOW());
+EOF
+    echo "✓ Admin user credentials updated"
 else
     echo "⚠ FOG database schema not found. Database will be initialized when you access the web interface."
     echo "   Access: https://$FOG_WEB_HOST${FOG_WEB_ROOT}/management/"
@@ -321,8 +332,8 @@ echo "FOG Management Portal:"
 echo "  https://$FOG_WEB_HOST${FOG_WEB_ROOT}/management/"
 echo ""
 echo "Default login:"
-echo "  Username: fog"
-echo "  Password: password"
+echo "  Username: $FOG_ADMIN_USER"
+echo "  Password: $FOG_ADMIN_PASS"
 echo ""
 echo "Multicast Interface: $FOG_MULTICAST_INTERFACE"
 echo ""

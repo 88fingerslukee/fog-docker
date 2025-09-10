@@ -81,8 +81,8 @@ class Config
     private static function _initSetting()
     {
         define('TFTP_HOST', '{{FOG_TFTP_HOST}}');
-        define('TFTP_FTP_USERNAME', '{{FOG_USERNAME}}');
-        define('TFTP_FTP_PASSWORD', '{{FOG_PASSWORD}}');
+        define('TFTP_FTP_USERNAME', '{{FOG_FTP_USER}}');
+        define('TFTP_FTP_PASSWORD', '{{FOG_FTP_PASS}}');
         define('TFTP_PXE_KERNEL_DIR', '/var/www/html/fog/service/ipxe/');
         define('PXE_KERNEL', 'bzImage');
         define('PXE_KERNEL_RAMDISK', 275000);
@@ -90,8 +90,8 @@ class Config
         define('MEMTEST_KERNEL', 'memtest.bin');
         define('PXE_IMAGE', 'init.xz');
         define('STORAGE_HOST', '{{FOG_WEB_HOST}}');
-        define('STORAGE_FTP_USERNAME', '{{FOG_USERNAME}}');
-        define('STORAGE_FTP_PASSWORD', '{{FOG_PASSWORD}}');
+        define('STORAGE_FTP_USERNAME', '{{FOG_FTP_USER}}');
+        define('STORAGE_FTP_PASSWORD', '{{FOG_FTP_PASS}}');
         define('STORAGE_DATADIR', '/images/');
         define('STORAGE_DATADIR_CAPTURE', '/images/dev');
         define('STORAGE_BANDWIDTHPATH', '/fog/status/bandwidth.php');
