@@ -24,7 +24,7 @@ A complete Docker Compose stack for running the FOG Project (Free and Open Ghost
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/yourusername/fog-docker.git
+git clone https://github.com/88fingerslukee/fog-docker.git
 cd fog-docker
 ```
 
@@ -281,7 +281,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📞 Support
 
-- **Issues**: [GitHub Issues](https://github.com/yourusername/fog-docker/issues)
+- **Issues**: [GitHub Issues](https://github.com/88fingerslukee/fog-docker/issues)
 - **Documentation**: [FOG Project Wiki](https://wiki.fogproject.org/)
 - **Community**: [FOG Project Forum](https://forums.fogproject.org/)
 
