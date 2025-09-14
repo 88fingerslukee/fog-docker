@@ -3,7 +3,7 @@ FROM php:8.3-apache
 # Build arguments
 ARG FOG_VERSION=latest
 
-LABEL maintainer="Progressive Sealing <lucas@progressive-sealing.com>"
+LABEL maintainer="Lucas Burdick"
 LABEL version="${FOG_VERSION}"
 LABEL description="FOG Project Server with Supervisor - Multi-service container"
 
@@ -65,8 +65,8 @@ RUN docker-php-ext-install \
 
 # Download and prepare FOG source
 RUN cd /opt && \
-    if [ "${FOG_VERSION}" = "latest" ]; then \
-        git clone --depth 1 --branch master https://github.com/FOGProject/fogproject.git fogproject; \
+    if [ -z "${FOG_VERSION}" ] || [ "${FOG_VERSION}" = "stable" ]; then \
+        git clone --depth 1 --branch stable https://github.com/FOGProject/fogproject.git fogproject; \
     else \
         git clone --depth 1 --branch ${FOG_VERSION} https://github.com/FOGProject/fogproject.git fogproject; \
     fi && \

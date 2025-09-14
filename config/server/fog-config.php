@@ -10,7 +10,7 @@
  *
  * @category Config
  * @package  FOGProject  
- * @author   Progressive Sealing <lucas@progressive-sealing.com>
+ * @author   Lucas Burdick
  * @license  http://opensource.org/licenses/gpl-3.0 GPLv3
  * @link     https://fogproject.org
  */
@@ -19,7 +19,7 @@
  *
  * @category Config
  * @package  FOGProject
- * @author   Progressive Sealing <lucas@progressive-sealing.com>
+ * @author   Lucas Burdick
  * @license  http://opensource.org/licenses/gpl-3.0 GPLv3
  * @link     https://fogproject.org
  */

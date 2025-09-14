@@ -1,16 +1,16 @@
 services:
   # Database - Core data storage
   fog-db:
-    image: mariadb:11
+    image: mariadb:latest
     container_name: fog-db
     restart: unless-stopped
     network_mode: host
     environment:
-      - MYSQL_ROOT_PASSWORD=${FOG_DB_ROOT_PASS}
-      - MYSQL_DATABASE=${FOG_DB_NAME}
-      - MYSQL_USER=${FOG_DB_USER}
-      - MYSQL_PASSWORD=${FOG_DB_PASS}
-      - MYSQL_TCP_PORT=${FOG_DB_PORT}
+      - MARIADB_ROOT_PASSWORD=${FOG_DB_ROOT_PASSWORD}
+      - MARIADB_DATABASE=${FOG_DB_NAME}
+      - MARIADB_USER=${FOG_DB_USER}
+      - MARIADB_PASSWORD=${FOG_DB_PASS}
+      - MARIADB_TCP_PORT=${FOG_DB_PORT}
     volumes:
       - ${FOG_MYSQL_PATH}:/var/lib/mysql
       

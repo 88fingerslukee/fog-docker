@@ -1,36 +1,22 @@
-# FOG Project Docker Stack
 
-A complete Docker Compose stack for running the FOG Project (Free and Open Ghost) disk imaging and cloning solution. This setup provides a production-ready FOG server with all necessary services containerized and configured for easy deployment.
+# FOG Docker Stack
+
+## ⚠️ CAUTION - This Setup is Very Alpha!! ⚠️
+
+A complete Docker Compose stack for running the FOG Project (Free and Open Ghost) disk imaging and cloning solution. This setup provides a FOG server with all necessary services containerized and configured for easy deployment.
 
 ## 🚀 Features
 
 - **Complete FOG Stack**: Web interface, TFTP, NFS, FTP, and database services
-- **Host Networking**: Optimized for network booting and multicast operations
 - **Reverse Proxy Ready**: Compatible with any reverse proxy (Traefik, Nginx, Caddy, etc.)
 - **Dynamic Configuration**: Environment-based configuration with templates
-- **Production Ready**: Includes logging, health checks, and proper service management
-- **Easy Deployment**: One-command setup with Docker Compose
 - **Community Resource**: Includes roadmap for FOG Project containerization improvements
 
 ## ⚠️ Current Limitations & Trade-offs
 
-This Docker stack works around FOG's **two fundamental architectural issues** without modifying the FOG source code:
+This Docker stack works around FOG's architectural limitations without modifying the FOG source code. While functional, it requires several compromises to work in a containerized environment.
 
-### **1. IP Matching Logic Doesn't Work in Containers**
-- **Why**: FOG services use `getIPAddress()` to auto-detect if they're the master storage node by comparing their IP addresses against storage node IPs in the database. In containers, this IP matching fails because the container's view of IPs doesn't match the storage node configuration.
-- **Impact**: Forces the use of host networking to make the IP matching work, limiting portability and preventing true container isolation
-- **Example**: Services can't determine if they're the master storage node without host networking
-
-### **2. Inability to Make it Stateless**
-- **Why**: FOG's install script generates configuration files at installation time with hardcoded values. There's no support for environment variables in the core configuration system, and database settings must be updated at runtime.
-- **Impact**: Can't create static images because configuration depends on runtime environment. Configuration must be regenerated and the main fog-server container must be rebuilt with environment variables and database updates in order to implement changes.
-
-### **Additional Compromises Required:**
-- **Database Dependency at Startup**: FOG requires database connection and schema updates during initialization
-- **Port Conflicts**: FOG assumes standard ports (80, 443, 69, 21, 2049, 3306) are available and has no dynamic port configuration. 
-- **Apache Dependency**: FOG is tightly coupled to Apache as the web server and cannot easily use other web servers (nginx, Caddy, etc.)
-
-**For solutions to these limitations, see the [FOG Project Improvements](FOG-IMPROVEMENTS.md) document.**
+**For detailed information about these limitations and proposed solutions, see the [FOG Project Improvements](FOG-IMPROVEMENTS.md) document.**
 
 ## 📋 Prerequisites
 
@@ -58,15 +44,24 @@ nano .env
 ```
 
 **Required Configuration:**
-- `FOG_WEB_HOST`: Your FQDN (e.g., `fog.example.com`) - **No default, must be set**
+
+- `FOG_WEB_HOST`: Your host IP address or FQDN (e.g., `fog.example.com`) - **No default, must be set. FQDN is required for reverse proxy setups**
 - `FOG_DB_ROOT_PASSWORD`: Database root password - **No default, must be set for security**
 
+**Example Password Generation Command:**
+
+```bash
+# Generate a secure database root password
+openssl rand -base64 32
+```
+
 **Optional Configuration (with defaults):**
+
 - `FOG_VERSION`: FOG version (e.g., `1.5.10.1673`) - **Default: Latest stable release**
 - `FOG_WEB_ROOT`: Web root path - **Default: `/fog`**
 - `FOG_DB_PORT`: Database port - **Default: `3306`**
-- `FOG_APACHE_PORT`: Apache HTTP port - **Default: `80`**
-- `FOG_APACHE_SSL_PORT`: Apache HTTPS port - **Default: `443`**
+- `FOG_APACHE_PORT`: Apache HTTP port - **Default: `80` - Change for reverse proxy setups**
+- `FOG_APACHE_SSL_PORT`: Apache HTTPS port - **Default: `443` - Change for reverse proxy setups**
 
 ### 3. Deploy the Stack
 
@@ -133,9 +128,12 @@ FOG_WEB_HOST=192.168.1.100
 FOG_WEB_HOST=fog.example.com
 ```
 
-**Important**: This variable is used for:
+### Important
+
+This variable is used for:
+
 - Web interface access
-- TFTP service configuration  
+- TFTP service configuration
 - NFS/Storage service configuration
 - iPXE boot file generation
 - All internal FOG service communication
@@ -159,13 +157,16 @@ FOG_APACHE_PORT=8080
 FOG_APACHE_SSL_PORT=8443
 ```
 
-**Note**: After changing ports, you may need to update your reverse proxy configuration and rebuild containers.
+### Note
+
+After changing ports, you may need to update your reverse proxy configuration and rebuild containers.
 
 ### SSL/HTTPS Configuration
 
 The stack supports both HTTP and HTTPS configurations:
 
 #### Standalone HTTPS (Self-Signed Certificate)
+
 ```bash
 FOG_HTTPS_ENABLED=true
 FOG_SSL_GENERATE_SELF_SIGNED=true
@@ -173,6 +174,7 @@ FOG_SSL_CN=fog.yourdomain.com
 ```
 
 #### Self-Signed Certificate with SAN (Subject Alternative Names)
+
 ```bash
 FOG_HTTPS_ENABLED=true
 FOG_SSL_GENERATE_SELF_SIGNED=true
@@ -181,11 +183,13 @@ FOG_SSL_SAN=DNS:www.fog.yourdomain.com,DNS:fog.local,IP:192.168.1.100
 ```
 
 **SAN Format**: Comma-separated list of alternative names:
+
 - `DNS:domain.com` - Domain names
 - `IP:192.168.1.100` - IP addresses
 - `DNS:*.example.com` - Wildcard domains
 
 #### Standalone HTTPS (Custom Certificate)
+
 ```bash
 FOG_HTTPS_ENABLED=true
 FOG_SSL_GENERATE_SELF_SIGNED=false
@@ -195,6 +199,7 @@ FOG_SSL_GENERATE_SELF_SIGNED=false
 ```
 
 #### Behind Reverse Proxy (HTTP)
+
 ```bash
 FOG_HTTPS_ENABLED=false
 # Let reverse proxy handle SSL termination
@@ -202,13 +207,15 @@ FOG_HTTPS_ENABLED=false
 ```
 
 #### Behind Reverse Proxy (Custom Protocol)
+
 ```bash
 FOG_HTTPS_ENABLED=false
 FOG_IPXE_PROTOCOL=http
 # Force iPXE files to use HTTP URLs
 ```
 
-**Note**: 
+**Note**:
+
 - When `FOG_HTTPS_ENABLED=false`, iPXE files default to HTTPS URLs (assumes reverse proxy)
 - Use `FOG_IPXE_PROTOCOL` to override this behavior
 - When `FOG_HTTPS_ENABLED=true`, iPXE files use the container's SSL configuration
@@ -236,7 +243,8 @@ This stack uses **host networking mode** for optimal performance with network bo
 ## 🏗️ Architecture
 
 ### **Current Implementation (Host Networking)**
-```
+
+```text
 ┌─────────────────────────────────────────────────────────────┐
 │                    HOST NETWORK STACK                       │
 │  ┌─────────────────┐    ┌─────────────────┐    ┌──────────┐ │
@@ -255,47 +263,53 @@ This stack uses **host networking mode** for optimal performance with network bo
 **Note**: All containers share the host's network stack due to FOG's networking requirements. This limits portability but ensures compatibility with the FOG Services
 
 ### **Ideal Architecture (Container Networking)**
+
 For a truly portable, cloud-ready deployment, see the [FOG Project Improvements](FOG-IMPROVEMENTS.md) document for the proposed container-native architecture with proper service discovery and networking.
 
 ## 🔄 Services
 
 ### fog-server
+
 - **Image**: Custom FOG server image
 - **Purpose**: Main FOG web interface and services
 - **Ports**: 80 (HTTP), 443 (HTTPS)
 - **Features**: Apache, PHP, FOG services, supervisor
-- **Workarounds**: 
+- **Workarounds**:
   - Runtime configuration generation using environment variables
   - Dynamic `default.ipxe` creation for iPXE booting
   - Database schema updates at startup
 
 ### fog-db
+
 - **Image**: `mariadb:10.11`
 - **Purpose**: FOG database
 - **Port**: 3306
 - **Features**: Persistent storage, optimized for FOG
-- **Workarounds**: Custom port (3307) required because FOG assumes MySQL runs on standard port 3306, creating configuration complexity
+- **Workarounds**:Custom port (3307) required because FOG assumes MySQL runs on standard port 3306, creating configuration complexity
 
 ### fog-tftp
+
 - **Image**: `fogproject/tftp:latest`
 - **Purpose**: TFTP server for network booting
 - **Port**: 69 (UDP)
 - **Features**: iPXE boot files, network boot support
-- **Workarounds**: Host networking required because FOG assumes TFTP runs on localhost, though TFTP itself could work on container networks
+- **Workarounds**:Host networking required because FOG assumes TFTP runs on localhost, though TFTP itself could work on container networks
 
 ### fog-nfs
+
 - **Image**: `fogproject/nfs:latest`
 - **Purpose**: NFS server for image storage
 - **Port**: 2049
 - **Features**: Image storage, multicast support
-- **Workarounds**: Host networking required for multicast operations
+- **Workarounds**:Host networking required for multicast operations
 
 ### fog-ftp
+
 - **Image**: `fogproject/ftp:latest`
 - **Purpose**: FTP server for file transfers
 - **Port**: 21
 - **Features**: File uploads, image transfers
-- **Workarounds**: Host networking for direct file access
+- **Workarounds**:Host networking for direct file access
 
 ## 🌐 Reverse Proxy Integration
 
@@ -318,7 +332,7 @@ http:
 
 ## 📁 Directory Structure
 
-```
+```text
 fog-docker/
 ├── compose.yaml              # Docker Compose configuration
 ├── .env.example             # Environment template
@@ -361,7 +375,8 @@ To enable SSL:
 
 ### Common Issues
 
-**Database Connection Failed**
+### Database Connection Failed
+
 ```bash
 # Check database status
 docker compose logs fog-db
@@ -370,7 +385,8 @@ docker compose logs fog-db
 docker compose ps fog-db
 ```
 
-**TFTP Not Working**
+### TFTP Not Working
+
 ```bash
 # Check TFTP service
 docker compose logs fog-tftp
@@ -379,7 +395,8 @@ docker compose logs fog-tftp
 sudo netstat -ulnp | grep :69
 ```
 
-**Web Interface Not Accessible**
+### Web Interface Not Accessible
+
 ```bash
 # Check Apache logs
 docker compose logs fog-server
@@ -391,11 +408,13 @@ sudo netstat -tlnp | grep :8080
 ### Logs
 
 View logs for all services:
+
 ```bash
 docker compose logs -f
 ```
 
 View logs for specific service:
+
 ```bash
 docker compose logs -f fog-server
 ```
@@ -403,6 +422,7 @@ docker compose logs -f fog-server
 ### Health Checks
 
 Check service health:
+
 ```bash
 docker compose ps
 ```
@@ -421,6 +441,11 @@ docker compose build --no-cache
 docker compose up -d
 ```
 
+## 📋 TODO
+
+- [ ] Full testing in various environments
+- [ ] Let's Encrypt cert generation
+
 ## 📝 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
@@ -438,6 +463,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 This Docker stack represents a **pragmatic workaround** for FOG's current architecture limitations. For information about the changes needed to make FOG Project truly Docker-friendly and container-native, see [FOG-IMPROVEMENTS.md](FOG-IMPROVEMENTS.md).
 
 **The improvements document outlines:**
+
 - Specific code changes needed in FOG's source code
 - How to make FOG stateless and portable
 - Container-native networking solutions
@@ -445,6 +471,7 @@ This Docker stack represents a **pragmatic workaround** for FOG's current archit
 - Static vs dynamic configuration strategies
 
 **Why This Matters:**
+
 - **Current State**: This Docker stack works but requires compromises
 - **Future State**: With FOG improvements, we could have a truly portable, cloud-ready deployment
 - **Community Impact**: These improvements would benefit all FOG users, not just Docker deployments
@@ -465,7 +492,6 @@ This Docker stack represents a **pragmatic workaround** for FOG's current archit
 - [erichough/nfs-server](https://hub.docker.com/r/erichough/nfs-server) - NFS server container
 - [stilliard/pure-ftpd](https://hub.docker.com/r/stilliard/pure-ftpd) - FTP server container
 - [Supervisor](http://supervisord.org/) - Process management within containers
-
 
 ---
 

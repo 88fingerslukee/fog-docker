@@ -5,6 +5,7 @@ This document outlines the necessary changes to FOG's source code to enable prop
 ## 🎯 Goal
 
 Enable FOG to run as a truly containerized application with:
+
 - **Container Networking**: Services communicate via Docker service names
 - **Stateless**: Minimal runtime configuration dependencies  
 - **Portable**: Works across different environments without modification
@@ -12,14 +13,16 @@ Enable FOG to run as a truly containerized application with:
 
 ## 🔧 Required Changes
 
-FOG has two fundamental architectural issues that prevent proper containerization:
+FOG has two fundamental architectural issues that prevent proper flexible containerization:
 
-### 1. **IP Matching Logic Doesn't Work in Containers**
+### 1. **IP Matching Logic Doesn't Work in Containers Without Host Networking**
 
-#### **Current Problem:**
-FOG services use `getIPAddress()` to auto-detect if they're the master storage node by comparing their IP addresses against storage node IPs in the database. In containers, this IP matching fails because the container's view of IPs doesn't match the storage node configuration.
+**Current Problem:**
 
-#### **Current Implementation:**
+FOG services use `getIPAddress()` to auto-detect if they're the master storage node by comparing their IP addresses against storage node IPs in the database. In containers, this IP matching fails because the container's view of IPs doesn't match the storage node configuration, unless host networking is enabled.  Host networking inherently makes the container structure less flexible, preventing one from utilizing multiple like-services without changing ports.
+
+**Current Implementation:**
+
 ```php
 // From /opt/fog/packages/web/lib/service/fogservice.class.php
 protected function checkIfNodeMaster()
@@ -30,17 +33,20 @@ protected function checkIfNodeMaster()
 }
 ```
 
-#### **Needed Changes:**
+**Needed Changes:**
+
 - Services need explicit role configuration instead of IP auto-detection
-- Or IP matching logic needs to be container-aware
-- Or services need to be able to identify their role without IP matching
+- *Or* IP matching logic needs to be container-aware
+- *Or* services need to be able to identify their role without IP matching
 
 ### 2. **Inability to Make it Stateless**
 
-#### **Current Problem:**
-FOG's install script generates configuration files at installation time with hardcoded values. There's no support for environment variables in the core configuration system, and database settings must be updated at runtime.
+**Current Problem:**
 
-#### **Current Implementation:**
+FOG's install script generates configuration files at installation time with hardcoded values. There's no support for environment variables in the core configuration system, and database settings must be updated at runtime.  This means that almost any time we make a change, we need to rebuild the container.  This increases build time, restart time etc.
+
+**Current Implementation:**
+
 ```php
 // Static defines generated at install time (CANNOT be changed at runtime)
 // Generated in /opt/fog/lib/common/functions.sh line 2273-2388
@@ -55,6 +61,7 @@ UPDATE globalSettings SET settingValue = '$FOG_TFTP_HOST' WHERE settingKey = 'FO
 ```
 
 #### **Needed Changes:**
+
 - Support environment variables in static defines
 - Separate configuration from persistent data
 - Eliminate runtime database updates for configuration
@@ -63,7 +70,9 @@ UPDATE globalSettings SET settingValue = '$FOG_TFTP_HOST' WHERE settingKey = 'FO
 ## 🛠️ Implementation Strategy
 
 ### **Phase 1: Configuration Management**
+
 1. **Add Environment Variable Support**
+
    ```php
    // Support environment variables with fallbacks
    define('TFTP_HOST', $_ENV['FOG_TFTP_HOST'] ?? 'localhost');
@@ -73,12 +82,15 @@ UPDATE globalSettings SET settingValue = '$FOG_TFTP_HOST' WHERE settingKey = 'FO
    ```
 
 2. **Separate Configuration from Data**
+
    - Move runtime settings to configuration files
    - Keep only persistent data in database
    - Use configuration hierarchy: env vars → config files → defaults
 
 ### **Phase 2: Service Discovery**
+
 1. **Replace IP Matching with Explicit Configuration**
+
    ```php
    // Instead of auto-detection, use explicit role configuration
    define('FOG_NODE_ROLE', $_ENV['FOG_NODE_ROLE'] ?? 'master');
@@ -86,6 +98,7 @@ UPDATE globalSettings SET settingValue = '$FOG_TFTP_HOST' WHERE settingKey = 'FO
    ```
 
 2. **Support Container Networking**
+
    ```php
    // Use Docker service names for communication
    define('DB_HOST', $_ENV['FOG_DB_HOST'] ?? 'fog-db');
@@ -93,7 +106,9 @@ UPDATE globalSettings SET settingValue = '$FOG_TFTP_HOST' WHERE settingKey = 'FO
    ```
 
 ### **Phase 3: Port Configuration & Web Server Agnostic**
+
 1. **Dynamic Port Configuration**
+
    - Make HTTP/HTTPS ports configurable (80/443 can be changed)
    - Make database ports configurable (3306 can be changed)
 
@@ -110,24 +125,29 @@ UPDATE globalSettings SET settingValue = '$FOG_TFTP_HOST' WHERE settingKey = 'FO
 ## 📁 Files That Need Changes
 
 ### **Configuration Generation**
+
 - `/opt/fog/lib/common/functions.sh` (lines 2273-2388) - Configuration generation
 - `/opt/fog/bin/installfog.sh` - Installation script
 
 ### **Service Classes**
+
 - `/opt/fog/packages/web/lib/service/fogservice.class.php` - IP matching logic
 - `/opt/fog/packages/web/lib/fog/fogbase.class.php` - `getIPAddress()` function
 
 ### **Web Server Configuration**
+
 - Apache-specific configuration files and modules
 - Web server abstraction layer needed
 
 ### **Database Schema**
+
 - `/opt/fog/packages/web/commons/schema.php` - Remove runtime config from database
 - Create separate configuration files for runtime settings
 
 ## 🚀 Benefits
 
 Once implemented, FOG would support:
+
 - **True Container Networking**: Services communicate via Docker service names
 - **Stateless Images**: No runtime configuration generation required
 - **Environment Portability**: Same image works across different environments
