@@ -311,9 +311,10 @@ Secure Boot uses Microsoft-signed shim binaries to boot custom iPXE binaries tha
 
 ### Prerequisites
 
-Before enabling Secure Boot, you need:
 
 **Note**: iPXE is automatically compiled with `SHIM_CMD` support, and shim/MOK Manager binaries are automatically included from Debian packages during container build. The container creates a FAT32 image file containing the MOK certificate that is accessible over the network.
+
+Before enabling Secure Boot, you need:
 
 ### Setup Process
 
@@ -325,9 +326,12 @@ Add to your `.env` file:
 FOG_SECURE_BOOT_ENABLED=true
 ```
 
-#### 2. Deploy and Setup
+#### 2. Build and Deploy
 
 ```bash
+# Build the container with Secure Boot dependencies
+docker compose build
+
 # Deploy the stack
 docker compose up -d
 
@@ -337,9 +341,10 @@ docker compose up -d
 # - Sign iPXE binaries with custom keys
 # - Set up shim and MOK manager from Debian packages
 # - Create BOOTX64.efi for DHCP configuration
+# - Create FAT32 image with MOK certificate
 ```
 
-**Note**: The container will automatically run the complete Secure Boot setup when `FOG_SECURE_BOOT_ENABLED=true`.
+**Note**: Building the container is required to include Secure Boot dependencies (FAT32 tools, iPXE compilation, shim packages). The container will automatically run the complete Secure Boot setup when `FOG_SECURE_BOOT_ENABLED=true`.
 
 #### 3. Configure DHCP
 

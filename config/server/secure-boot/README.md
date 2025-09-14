@@ -38,8 +38,12 @@ The easiest way to set up Secure Boot is to use the automatic configuration:
    FOG_SECURE_BOOT_ENABLED=true
    ```
 
-2. **Deploy the container**:
+2. **Build and deploy the container**:
    ```bash
+   # Build the container with Secure Boot dependencies
+   docker compose build
+   
+   # Deploy the stack
    docker compose up -d
    ```
 
