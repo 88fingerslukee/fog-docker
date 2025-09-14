@@ -295,6 +295,118 @@ docker run --rm -v fog_mysql:/data -v $(pwd):/backup alpine tar czf /backup/mysq
 docker run --rm -v fog_mysql:/data -v $(pwd):/backup alpine tar xzf /backup/mysql-backup.tar.gz -C /data
 ```
 
+## 🔐 Secure Boot Support
+
+This FOG Docker stack includes experimental support for UEFI Secure Boot using shim and MOK (Machine Owner Key) management. This allows FOG to work with systems that have Secure Boot enabled.
+
+### How Secure Boot Works
+
+Secure Boot uses Microsoft-signed shim binaries to boot custom iPXE binaries that are signed with your own keys. The process involves:
+
+1. **Shim Boot**: UEFI boots Microsoft-signed shim
+2. **Key Enrollment**: MOK Manager allows enrollment of custom keys
+3. **iPXE Boot**: Signed iPXE binary boots and loads FOG
+4. **Nested Shim**: iPXE loads shim again for additional binary validation
+
+### Prerequisites
+
+Before enabling Secure Boot, you need:
+
+1. **FAT32 USB Drive**: For key enrollment
+
+**Note**: iPXE is automatically compiled with `SHIM_CMD` support, and shim/MOK Manager binaries are automatically included from Debian packages during container build.
+
+### Setup Process
+
+#### 1. Enable Secure Boot
+
+Add to your `.env` file:
+
+```bash
+FOG_SECURE_BOOT_ENABLED=true
+FOG_SECURE_BOOT_AUTO_SETUP=true
+```
+
+#### 2. Deploy and Setup
+
+```bash
+# Deploy the stack
+docker compose up -d
+
+# The container will automatically:
+# - Use pre-compiled iPXE with SHIM_CMD support
+# - Generate Secure Boot keys
+# - Sign iPXE binaries
+# - Set up shim and MOK manager
+```
+
+#### 3. Configure DHCP
+
+Point your DHCP server to the shim binary:
+
+```
+filename "BOOTX64.efi";
+```
+
+#### 4. Enroll Keys
+
+1. Copy the MOK certificate to a FAT32 USB drive:
+   ```bash
+   docker cp fog-server:/opt/fog/secure-boot/certs/ENROL_THIS_KEY_IN_MOK_MANAGER.cer /path/to/usb/
+   ```
+
+2. Boot a machine with Secure Boot enabled
+3. Use MOK Manager to enroll the key
+4. Reboot - the machine should now boot into FOG
+
+### Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `FOG_SECURE_BOOT_ENABLED` | Enable Secure Boot setup | `false` |
+| `FOG_SECURE_BOOT_AUTO_SETUP` | Auto-run setup on start | `false` |
+
+### Manual Setup
+
+If you prefer manual control:
+
+```bash
+# Generate keys
+docker exec fog-server /opt/fog/secure-boot/scripts/generate-keys.sh
+
+# Setup Secure Boot
+docker exec fog-server /opt/fog/secure-boot/scripts/setup-secure-boot.sh
+```
+
+### Troubleshooting
+
+#### Dell Machines
+
+Some Dell machines have UEFI bugs:
+
+- **Boot Entry Issue**: Create files matching network card boot entry names
+- **Key Enrollment Issue**: Use specific certificate filenames like `ENROL_THIS_KEY_IN_MOK_MANAGER.cer`
+
+#### Common Issues
+
+- **Shim not loading**: Ensure DHCP points to `BOOTX64.efi`
+- **MOK Manager not appearing**: Check that `mmx64.efi` is present
+- **Key enrollment fails**: Verify certificate is on FAT32 USB drive
+- **iPXE not loading**: Ensure iPXE binary is signed and has shim command support
+
+### Security Considerations
+
+- Keep private keys secure and never distribute them
+- The MOK certificate can be safely distributed for key enrollment
+- Consider key rotation for production environments
+- Monitor for UEFI firmware updates that might affect compatibility
+
+### References
+
+- [FOG Project Forum - Secure Boot Tutorial](https://forums.fogproject.org/)
+- [rhboot/shim GitHub](https://github.com/rhboot/shim)
+- [iPXE shim command documentation](https://ipxe.org/cmd/shim)
+
 ## 🌐 Network Configuration
 
 This stack uses **host networking mode** for optimal performance with network booting. This means:
@@ -518,8 +630,11 @@ docker compose up -d
 
 ## 📋 TODO
 
-- [ ] Full testing in various environments
+- [ ] Full testing in various environments (community support required)
 - [ ] Let's Encrypt cert generation
+- [ ] Secure Boot testing with various UEFI implementations
+- [ ] Secure Boot testing with Dell machines (known UEFI issues - community support required)
+- [ ] Secure Boot key enrollment workflow testing
 
 ## 📝 License
 

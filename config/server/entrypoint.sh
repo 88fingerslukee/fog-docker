@@ -33,6 +33,10 @@ FOG_SSL_CN=${FOG_SSL_CN:-${FOG_WEB_HOST}}
 FOG_SSL_SAN=${FOG_SSL_SAN:-}
 FOG_IPXE_PROTOCOL=${FOG_IPXE_PROTOCOL:-}
 
+# Secure Boot configuration
+FOG_SECURE_BOOT_ENABLED=${FOG_SECURE_BOOT_ENABLED:-false}
+FOG_SECURE_BOOT_AUTO_SETUP=${FOG_SECURE_BOOT_AUTO_SETUP:-false}
+
 # Wait for database to be ready
 echo "Waiting for database connection..."
 until mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" -p"$DB_PASS" -e "SELECT 1" >/dev/null 2>&1; do
@@ -324,6 +328,33 @@ EOF
 chown www-data:www-data /tftpboot/default.ipxe
 chmod 644 /tftpboot/default.ipxe
 echo "✓ default.ipxe created for chainloading to $FOG_WEB_HOST"
+
+# Secure Boot setup
+if [ "$FOG_SECURE_BOOT_ENABLED" = "true" ]; then
+    echo ""
+    echo "Setting up Secure Boot..."
+    
+    # Make scripts executable
+    chmod +x /opt/fog/secure-boot/scripts/*.sh
+    
+    # Generate keys if they don't exist
+    if [ ! -f "/opt/fog/secure-boot/keys/fog.key" ]; then
+        echo "Generating Secure Boot keys..."
+        /opt/fog/secure-boot/scripts/generate-keys.sh
+    else
+        echo "✓ Secure Boot keys already exist"
+    fi
+    
+    # Run setup if auto-setup is enabled
+    if [ "$FOG_SECURE_BOOT_AUTO_SETUP" = "true" ]; then
+        echo "Running Secure Boot setup..."
+        /opt/fog/secure-boot/scripts/setup-secure-boot.sh
+    else
+        echo "Secure Boot setup available - run setup-secure-boot.sh manually"
+    fi
+    
+    echo "✓ Secure Boot configuration completed"
+fi
 
 echo ""
 echo "=== FOG PROJECT SERVER v$FOG_VERSION READY ==="

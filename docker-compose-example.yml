@@ -56,6 +56,8 @@ services:
       - FOG_IPXE_PROTOCOL=${FOG_IPXE_PROTOCOL}
       - FOG_MULTICAST_INTERFACE=${FOG_MULTICAST_INTERFACE}
       - FOG_VERSION=${FOG_VERSION}
+      - FOG_SECURE_BOOT_ENABLED=${FOG_SECURE_BOOT_ENABLED}
+      - FOG_SECURE_BOOT_AUTO_SETUP=${FOG_SECURE_BOOT_AUTO_SETUP}
     volumes:
       # Use named Docker volumes by default, uncomment below for custom paths
       - fog_images:/images

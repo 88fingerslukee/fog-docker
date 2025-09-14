@@ -46,6 +46,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     wakeonlan \
     wget \
     zip \
+    # Secure Boot dependencies
+    sbsigntool \
+    efitools \
+    openssl \
+    shim-signed \
+    grub-efi-amd64-signed \
+    # iPXE build dependencies
+    build-essential \
+    git \
+    liblzma-dev \
+    libc6-dev \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
@@ -72,6 +83,20 @@ RUN cd /opt && \
     fi && \
     chmod +x /opt/fogproject/bin/installfog.sh
 
+# Build iPXE with Secure Boot support
+RUN cd /opt && \
+    git clone --depth 1 https://github.com/ipxe/ipxe.git && \
+    cd ipxe/src && \
+    # Enable Secure Boot support by adding SHIM_CMD define
+    sed -i '/^#define.*SHIM_CMD/d' config/general.h && \
+    echo '#define SHIM_CMD		/* EFI shim command (or dummy command) */' >> config/general.h && \
+    # Build iPXE with EFI support
+    make bin-x86_64-efi/ipxe.efi && \
+    # Copy the built iPXE binary to tftpboot
+    cp bin-x86_64-efi/ipxe.efi /tftpboot/ && \
+    # Clean up build directory to save space
+    cd /opt && rm -rf ipxe
+
 # Create all needed directories
 RUN mkdir -p /opt/fog/log /opt/fog/snapins /opt/fog/service \
     && mkdir -p /var/www/html/fog/management /var/www/html/fog/service /var/www/html/fog/commons \
@@ -84,6 +109,13 @@ RUN mkdir -p /opt/fog/log /opt/fog/snapins /opt/fog/service \
 # Copy all TFTP boot files from FOG source to the tftpboot directory
 RUN cp -a /opt/fogproject/packages/tftp/. /tftpboot/
 
+# Create Secure Boot directories and copy setup scripts
+RUN mkdir -p /opt/fog/secure-boot/keys /opt/fog/secure-boot/scripts /opt/fog/secure-boot/shim
+
+# Copy shim and MOK manager from installed packages
+RUN cp /usr/lib/shim/shimx64.efi /opt/fog/secure-boot/shim/shimx64.efi && \
+    cp /usr/lib/shim/mmx64.efi /opt/fog/secure-boot/shim/mmx64.efi
+
 # Copy FOG service files
 RUN cp -r /opt/fogproject/packages/service/* /opt/fog/service/
 
@@ -94,6 +126,7 @@ COPY apache-ssl.conf /apache-ssl.conf
 COPY ports.conf /ports.conf
 COPY fog-config.php /fog-config.php
 COPY entrypoint.sh /entrypoint.sh
+COPY secure-boot/ /opt/fog/secure-boot/scripts/
 
 # Set ownership for all copied files
 RUN chown -R www-data:www-data /opt/fog/service && \
