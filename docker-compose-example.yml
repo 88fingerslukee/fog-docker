@@ -12,14 +12,16 @@ services:
       - MARIADB_PASSWORD=${FOG_DB_PASS}
       - MARIADB_TCP_PORT=${FOG_DB_PORT}
     volumes:
-      - ${FOG_MYSQL_PATH}:/var/lib/mysql
+      # Use named Docker volume by default, uncomment below for custom path
+      - fog_mysql:/var/lib/mysql
+      # - ${FOG_MYSQL_PATH}:/var/lib/mysql
       
-  # FOG Server - Web interface + background services (supervisor-managed)
+  # FOG Server - Web interface + background services
   fog-server:
     build: 
       context: ./config/server
       args:
-        - FOG_VERSION=${FOG_VERSION:-latest}
+        - FOG_VERSION=${FOG_VERSION:-stable}
     container_name: fog-server
     restart: unless-stopped
     privileged: true
@@ -55,11 +57,17 @@ services:
       - FOG_MULTICAST_INTERFACE=${FOG_MULTICAST_INTERFACE}
       - FOG_VERSION=${FOG_VERSION}
     volumes:
-      - ${FOG_IMAGES_PATH}:/images
-      - ${FOG_TFTP_PATH}:/tftpboot
-      - ${FOG_SNAPINS_PATH}:/opt/fog/snapins
-      - ${FOG_LOGS_PATH}:/opt/fog/logs
-      - ${FOG_SSL_PATH}:/opt/fog/snapins/ssl
+      # Use named Docker volumes by default, uncomment below for custom paths
+      - fog_images:/images
+      - fog_tftpboot:/tftpboot
+      - fog_snapins:/opt/fog/snapins
+      - fog_logs:/opt/fog/logs
+      - fog_ssl:/opt/fog/snapins/ssl
+      # - ${FOG_IMAGES_PATH}:/images
+      # - ${FOG_TFTP_PATH}:/tftpboot
+      # - ${FOG_SNAPINS_PATH}:/opt/fog/snapins
+      # - ${FOG_LOGS_PATH}:/opt/fog/logs
+      # - ${FOG_SSL_PATH}:/opt/fog/snapins/ssl
       
   fog-tftp:
     image: docker.io/kalaksi/tftpd:latest
@@ -80,7 +88,9 @@ services:
       - SYS_CHROOT
       - NET_BIND_SERVICE
     volumes:
-      - ${FOG_TFTP_PATH}:/tftpboot
+      # Use named Docker volume by default, uncomment below for custom path
+      - fog_tftpboot:/tftpboot
+      # - ${FOG_TFTP_PATH}:/tftpboot
       
   # NFS - Image file access (prebuilt)
   fog-nfs:
@@ -94,7 +104,9 @@ services:
       - NFS_EXPORT_0=/images *(rw,sync,no_subtree_check,no_root_squash,insecure,fsid=0)
       - NFS_EXPORT_1=/images/dev *(rw,async,no_wdelay,no_subtree_check,no_root_squash,insecure,fsid=1)
     volumes:
-      - ${FOG_IMAGES_PATH}:/images
+      # Use named Docker volume by default, uncomment below for custom path
+      - fog_images:/images
+      # - ${FOG_IMAGES_PATH}:/images
       
   # FTP - File transfers (prebuilt)
   fog-ftp:
@@ -109,5 +121,22 @@ services:
       - FTP_USER_PASS=${FOG_FTP_PASS}
       - FTP_USER_HOME=/images
     volumes:
-      - ${FOG_IMAGES_PATH}:/images
+      # Use named Docker volume by default, uncomment below for custom path
+      - fog_images:/images
+      # - ${FOG_IMAGES_PATH}:/images
 
+# Named Docker volumes for persistent storage
+# These volumes are automatically created by Docker if they don't exist
+volumes:
+  fog_mysql:
+    driver: local
+  fog_images:
+    driver: local
+  fog_tftpboot:
+    driver: local
+  fog_snapins:
+    driver: local
+  fog_logs:
+    driver: local
+  fog_ssl:
+    driver: local

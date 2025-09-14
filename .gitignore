@@ -27,7 +27,11 @@ undo*
 # TFTP boot files (these are generated at runtime)
 config/tftpboot/
 
-# Docker Compose override files
+# Docker Compose files
+compose.yaml
+compose.yml
+docker-compose.yml
+docker-compose.yaml
 docker-compose.override.yml
 docker-compose.override.yaml
 

@@ -1,7 +1,7 @@
 FROM php:8.3-apache
 
 # Build arguments
-ARG FOG_VERSION=latest
+ARG FOG_VERSION=stable
 
 LABEL maintainer="Lucas Burdick"
 LABEL version="${FOG_VERSION}"

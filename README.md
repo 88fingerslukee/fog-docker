@@ -38,10 +38,15 @@ cd fog-docker
 ### 2. Configure Environment
 
 ```bash
+# Copy environment template
 cp .env.example .env
 # Edit .env with your configuration
 nano .env
+# Copy Docker Compose template
+cp docker-compose-example.yml docker-compose.yml
 ```
+
+**Note**: The `docker-compose-example.yml` file is a template that will be overwritten during updates. Always copy it to `docker-compose.yml` for your local configuration.
 
 **Required Configuration:**
 
@@ -57,7 +62,7 @@ openssl rand -base64 32
 
 **Optional Configuration (with defaults):**
 
-- `FOG_VERSION`: FOG version (e.g., `1.5.10.1673`) - **Default: Latest stable release**
+- `FOG_VERSION`: FOG version (e.g., `1.5.10.1673`) - **Default: `stable`**
 - `FOG_WEB_ROOT`: Web root path - **Default: `/fog`**
 - `FOG_DB_PORT`: Database port - **Default: `3306`**
 - `FOG_APACHE_PORT`: Apache HTTP port - **Default: `80` - Change for reverse proxy setups**
@@ -98,7 +103,7 @@ The stack is configured through environment variables in the `.env` file. Copy `
 
 | Variable | Description | Example | Default |
 |----------|-------------|---------|---------|
-| `FOG_VERSION` | FOG version to install | `1.5.10.1673` | `latest` |
+| `FOG_VERSION` | FOG version to install | `1.5.10.1673` | `stable` |
 | `FOG_WEB_ROOT` | Web root path | `/fog` | `/fog` |
 | `FOG_DB_PORT` | Database port | `3306` | `3306` |
 | `FOG_APACHE_PORT` | Apache HTTP port | `80` | `80` |
@@ -220,6 +225,76 @@ FOG_IPXE_PROTOCOL=http
 - Use `FOG_IPXE_PROTOCOL` to override this behavior
 - When `FOG_HTTPS_ENABLED=true`, iPXE files use the container's SSL configuration
 
+## 💾 Persistent Storage
+
+By default, this stack uses Docker's built-in volume management, which provides automatic data persistence. However, you can configure custom persistent storage paths for better control and backup management.
+
+### Default Behavior (Recommended for Most Users)
+
+When volume paths are not specified in `.env`, Docker automatically creates and manages volumes:
+
+- **Database**: `fog_mysql` volume for MariaDB data
+- **Images**: `fog_images` volume for disk images
+- **TFTP**: `fog_tftpboot` volume for PXE boot files
+- **Logs**: `fog_logs` volume for FOG logs
+- **SSL**: `fog_ssl` volume for certificates
+
+### Custom Persistent Storage
+
+To use custom storage paths, uncomment and configure the volume variables in `.env`:
+
+#### Option 1: Host Directory Mounts
+
+```bash
+# Mount host directories for direct access
+FOG_IMAGES_PATH=/opt/fog/images:/images
+FOG_MYSQL_PATH=/opt/fog/mysql:/var/lib/mysql
+FOG_TFTP_PATH=/opt/fog/tftpboot:/tftpboot
+FOG_LOGS_PATH=/opt/fog/logs:/opt/fog/log
+FOG_SSL_PATH=/opt/fog/ssl:/opt/fog/snapins/ssl
+```
+
+#### Option 2: Named Docker Volumes
+
+```bash
+# Use named Docker volumes for better portability
+FOG_IMAGES_PATH=fog_images:/images
+FOG_MYSQL_PATH=fog_mysql:/var/lib/mysql
+FOG_TFTP_PATH=fog_tftpboot:/tftpboot
+FOG_LOGS_PATH=fog_logs:/opt/fog/log
+FOG_SSL_PATH=fog_ssl:/opt/fog/snapins/ssl
+```
+
+### Storage Considerations
+
+**Important Data to Persist:**
+- **Database** (`FOG_MYSQL_PATH`): Critical - contains all FOG configuration and image metadata
+- **Images** (`FOG_IMAGES_PATH`): Critical - contains actual disk images
+- **TFTP Boot Files** (`FOG_TFTP_PATH`): Important - PXE boot files and iPXE scripts
+- **SSL Certificates** (`FOG_SSL_PATH`): Important - custom SSL certificates
+- **Logs** (`FOG_LOGS_PATH`): Optional - for troubleshooting and monitoring
+
+**Backup Recommendations:**
+- Regular database backups (MariaDB dump)
+- Image storage backups (large files, consider compression)
+- Configuration backups (environment files, SSL certificates)
+
+### Volume Management Commands
+
+```bash
+# List all FOG-related volumes
+docker volume ls | grep fog
+
+# Inspect a specific volume
+docker volume inspect fog_mysql
+
+# Backup a volume (example)
+docker run --rm -v fog_mysql:/data -v $(pwd):/backup alpine tar czf /backup/mysql-backup.tar.gz -C /data .
+
+# Restore a volume (example)
+docker run --rm -v fog_mysql:/data -v $(pwd):/backup alpine tar xzf /backup/mysql-backup.tar.gz -C /data
+```
+
 ## 🌐 Network Configuration
 
 This stack uses **host networking mode** for optimal performance with network booting. This means:
@@ -334,18 +409,18 @@ http:
 
 ```text
 fog-docker/
-├── compose.yaml              # Docker Compose configuration
-├── .env.example             # Environment template
-├── .gitignore               # Git ignore rules
-├── README.md                # This file
+├── docker-compose-example.yaml  # Docker Compose template
+├── .env.example                 # Environment template
+├── .gitignore                   # Git ignore rules
+├── README.md                    # This file
 └── config/
     └── server/
-        ├── Dockerfile       # FOG server image
-        ├── entrypoint.sh    # Container startup script
-        ├── supervisord.conf # Service management
-        ├── apache-fog.conf  # Apache configuration
-        ├── ports.conf       # Apache ports
-        └── fog-config.php   # FOG configuration template
+        ├── Dockerfile           # FOG server image
+        ├── entrypoint.sh        # Container startup script
+        ├── supervisord.conf     # Service management
+        ├── apache-fog.conf      # Apache configuration
+        ├── ports.conf           # Apache ports
+        └── fog-config.php       # FOG configuration template
 ```
 
 ## 🔧 Customization

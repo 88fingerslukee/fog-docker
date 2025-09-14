@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-FOG_VERSION=${FOG_VERSION:-latest}
+FOG_VERSION=${FOG_VERSION:-stable}
 
 echo "=========================================="
 echo "FOG Project Server v$FOG_VERSION with Supervisor"
