@@ -52,6 +52,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     openssl \
     shim-signed \
     grub-efi-amd64-signed \
+    # FAT32 filesystem tools
+    dosfstools \
+    util-linux \
     # iPXE build dependencies
     build-essential \
     git \

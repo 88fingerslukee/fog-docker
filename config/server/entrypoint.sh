@@ -35,7 +35,6 @@ FOG_IPXE_PROTOCOL=${FOG_IPXE_PROTOCOL:-}
 
 # Secure Boot configuration
 FOG_SECURE_BOOT_ENABLED=${FOG_SECURE_BOOT_ENABLED:-false}
-FOG_SECURE_BOOT_AUTO_SETUP=${FOG_SECURE_BOOT_AUTO_SETUP:-false}
 
 # Wait for database to be ready
 echo "Waiting for database connection..."
@@ -345,13 +344,9 @@ if [ "$FOG_SECURE_BOOT_ENABLED" = "true" ]; then
         echo "✓ Secure Boot keys already exist"
     fi
     
-    # Run setup if auto-setup is enabled
-    if [ "$FOG_SECURE_BOOT_AUTO_SETUP" = "true" ]; then
-        echo "Running Secure Boot setup..."
-        /opt/fog/secure-boot/scripts/setup-secure-boot.sh
-    else
-        echo "Secure Boot setup available - run setup-secure-boot.sh manually"
-    fi
+    # Run Secure Boot setup
+    echo "Running Secure Boot setup..."
+    /opt/fog/secure-boot/scripts/setup-secure-boot.sh
     
     echo "✓ Secure Boot configuration completed"
 fi

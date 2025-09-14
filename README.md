@@ -10,6 +10,7 @@ A complete Docker Compose stack for running the FOG Project (Free and Open Ghost
 - **Complete FOG Stack**: Web interface, TFTP, NFS, FTP, and database services
 - **Reverse Proxy Ready**: Compatible with any reverse proxy (Traefik, Nginx, Caddy, etc.)
 - **Dynamic Configuration**: Environment-based configuration with templates
+- **Secure Boot**: Auto-setup and configuration of secure boot-enabled ipxe files
 - **Community Resource**: Includes roadmap for FOG Project containerization improvements
 
 ## ⚠️ Current Limitations & Trade-offs
@@ -312,9 +313,7 @@ Secure Boot uses Microsoft-signed shim binaries to boot custom iPXE binaries tha
 
 Before enabling Secure Boot, you need:
 
-1. **FAT32 USB Drive**: For key enrollment
-
-**Note**: iPXE is automatically compiled with `SHIM_CMD` support, and shim/MOK Manager binaries are automatically included from Debian packages during container build.
+**Note**: iPXE is automatically compiled with `SHIM_CMD` support, and shim/MOK Manager binaries are automatically included from Debian packages during container build. The container creates a FAT32 image file containing the MOK certificate that is accessible over the network.
 
 ### Setup Process
 
@@ -324,7 +323,6 @@ Add to your `.env` file:
 
 ```bash
 FOG_SECURE_BOOT_ENABLED=true
-FOG_SECURE_BOOT_AUTO_SETUP=true
 ```
 
 #### 2. Deploy and Setup
@@ -335,36 +333,55 @@ docker compose up -d
 
 # The container will automatically:
 # - Use pre-compiled iPXE with SHIM_CMD support
-# - Generate Secure Boot keys
-# - Sign iPXE binaries
-# - Set up shim and MOK manager
+# - Generate Secure Boot keys and certificates
+# - Sign iPXE binaries with custom keys
+# - Set up shim and MOK manager from Debian packages
+# - Create BOOTX64.efi for DHCP configuration
 ```
+
+**Note**: The container will automatically run the complete Secure Boot setup when `FOG_SECURE_BOOT_ENABLED=true`.
 
 #### 3. Configure DHCP
 
-Point your DHCP server to the shim binary:
+Point your DHCP server to the shim binary (which will be created as `BOOTX64.efi` in the TFTP directory):
 
 ```
 filename "BOOTX64.efi";
 ```
 
+**Note**: The container automatically creates `BOOTX64.efi` from the Debian shim binary during Secure Boot setup.
+
 #### 4. Enroll Keys
 
-1. Copy the MOK certificate to a FAT32 USB drive:
-   ```bash
-   docker cp fog-server:/opt/fog/secure-boot/certs/ENROL_THIS_KEY_IN_MOK_MANAGER.cer /path/to/usb/
-   ```
+1. Boot a machine with Secure Boot enabled
+2. Use MOK Manager to enroll the key from the network-accessible FAT32 image
+3. Reboot - the machine should now boot into FOG
 
-2. Boot a machine with Secure Boot enabled
-3. Use MOK Manager to enroll the key
-4. Reboot - the machine should now boot into FOG
+**Note**: The FAT32 image containing the MOK certificate is automatically accessible over the network from the container.
+
+### Verify Setup
+
+You can verify the Secure Boot setup is working:
+
+```bash
+# Check if Secure Boot files are present
+docker exec fog-server ls -la /tftpboot/ | grep -E "(BOOTX64|mmx64|ipxe)"
+
+# Check if keys were generated
+docker exec fog-server ls -la /opt/fog/secure-boot/keys/
+
+# Check if certificates were created
+docker exec fog-server ls -la /opt/fog/secure-boot/certs/
+
+# Check if FAT32 image was created
+docker exec fog-server ls -la /opt/fog/secure-boot/mok-certs.img
+```
 
 ### Environment Variables
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `FOG_SECURE_BOOT_ENABLED` | Enable Secure Boot setup | `false` |
-| `FOG_SECURE_BOOT_AUTO_SETUP` | Auto-run setup on start | `false` |
+| `FOG_SECURE_BOOT_ENABLED` | Enable Secure Boot setup and auto-run complete setup | `false` |
 
 ### Manual Setup
 
@@ -389,10 +406,11 @@ Some Dell machines have UEFI bugs:
 
 #### Common Issues
 
-- **Shim not loading**: Ensure DHCP points to `BOOTX64.efi`
-- **MOK Manager not appearing**: Check that `mmx64.efi` is present
-- **Key enrollment fails**: Verify certificate is on FAT32 USB drive
-- **iPXE not loading**: Ensure iPXE binary is signed and has shim command support
+- **Shim not loading**: Ensure DHCP points to `BOOTX64.efi` and Secure Boot is enabled in UEFI
+- **MOK Manager not appearing**: Check that `mmx64.efi` is present in TFTP directory
+- **Key enrollment fails**: Verify certificate is on FAT32 USB drive and UEFI Secure Boot is enabled
+- **iPXE not loading**: Ensure iPXE binary is signed and Secure Boot keys are properly enrolled
+- **Container startup issues**: Check that `FOG_SECURE_BOOT_ENABLED=true` is set in `.env` file
 
 ### Security Considerations
 

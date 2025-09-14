@@ -63,6 +63,31 @@ if [ -f "$TFTP_DIR/ipxe.efi" ]; then
     echo "✓ Created grubx64.efi from ipxe.efi"
 fi
 
+# Create FAT32 image for MOK certificates
+echo "Creating FAT32 image for MOK certificates..."
+FAT32_IMAGE="/opt/fog/secure-boot/mok-certs.img"
+FAT32_MOUNT="/opt/fog/secure-boot/mok-certs"
+
+# Create FAT32 image file (10MB should be plenty for certificates)
+if [ ! -f "$FAT32_IMAGE" ]; then
+    dd if=/dev/zero of="$FAT32_IMAGE" bs=1M count=10 2>/dev/null
+    mkfs.fat -F 32 "$FAT32_IMAGE" >/dev/null 2>&1
+    echo "✓ Created FAT32 image file"
+fi
+
+# Mount the FAT32 image
+mkdir -p "$FAT32_MOUNT"
+if ! mountpoint -q "$FAT32_MOUNT"; then
+    mount -o loop "$FAT32_IMAGE" "$FAT32_MOUNT"
+    echo "✓ Mounted FAT32 image"
+fi
+
+# Copy MOK certificate to FAT32 image
+if [ -f "$CERT_DIR/ENROL_THIS_KEY_IN_MOK_MANAGER.cer" ]; then
+    cp "$CERT_DIR/ENROL_THIS_KEY_IN_MOK_MANAGER.cer" "$FAT32_MOUNT/"
+    echo "✓ MOK certificate copied to FAT32 image"
+fi
+
 # Set proper permissions
 chown -R www-data:www-data "$TFTP_DIR"
 chmod 644 "$TFTP_DIR"/*.efi
@@ -72,8 +97,13 @@ echo "✓ Secure Boot setup completed!"
 echo ""
 echo "Next steps:"
 echo "  1. Ensure your DHCP server points to BOOTX64.efi"
-echo "  2. Copy ENROL_THIS_KEY_IN_MOK_MANAGER.cer to a FAT32 USB drive"
+echo "  2. Copy the FAT32 image to a USB drive:"
+echo "     docker cp fog-server:/opt/fog/secure-boot/mok-certs.img /path/to/usb/"
 echo "  3. Boot a machine with Secure Boot enabled"
-echo "  4. Use MOK Manager to enroll the key"
+echo "  4. Use MOK Manager to enroll the key from the USB drive"
 echo "  5. Reboot and the machine should boot into FOG"
+echo ""
+echo "Alternative: Mount the FAT32 image directly:"
+echo "  docker cp fog-server:/opt/fog/secure-boot/mok-certs.img /path/to/mount/"
+echo "  sudo mount -o loop /path/to/mount/mok-certs.img /mnt/fat32"
 echo ""
