@@ -113,6 +113,92 @@ When `FOG_SECURE_BOOT_ENABLED=true`:
 
 **Important**: MOK Manager cannot access network shares. The certificate must be downloaded and placed on a USB drive (FAT32 formatted) for enrollment during boot.
 
+### Secure Boot Setup Process
+
+1. **Enable Secure Boot**: Set `FOG_SECURE_BOOT_ENABLED=true` in your `.env` file
+2. **Build and start the container**: `docker compose up -d`
+3. **Download the certificate**: Access `http://your-server/fog/mok/fog.mok.crt`
+4. **Prepare USB drive**: Format a USB drive as FAT32
+5. **Copy certificate to USB**: Place `fog.mok.crt` on the USB drive
+6. **Boot client machine**: Insert USB drive and boot
+7. **Enroll certificate**: Use MOK Manager to select and enroll the certificate
+8. **Complete setup**: Reboot to finish Secure Boot enrollment
+
+#### USB Drive Requirements
+
+**USB Drive Specifications:**
+- **Format**: FAT32 (required for UEFI compatibility)
+- **Size**: Minimum 1GB (certificate is only a few KB)
+- **Type**: Any USB 2.0 or 3.0 drive
+
+**Certificate File:**
+- **Filename**: `fog.mok.crt`
+- **Location**: Root directory of USB drive
+- **Size**: Typically 1-2KB
+- **Format**: X.509 certificate in PEM format
+
+**Step-by-Step USB Preparation:**
+```bash
+# 1. Insert USB drive
+# 2. Format as FAT32 (Windows: Right-click → Format → FAT32)
+# 3. Download certificate from FOG server
+wget http://your-fog-server/fog/mok/fog.mok.crt
+
+# 4. Copy to USB drive
+cp fog.mok.crt /media/usb-drive/
+
+# 5. Safely eject USB drive
+```
+
+**MOK Manager Enrollment Process:**
+1. Boot client machine with USB drive inserted
+2. MOK Manager will appear during boot
+3. Select "Enroll MOK" from the menu
+4. Navigate to the USB drive (usually appears as "USB" or drive letter)
+5. Select `fog.mok.crt` file
+6. Confirm enrollment
+7. Reboot to complete the process
+
+#### Troubleshooting USB Drive Issues
+
+**Common Problems and Solutions:**
+
+**USB Drive Not Detected:**
+- Ensure USB drive is formatted as FAT32
+- Try a different USB port (prefer USB 2.0 ports)
+- Check if USB drive is properly inserted
+- Some systems require USB drive to be inserted before power-on
+
+**MOK Manager Can't Find Certificate:**
+- Verify certificate file is named exactly `fog.mok.crt`
+- Ensure certificate is in the root directory of USB drive
+- Check that certificate file is not corrupted
+- Try downloading the certificate again from FOG server
+
+**Certificate Enrollment Fails:**
+- Verify certificate is valid X.509 format
+- Check that certificate hasn't expired
+- Ensure MOK Manager has proper permissions
+- Try using a different USB drive
+
+**USB Drive Format Issues:**
+```bash
+# Linux: Format USB drive as FAT32
+sudo mkfs.fat -F 32 /dev/sdX
+
+# Windows: Use Disk Management or format command
+format X: /FS:FAT32
+
+# macOS: Use Disk Utility
+# Select USB drive → Erase → MS-DOS (FAT)
+```
+
+**Alternative Certificate Access:**
+If USB drive issues persist, you can also:
+1. Copy certificate to the EFI System Partition (ESP)
+2. Use `mokutil` command from within the OS
+3. Access certificate via network share (if OS is running)
+
 ## 🔧 Architecture
 
 ### Two-Stage Build Process
