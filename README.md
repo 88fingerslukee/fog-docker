@@ -316,11 +316,70 @@ For advanced DHCP configuration, you can modify the template at `templates/dhcpd
 
 **Using External DHCP Server:**
 - Set `FOG_DHCP_ENABLED=false`
-- Configure your existing DHCP server with:
-  - **Next Server**: Your FOG server IP
-  - **Boot File**: `undionly.kpxe` (BIOS) or `snponly.efi` (UEFI)
-  - **Option 66**: FOG server IP address
-  - **Option 67**: Boot filename
+- Configure your existing DHCP server with the following options:
+
+#### Required DHCP Options
+
+| DHCP Server Type | Option Name | Value | Description |
+|------------------|-------------|-------|-------------|
+| **Linux DHCP** | `next-server` | FOG server IP | TFTP server IP address |
+| **Linux DHCP** | `filename` | Boot file name | PXE boot file to download |
+| **Windows DHCP** | **Option 66** | FOG server IP | TFTP server IP address |
+| **Windows DHCP** | **Option 67** | Boot file name | PXE boot file to download |
+
+#### Boot Files by Architecture
+
+| Architecture | Boot File | Description |
+|--------------|-----------|-------------|
+| **Legacy BIOS** | `undionly.kpxe` | Standard BIOS PXE boot |
+| **UEFI 64-bit** | `snponly.efi` | Standard UEFI boot |
+| **UEFI 32-bit** | `i386-efi/snponly.efi` | 32-bit UEFI boot |
+| **ARM64 UEFI** | `arm64-efi/snponly.efi` | ARM64 UEFI boot |
+
+#### External DHCP Server Examples
+
+**pfSense Configuration:**
+1. Navigate to **Services → DHCP Server**
+2. Edit your DHCP scope
+3. Add the following options:
+   - **Option 66**: Your FOG server IP (e.g., `192.168.1.100`)
+   - **Option 67**: Boot file (e.g., `undionly.kpxe` for BIOS or `snponly.efi` for UEFI)
+
+**Microsoft DHCP Server Configuration:**
+1. Open **DHCP Manager**
+2. Right-click your scope → **Configure Options**
+3. Add the following options:
+   - **Option 66**: Your FOG server IP (e.g., `192.168.1.100`)
+   - **Option 67**: Boot file (e.g., `undionly.kpxe` for BIOS or `snponly.efi` for UEFI)
+
+**PowerShell Script for Microsoft DHCP:**
+```powershell
+# Set DHCP options for FOG PXE boot
+Set-DhcpServerv4OptionValue -ScopeId 192.168.1.0 -OptionId 66 -Value "192.168.1.100"
+Set-DhcpServerv4OptionValue -ScopeId 192.168.1.0 -OptionId 67 -Value "undionly.kpxe"
+```
+
+**Linux ISC DHCP Server:**
+```bash
+# Add to your dhcpd.conf
+subnet 192.168.1.0 netmask 255.255.255.0 {
+    range 192.168.1.100 192.168.1.200;
+    option routers 192.168.1.1;
+    option domain-name-servers 8.8.8.8;
+    next-server 192.168.1.100;  # FOG server IP
+    filename "undionly.kpxe";   # Boot file
+}
+```
+
+**Cisco DHCP Server:**
+```cisco
+ip dhcp pool FOG_POOL
+   network 192.168.1.0 255.255.255.0
+   default-router 192.168.1.1
+   dns-server 8.8.8.8
+   option 66 ip 192.168.1.100
+   option 67 ascii "undionly.kpxe"
+```
 
 #### Network Requirements
 
