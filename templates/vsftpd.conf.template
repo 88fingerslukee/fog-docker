@@ -1,0 +1,28 @@
+# FOG Docker - vsftpd Configuration
+# Generated from template with environment variables
+
+# Basic Configuration
+max_per_ip=200
+anonymous_enable=NO
+local_enable=YES
+write_enable=YES
+local_umask=022
+dirmessage_enable=YES
+xferlog_enable=YES
+connect_from_port_20=YES
+xferlog_std_format=YES
+listen=YES
+pam_service_name=vsftpd
+userlist_enable=NO
+chmod_enable=YES
+
+# Security Configuration
+seccomp_sandbox=NO
+
+# Logging
+xferlog_file=/data/logs/vsftpd_xfer.log
+log_ftp_protocol=YES
+
+# FTP User Configuration
+# The FTP user ({{FOG_FTP_USER}}) will be created by the entrypoint script
+# and will have access to the FOG storage directories

@@ -1,0 +1,48 @@
+<VirtualHost *:{{FOG_APACHE_PORT}}>
+    ServerName {{FOG_WEB_HOST}}
+    DocumentRoot /var/www/html/fog
+    
+    <Directory /var/www/html/fog>
+        Options Indexes FollowSymLinks
+        AllowOverride All
+        Require all granted
+    </Directory>
+    
+    # FOG specific configuration
+    Alias {{FOG_WEB_ROOT}} /var/www/html/fog
+    
+    # Enable rewrite engine
+    RewriteEngine On
+    
+    # Logging
+    ErrorLog ${APACHE_LOG_DIR}/fog_error.log
+    CustomLog ${APACHE_LOG_DIR}/fog_access.log combined
+</VirtualHost>
+
+{{#FOG_HTTPS_ENABLED}}
+<VirtualHost *:{{FOG_APACHE_SSL_PORT}}>
+    ServerName {{FOG_WEB_HOST}}
+    DocumentRoot /var/www/html/fog
+    
+    <Directory /var/www/html/fog>
+        Options Indexes FollowSymLinks
+        AllowOverride All
+        Require all granted
+    </Directory>
+    
+    # FOG specific configuration
+    Alias {{FOG_WEB_ROOT}} /var/www/html/fog
+    
+    # Enable rewrite engine
+    RewriteEngine On
+    
+    # SSL Configuration
+    SSLEngine on
+    SSLCertificateFile {{FOG_SSL_PATH}}/{{FOG_SSL_CERT_FILE}}
+    SSLCertificateKeyFile {{FOG_SSL_PATH}}/{{FOG_SSL_KEY_FILE}}
+    
+    # Logging
+    ErrorLog ${APACHE_LOG_DIR}/fog_ssl_error.log
+    CustomLog ${APACHE_LOG_DIR}/fog_ssl_access.log combined
+</VirtualHost>
+{{/FOG_HTTPS_ENABLED}}

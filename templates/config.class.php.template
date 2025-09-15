@@ -1,6 +1,6 @@
 <?php
 /**
- * The main configuration FOG uses.
+ * The main configuration FOG Docker uses.
  *
  * PHP Version 8.3
  *
@@ -10,15 +10,6 @@
  *
  * @category Config
  * @package  FOGProject  
- * @author   Lucas Burdick
- * @license  http://opensource.org/licenses/gpl-3.0 GPLv3
- * @link     https://fogproject.org
- */
-/**
- * The main configuration FOG uses.
- *
- * @category Config
- * @package  FOGProject
  * @author   Lucas Burdick
  * @license  http://opensource.org/licenses/gpl-3.0 GPLv3
  * @link     https://fogproject.org
@@ -92,14 +83,14 @@ class Config
         define('STORAGE_HOST', '{{FOG_WEB_HOST}}');
         define('STORAGE_FTP_USERNAME', '{{FOG_FTP_USER}}');
         define('STORAGE_FTP_PASSWORD', '{{FOG_FTP_PASS}}');
-        define('STORAGE_DATADIR', '/images/');
-        define('STORAGE_DATADIR_CAPTURE', '/images/dev');
-        define('STORAGE_BANDWIDTHPATH', '/fog/status/bandwidth.php');
+        define('STORAGE_DATADIR', '{{FOG_STORAGE_LOCATION}}/');
+        define('STORAGE_DATADIR_CAPTURE', '{{FOG_STORAGE_CAPTURE}}');
+        define('STORAGE_BANDWIDTHPATH', '{{FOG_WEB_ROOT}}/status/bandwidth.php');
         define('STORAGE_INTERFACE', '{{FOG_MULTICAST_INTERFACE}}');
         define('CAPTURERESIZEPCT', 7);
         define('WEB_HOST', '{{FOG_WEB_HOST}}');
         define('WOL_HOST', '{{FOG_WEB_HOST}}');
-        define('WOL_PATH', '/fog/wol/wol.php');
+        define('WOL_PATH', '{{FOG_WEB_ROOT}}/wol/wol.php');
         define('WOL_INTERFACE', '{{FOG_MULTICAST_INTERFACE}}');
         define('SNAPINDIR', '/opt/fog/snapins/');
         define('QUEUESIZE', '10');
@@ -115,4 +106,4 @@ class Config
         define('FOG_CAPTUREIGNOREPAGEHIBER', true);
         define('FOG_THEME', 'default/fog.css');
     }
-} 
+}
