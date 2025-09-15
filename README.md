@@ -258,18 +258,81 @@ FOG_HTTPS_ENABLED=false
 
 ### DHCP Server
 
+FOG Docker includes a comprehensive DHCP server configuration that supports all the same features as bare metal FOG installation.
+
+#### Basic Configuration
+
 ```bash
 FOG_DHCP_ENABLED=true
 FOG_DHCP_START_RANGE=192.168.1.100
 FOG_DHCP_END_RANGE=192.168.1.200
 FOG_DHCP_DNS=8.8.8.8
+FOG_DHCP_BOOTFILE=undionly.kpxe
 ```
+
+#### DHCP Features Comparison
+
+| Feature | Bare Metal FOG | FOG Docker | Status |
+|---------|----------------|------------|---------|
+| **Basic DHCP** | ✅ | ✅ | **Full Support** |
+| **PXE Boot Configuration** | ✅ | ✅ | **Full Support** |
+| **Multiple Architecture Support** | ✅ | ✅ | **Full Support** |
+| **UEFI Boot Support** | ✅ | ✅ | **Full Support** |
+| **Legacy BIOS Support** | ✅ | ✅ | **Full Support** |
+| **Apple Intel Netboot** | ✅ | ✅ | **Full Support** |
+| **Surface Pro 4 Support** | ✅ | ✅ | **Full Support** |
+| **ARM64 UEFI Support** | ✅ | ✅ | **Full Support** |
+| **Custom Lease Times** | ✅ | ✅ | **Full Support** |
+| **Domain Name Configuration** | ✅ | ✅ | **Full Support** |
+| **Router/Gateway Configuration** | ✅ | ✅ | **Full Support** |
+| **DNS Server Configuration** | ✅ | ✅ | **Full Support** |
+| **Subnet Mask Configuration** | ✅ | ✅ | **Full Support** |
+| **PXE Vendor Options** | ✅ | ✅ | **Full Support** |
+| **MTFTP Configuration** | ✅ | ✅ | **Full Support** |
+| **Dynamic DNS Updates** | ✅ | ✅ | **Full Support** |
+
+#### Supported Architectures
+
+The DHCP server automatically detects and serves the appropriate boot file for:
+
+- **Legacy BIOS** (`undionly.kpxe`)
+- **UEFI 32-bit** (`i386-efi/snponly.efi`)
+- **UEFI 64-bit** (`snponly.efi`)
+- **ARM64 UEFI** (`arm64-efi/snponly.efi`)
+- **Apple Intel** (Special Apple NetBoot configuration)
+- **Surface Pro 4** (Special UEFI configuration)
+
+#### Advanced Configuration
+
+For advanced DHCP configuration, you can modify the template at `templates/dhcpd.conf.template` or extend the environment variables in the entrypoint script.
+
+#### DHCP vs External DHCP
+
+**Using FOG DHCP Server:**
+- ✅ Automatic PXE configuration
+- ✅ All architecture support included
+- ✅ No external DHCP configuration needed
+- ✅ Integrated with FOG services
+
+**Using External DHCP Server:**
+- Set `FOG_DHCP_ENABLED=false`
+- Configure your existing DHCP server with:
+  - **Next Server**: Your FOG server IP
+  - **Boot File**: `undionly.kpxe` (BIOS) or `snponly.efi` (UEFI)
+  - **Option 66**: FOG server IP address
+  - **Option 67**: Boot filename
+
+#### Network Requirements
+
+When using FOG DHCP server:
+- Container must run with `network_mode: host`
+- DHCP server binds to the specified network interface
+- Requires root privileges for DHCP port binding
+- Automatically configures `/etc/default/isc-dhcp-server`
 
 ## 📚 References
 
 - [FOG Project](https://fogproject.org/)
-- [FOG Installation Analysis](fog_installation_analysis.md)
-- [Zulip Statelessness Analysis](zulip_statelessness_analysis.md)
 - [Docker Compose Documentation](https://docs.docker.com/compose/)
 
 ## 🤝 Contributing
