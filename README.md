@@ -111,6 +111,8 @@ When `FOG_SECURE_BOOT_ENABLED=true`:
 3. **Shim and MOK manager** integration
 4. **FAT32 image creation** for MOK certificate enrollment
 
+**Important**: MOK Manager cannot access network shares. The certificate must be downloaded and placed on a USB drive (FAT32 formatted) for enrollment during boot.
+
 ## 🔧 Architecture
 
 ### Two-Stage Build Process
