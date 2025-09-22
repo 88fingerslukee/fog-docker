@@ -83,8 +83,8 @@ class Config
         define('STORAGE_HOST', '{{FOG_WEB_HOST}}');
         define('STORAGE_FTP_USERNAME', '{{FOG_FTP_USER}}');
         define('STORAGE_FTP_PASSWORD', '{{FOG_FTP_PASS}}');
-        define('STORAGE_DATADIR', '{{FOG_STORAGE_LOCATION}}/');
-        define('STORAGE_DATADIR_CAPTURE', '{{FOG_STORAGE_CAPTURE}}');
+        define('STORAGE_DATADIR', '/images/');
+        define('STORAGE_DATADIR_CAPTURE', '/images/dev');
         define('STORAGE_BANDWIDTHPATH', '{{FOG_WEB_ROOT}}/status/bandwidth.php');
         define('STORAGE_INTERFACE', '{{FOG_MULTICAST_INTERFACE}}');
         define('CAPTURERESIZEPCT', 7);

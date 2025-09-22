@@ -1,7 +1,8 @@
 services:
-  database:
+  # Internal MySQL database
+  fog-db:
     image: "mysql:8.0"
-    container_name: fog-database
+    container_name: fog-db
     restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: "${FOG_DB_ROOT_PASSWORD}"
@@ -9,12 +10,14 @@ services:
       MYSQL_USER: "${FOG_DB_USER:-fogmaster}"
       MYSQL_PASSWORD: "${FOG_DB_PASS:-fogmaster123}"
     volumes:
-      - "fog_mysql:/var/lib/mysql:rw"
+      - "fog_db:/var/lib/mysql:rw"
     networks:
       - fog_network
     command: --default-authentication-plugin=mysql_native_password
+    profiles:
+      - internal-db
 
-  fog:
+  fog-server:
     build:
       context: .
       args:
@@ -23,14 +26,14 @@ services:
     container_name: fog-server
     restart: unless-stopped
     ports:
-      - "${FOG_APACHE_PORT:-80}:80"
-      - "${FOG_APACHE_SSL_PORT:-443}:443"
+      - "${FOG_APACHE_EXPOSED_PORT:-80}:${FOG_APACHE_PORT:-80}"
+      - "${FOG_APACHE_EXPOSED_SSL_PORT:-443}:${FOG_APACHE_SSL_PORT:-443}"
       - "69:69/udp"
       - "2049:2049"
       - "21:21"
     environment:
       # Database Configuration
-      FOG_DB_HOST: "database"
+      FOG_DB_HOST: "fog-db"
       FOG_DB_PORT: "3306"
       FOG_DB_NAME: "${FOG_DB_NAME:-fog}"
       FOG_DB_USER: "${FOG_DB_USER:-fogmaster}"
@@ -39,17 +42,13 @@ services:
       # Network Configuration
       FOG_WEB_HOST: "${FOG_WEB_HOST}"
       FOG_WEB_ROOT: "${FOG_WEB_ROOT:-/fog}"
-      FOG_TFTP_HOST: "${FOG_TFTP_HOST:-${FOG_WEB_HOST}}"
+      FOG_TFTP_HOST: "${FOG_TFTP_HOST:-localhost}"
       FOG_MULTICAST_INTERFACE: "${FOG_MULTICAST_INTERFACE:-eth0}"
       
       # Apache Configuration
-      FOG_APACHE_PORT: "80"
-      FOG_APACHE_SSL_PORT: "443"
+      FOG_APACHE_PORT: "${FOG_APACHE_PORT:-80}"
+      FOG_APACHE_SSL_PORT: "${FOG_APACHE_SSL_PORT:-443}"
       FOG_HTTPS_ENABLED: "${FOG_HTTPS_ENABLED:-false}"
-      
-      # Storage Configuration
-      FOG_STORAGE_LOCATION: "${FOG_STORAGE_LOCATION:-/images}"
-      FOG_STORAGE_CAPTURE: "${FOG_STORAGE_CAPTURE:-/images/dev}"
       
       # FTP Configuration
       FOG_FTP_USER: "${FOG_FTP_USER:-fogproject}"
@@ -94,22 +93,74 @@ services:
       DEBUG: "${DEBUG:-false}"
       FORCE_FIRST_START_INIT: "${FORCE_FIRST_START_INIT:-false}"
     volumes:
-      - "fog_data:/data:rw"
-      # Uncomment the following line to mount external SSL certificates
-      # - "/path/to/your/ssl/certificates:/opt/fog/snapins/ssl:ro"
+      # FOG Images (main storage - matches bare metal /images)
+      - "fog_images:/data/images:rw"
+      
+      # TFTP Boot files (matches bare metal /tftpboot)
+      - "fog_tftpboot:/data/tftpboot:rw"
+      
+      # FOG Snapins (matches bare metal /opt/fog/snapins)
+      - "fog_snapins:/data/snapins:rw"
+      
+      # FOG Logs (matches bare metal /opt/fog/log)
+      - "fog_logs:/data/logs:rw"
+      
+      # FOG Configuration (persistent config files)
+      - "fog_config:/data/config:rw"
+      
+      # SSL Certificates (matches bare metal /opt/fog/snapins/ssl)
+      - "fog_ssl:/data/ssl:rw"
+      
+      # Secure Boot files (if enabled)
+      - "fog_secure_boot:/data/secure-boot:rw"
+      
+      # Uncomment the following lines to mount external directories
+      # - "/path/to/your/images:/data/images:rw"
+      # - "/path/to/your/tftpboot:/data/tftpboot:rw"
+      # - "/path/to/your/snapins:/data/snapins:rw"
+      # - "/path/to/your/ssl/certificates:/data/ssl:ro"
     networks:
       - fog_network
     depends_on:
-      - database
+      fog-db:
+        condition: service_started
+        required: false
     privileged: true
     cap_add:
       - NET_ADMIN
       - SYS_ADMIN
 
 volumes:
-  fog_mysql:
+  # Internal database volume
+  fog_db:
     driver: local
-  fog_data:
+  
+  # FOG Images storage (main data directory)
+  fog_images:
+    driver: local
+  
+  # TFTP Boot files
+  fog_tftpboot:
+    driver: local
+  
+  # FOG Snapins
+  fog_snapins:
+    driver: local
+  
+  # FOG Logs
+  fog_logs:
+    driver: local
+  
+  # FOG Configuration
+  fog_config:
+    driver: local
+  
+  # SSL Certificates
+  fog_ssl:
+    driver: local
+  
+  # Secure Boot files
+  fog_secure_boot:
     driver: local
 
 networks:

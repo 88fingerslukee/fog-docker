@@ -26,10 +26,6 @@ FOG_APACHE_PORT="${FOG_APACHE_PORT:-80}"
 FOG_APACHE_SSL_PORT="${FOG_APACHE_SSL_PORT:-443}"
 FOG_HTTPS_ENABLED="${FOG_HTTPS_ENABLED:-false}"
 
-# Storage Configuration
-FOG_STORAGE_LOCATION="${FOG_STORAGE_LOCATION:-/images}"
-FOG_STORAGE_CAPTURE="${FOG_STORAGE_CAPTURE:-/images/dev}"
-
 # FTP Configuration
 FOG_FTP_USER="${FOG_FTP_USER:-fogproject}"
 FOG_FTP_PASS="${FOG_FTP_PASS:-fogftp123}"
@@ -134,31 +130,40 @@ setConfigurationValue() {
 
 prepareDirectories() {
     echo "Preparing directories and linking persistent data..."
-    mkdir -p "$DATA_DIR" \
-             "$DATA_DIR/database" \
-             "$DATA_DIR/images" \
-             "$DATA_DIR/snapins" \
-             "$DATA_DIR/logs" \
-             "$DATA_DIR/ssl" \
-             "$DATA_DIR/config" \
-             "$DATA_DIR/tftpboot"
     
-    # Link persistent data to application paths
-    rm -rf /opt/fog/snapins
-    ln -sfT "$DATA_DIR/snapins" /opt/fog/snapins
+    # Create directories that will be linked to volume mounts
+    mkdir -p /images /tftpboot /opt/fog/snapins /opt/fog/log /opt/fog/config /opt/fog/secure-boot
     
-    rm -rf /opt/fog/log
-    ln -sfT "$DATA_DIR/logs" /opt/fog/log
+    # Link volume mounts to application paths (these are mounted by docker-compose)
+    # Images directory (main storage)
+    rm -rf /images
+    ln -sfT /data/images /images
     
+    # TFTP boot files
     rm -rf /tftpboot
-    ln -sfT "$DATA_DIR/tftpboot" /tftpboot
+    ln -sfT /data/tftpboot /tftpboot
     
-    # Link SSL certificates
-    mkdir -p "$DATA_DIR/ssl"
-    ln -sfT "$DATA_DIR/ssl" "$FOG_SSL_PATH"
+    # FOG snapins
+    rm -rf /opt/fog/snapins
+    ln -sfT /data/snapins /opt/fog/snapins
+    
+    # FOG logs
+    rm -rf /opt/fog/log
+    ln -sfT /data/logs /opt/fog/log
+    
+    # FOG configuration
+    rm -rf /opt/fog/config
+    ln -sfT /data/config /opt/fog/config
+    
+    # SSL certificates (mounted to /opt/fog/snapins/ssl)
+    mkdir -p /opt/fog/snapins/ssl
+    
+    # Secure Boot files
+    rm -rf /opt/fog/secure-boot
+    ln -sfT /data/secure-boot /opt/fog/secure-boot
     
     # Set proper ownership
-    chown -R www-data:www-data "$DATA_DIR"
+    chown -R www-data:www-data /data
     chown -R www-data:www-data /var/www/html/fog
     
     echo "Directory preparation completed."
