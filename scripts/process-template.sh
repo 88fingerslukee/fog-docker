@@ -41,6 +41,8 @@ process_template() {
         "DB_USER"
         "DB_PASS"
         "FOG_TFTP_HOST"
+        "FOG_NFS_HOST"
+        "FOG_WOL_HOST"
         "FOG_MULTICAST_INTERFACE"
         "FOG_WEB_HOST"
         "FOG_WEB_ROOT"
