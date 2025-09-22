@@ -19,6 +19,8 @@ DB_PASS="${FOG_DB_PASS:-fogmaster123}"
 FOG_WEB_HOST="${FOG_WEB_HOST:-localhost}"
 FOG_WEB_ROOT="${FOG_WEB_ROOT:-/fog}"
 FOG_TFTP_HOST="${FOG_TFTP_HOST:-localhost}"
+FOG_NFS_HOST="${FOG_NFS_HOST:-localhost}"
+FOG_WOL_HOST="${FOG_WOL_HOST:-localhost}"
 FOG_MULTICAST_INTERFACE="${FOG_MULTICAST_INTERFACE:-eth0}"
 
 # Apache Configuration

@@ -80,7 +80,7 @@ class Config
         define('USE_SLOPPY_NAME_LOOKUPS', true);
         define('MEMTEST_KERNEL', 'memtest.bin');
         define('PXE_IMAGE', 'init.xz');
-        define('STORAGE_HOST', '{{FOG_WEB_HOST}}');
+        define('STORAGE_HOST', '{{FOG_NFS_HOST}}');
         define('STORAGE_FTP_USERNAME', '{{FOG_FTP_USER}}');
         define('STORAGE_FTP_PASSWORD', '{{FOG_FTP_PASS}}');
         define('STORAGE_DATADIR', '/images/');
@@ -89,7 +89,7 @@ class Config
         define('STORAGE_INTERFACE', '{{FOG_MULTICAST_INTERFACE}}');
         define('CAPTURERESIZEPCT', 7);
         define('WEB_HOST', '{{FOG_WEB_HOST}}');
-        define('WOL_HOST', '{{FOG_WEB_HOST}}');
+        define('WOL_HOST', '{{FOG_WOL_HOST}}');
         define('WOL_PATH', '{{FOG_WEB_ROOT}}/wol/wol.php');
         define('WOL_INTERFACE', '{{FOG_MULTICAST_INTERFACE}}');
         define('SNAPINDIR', '/opt/fog/snapins/');
