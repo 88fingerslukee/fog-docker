@@ -1,7 +1,28 @@
 #!/bin/bash
 
-# Enhanced FOG Secure Boot Setup Script
-# Includes comprehensive error handling and graceful degradation
+# FOG Docker Secure Boot Setup Script
+#
+# This script sets up Secure Boot functionality for FOG Docker containers.
+# It handles iPXE signing, MOK Manager setup, and provides graceful degradation
+# if Secure Boot components are not available or fail to initialize.
+#
+# Features:
+# - Signs iPXE binaries with MOK certificates
+# - Sets up MOK Manager for key enrollment
+# - Provides graceful degradation on failure
+# - Comprehensive error handling and logging
+# - USB-based MOK enrollment instructions
+#
+# Environment Variables:
+# - FOG_SECURE_BOOT_ENABLED: Enable/disable Secure Boot (default: false)
+# - FOG_SECURE_BOOT_KEYS_DIR: Directory for private keys (default: /opt/fog/secure-boot/keys)
+# - FOG_SECURE_BOOT_CERT_DIR: Directory for certificates (default: /opt/fog/secure-boot/certs)
+#
+# Usage: setup-secure-boot.sh
+#
+# Author: FOG Docker Project
+# License: GPL v3
+# Based on: FOG Project (https://github.com/FOGProject/fogproject)
 
 set -e
 

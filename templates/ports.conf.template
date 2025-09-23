@@ -1,0 +1,11 @@
+Listen {{FOG_APACHE_PORT}}
+
+{{#FOG_HTTPS_ENABLED}}
+<IfModule ssl_module>
+	Listen {{FOG_APACHE_SSL_PORT}}
+</IfModule>
+
+<IfModule mod_gnutls.c>
+	Listen {{FOG_APACHE_SSL_PORT}}
+</IfModule>
+{{/FOG_HTTPS_ENABLED}}

@@ -1,7 +1,22 @@
 #!/bin/bash
 
-# Enhanced template processing script
-# Handles special characters, conditionals, and validation
+# FOG Docker Template Processing Script
+# 
+# This script processes configuration templates for FOG Docker containers,
+# handling special characters, conditional blocks, and placeholder replacement.
+# It ensures consistent configuration generation across all FOG services.
+#
+# Features:
+# - Handles conditional blocks ({{#VAR}}...{{/VAR}})
+# - Escapes special characters for safe sed replacement
+# - Validates all placeholders are processed
+# - Supports comprehensive variable replacement
+#
+# Usage: process-template.sh <template_file> <output_file>
+#
+# Author: FOG Docker Project
+# License: GPL v3
+# Based on: FOG Project (https://github.com/FOGProject/fogproject)
 
 set -e
 

@@ -14,8 +14,6 @@ services:
     networks:
       - fog_network
     command: --default-authentication-plugin=mysql_native_password
-    profiles:
-      - internal-db
 
   fog-server:
     build:
@@ -55,10 +53,6 @@ services:
       # FTP Configuration
       FOG_FTP_USER: "${FOG_FTP_USER:-fogproject}"
       FOG_FTP_PASS: "${FOG_FTP_PASS:-fogftp123}"
-      
-      # Admin Configuration
-      FOG_ADMIN_USER: "${FOG_ADMIN_USER:-fog}"
-      FOG_ADMIN_PASS: "${FOG_ADMIN_PASS:-password}"
       
       # SSL Configuration
       FOG_SSL_PATH: "/opt/fog/snapins/ssl"
@@ -124,9 +118,7 @@ services:
     networks:
       - fog_network
     depends_on:
-      fog-db:
-        condition: service_started
-        required: false
+      - fog-db
     privileged: true
     cap_add:
       - NET_ADMIN

@@ -1,7 +1,26 @@
 #!/bin/bash
 
-# Enhanced FOG Secure Boot Key Generation Script
-# Includes comprehensive error handling and validation
+# FOG Docker Secure Boot Key Generation Script
+#
+# This script generates the necessary keys and certificates for FOG Secure Boot
+# functionality. It creates a Machine Owner Key (MOK) and associated certificates
+# for signing iPXE binaries and bootloaders.
+#
+# Features:
+# - Generates MOK private key and certificate
+# - Creates ESP (EFI System Partition) certificate
+# - Validates key generation with comprehensive error handling
+# - Supports custom key directories via environment variables
+#
+# Environment Variables:
+# - FOG_SECURE_BOOT_KEYS_DIR: Directory for private keys (default: /opt/fog/secure-boot/keys)
+# - FOG_SECURE_BOOT_CERT_DIR: Directory for certificates (default: /opt/fog/secure-boot/certs)
+#
+# Usage: generate-keys.sh
+#
+# Author: FOG Docker Project
+# License: GPL v3
+# Based on: FOG Project (https://github.com/FOGProject/fogproject)
 
 set -e
 

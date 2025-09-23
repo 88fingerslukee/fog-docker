@@ -32,10 +32,6 @@ FOG_HTTPS_ENABLED="${FOG_HTTPS_ENABLED:-false}"
 FOG_FTP_USER="${FOG_FTP_USER:-fogproject}"
 FOG_FTP_PASS="${FOG_FTP_PASS:-fogftp123}"
 
-# Admin Configuration
-FOG_ADMIN_USER="${FOG_ADMIN_USER:-fog}"
-FOG_ADMIN_PASS="${FOG_ADMIN_PASS:-password}"
-
 # SSL Configuration
 FOG_SSL_PATH="${FOG_SSL_PATH:-/opt/fog/snapins/ssl}"
 FOG_SSL_CERT_FILE="${FOG_SSL_CERT_FILE:-server.crt}"
@@ -73,7 +69,7 @@ FORCE_FIRST_START_INIT="${FORCE_FIRST_START_INIT:-false}"
 # Configuration file paths
 FOG_CONFIG_FILE="/var/www/html/fog/lib/fog/config.class.php"
 APACHE_CONFIG_FILE="/etc/apache2/sites-available/fog.conf"
-TFTP_CONFIG_FILE="/etc/tftpd-hpa/tftpd-hpa.conf"
+TFTP_CONFIG_FILE="/etc/default/tftpd-hpa"
 NFS_CONFIG_FILE="/etc/exports"
 FTP_CONFIG_FILE="/etc/vsftpd.conf"
 DHCP_CONFIG_FILE="/etc/dhcp/dhcpd.conf"
@@ -174,7 +170,7 @@ prepareDirectories() {
 waitingForDatabase() {
     local TIMEOUT=60
     echo "Waiting for database server to allow connections..."
-    while ! mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" -p"$DB_PASS" -e "SELECT 1" >/dev/null 2>&1; do
+    while ! mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" -p"$DB_PASS" --ssl=0 -e "SELECT 1" >/dev/null 2>&1; do
         if ! ((TIMEOUT--)); then
             echo "Could not connect to database server. Exiting."
             exit 1
@@ -187,6 +183,21 @@ waitingForDatabase() {
 
 configureFOGConfig() {
     echo "Configuring FOG configuration file..."
+    
+    # Ensure FOG web files are available
+    if [ ! -d "/var/www/html/fog" ] || [ ! -f "/var/www/html/fog/index.php" ]; then
+        echo "FOG web files not found, copying from source..."
+        if [ -d "/opt/fog/fogproject/packages/web" ]; then
+            cp -r /opt/fog/fogproject/packages/web/* /var/www/html/fog/
+            chown -R www-data:www-data /var/www/html/fog
+        else
+            echo "Error: FOG web source not found at /opt/fog/fogproject/packages/web"
+            exit 1
+        fi
+    fi
+    
+    # Ensure the directory exists
+    mkdir -p "$(dirname "$FOG_CONFIG_FILE")"
     
     # Start with template
     cp /opt/fog/templates/config.class.php.template "$FOG_CONFIG_FILE"
@@ -207,22 +218,24 @@ configureFOGConfig() {
     sed -i "s|{{FOG_FTP_PASS}}|$FOG_FTP_PASS|g" "$FOG_CONFIG_FILE"
     
     chown www-data:www-data "$FOG_CONFIG_FILE"
+    
+    # Create FOG service config file (required by FOG services)
+    echo "Creating FOG service configuration..."
+    mkdir -p /opt/fog/service/etc
+    echo "<?php define('WEBROOT','/var/www/html/fog/');" > /opt/fog/service/etc/config.php
+    chown -R www-data:www-data /opt/fog/service/etc
+    
     echo "FOG configuration completed."
 }
 
 configureApache() {
     echo "Configuring Apache..."
     
-    # Start with template
-    cp /opt/fog/templates/apache-fog.conf.template "$APACHE_CONFIG_FILE"
+    # Generate ports.conf from template (idempotent)
+    /opt/fog/scripts/process-template.sh /opt/fog/templates/ports.conf.template /etc/apache2/ports.conf
     
-    # Replace placeholders
-    sed -i "s|{{FOG_WEB_HOST}}|$FOG_WEB_HOST|g" "$APACHE_CONFIG_FILE"
-    sed -i "s|{{FOG_WEB_ROOT}}|$FOG_WEB_ROOT|g" "$APACHE_CONFIG_FILE"
-    sed -i "s|{{FOG_APACHE_PORT}}|$FOG_APACHE_PORT|g" "$APACHE_CONFIG_FILE"
-    sed -i "s|{{FOG_APACHE_SSL_PORT}}|$FOG_APACHE_SSL_PORT|g" "$APACHE_CONFIG_FILE"
-    sed -i "s|{{FOG_HTTPS_ENABLED}}|$FOG_HTTPS_ENABLED|g" "$APACHE_CONFIG_FILE"
-    sed -i "s|{{FOG_SSL_PATH}}|$FOG_SSL_PATH|g" "$APACHE_CONFIG_FILE"
+    # Generate site config from template
+    /opt/fog/scripts/process-template.sh /opt/fog/templates/apache-fog.conf.template "$APACHE_CONFIG_FILE"
     
     # Enable the site
     a2ensite fog
@@ -321,11 +334,8 @@ EOF
 configureTFTP() {
     echo "Configuring TFTP server..."
     
-    # Start with template
-    cp /opt/fog/templates/tftpd-hpa.conf.template "$TFTP_CONFIG_FILE"
-    
-    # Replace placeholders
-    sed -i "s|{{FOG_TFTP_HOST}}|$FOG_TFTP_HOST|g" "$TFTP_CONFIG_FILE"
+    # Generate tftpd-hpa config from template
+    /opt/fog/scripts/process-template.sh /opt/fog/templates/tftpd-hpa.conf.template "$TFTP_CONFIG_FILE"
     
     echo "TFTP configuration completed."
 }
@@ -333,12 +343,11 @@ configureTFTP() {
 configureNFS() {
     echo "Configuring NFS exports..."
     
-    # Start with template
-    cp /opt/fog/templates/exports.template "$NFS_CONFIG_FILE"
+    # Ensure the directory exists
+    mkdir -p "$(dirname "$NFS_CONFIG_FILE")"
     
-    # Replace placeholders
-    sed -i "s|{{FOG_STORAGE_LOCATION}}|$FOG_STORAGE_LOCATION|g" "$NFS_CONFIG_FILE"
-    sed -i "s|{{FOG_STORAGE_CAPTURE}}|$FOG_STORAGE_CAPTURE|g" "$NFS_CONFIG_FILE"
+    # Generate exports from template
+    /opt/fog/scripts/process-template.sh /opt/fog/templates/exports.template "$NFS_CONFIG_FILE"
     
     echo "NFS configuration completed."
 }
@@ -346,11 +355,8 @@ configureNFS() {
 configureFTP() {
     echo "Configuring FTP server..."
     
-    # Start with template
-    cp /opt/fog/templates/vsftpd.conf.template "$FTP_CONFIG_FILE"
-    
-    # Replace placeholders
-    sed -i "s|{{FOG_FTP_USER}}|$FOG_FTP_USER|g" "$FTP_CONFIG_FILE"
+    # Generate vsftpd config from template
+    /opt/fog/scripts/process-template.sh /opt/fog/templates/vsftpd.conf.template "$FTP_CONFIG_FILE"
     
     # Create FTP user if it doesn't exist
     if ! id "$FOG_FTP_USER" &>/dev/null; then
@@ -371,15 +377,8 @@ configureDHCP() {
     if [ "$FOG_DHCP_ENABLED" = "true" ]; then
         echo "Configuring DHCP server..."
         
-        # Start with template
-        cp /opt/fog/templates/dhcpd.conf.template "$DHCP_CONFIG_FILE"
-        
-        # Replace placeholders
-        sed -i "s|{{FOG_DHCP_START_RANGE}}|$FOG_DHCP_START_RANGE|g" "$DHCP_CONFIG_FILE"
-        sed -i "s|{{FOG_DHCP_END_RANGE}}|$FOG_DHCP_END_RANGE|g" "$DHCP_CONFIG_FILE"
-        sed -i "s|{{FOG_DHCP_BOOTFILE}}|$FOG_DHCP_BOOTFILE|g" "$DHCP_CONFIG_FILE"
-        sed -i "s|{{FOG_DHCP_DNS}}|$FOG_DHCP_DNS|g" "$DHCP_CONFIG_FILE"
-        sed -i "s|{{FOG_TFTP_HOST}}|$FOG_TFTP_HOST|g" "$DHCP_CONFIG_FILE"
+        # Generate dhcpd.conf from template
+        /opt/fog/scripts/process-template.sh /opt/fog/templates/dhcpd.conf.template "$DHCP_CONFIG_FILE"
         
         echo "DHCP configuration completed."
     else
@@ -405,15 +404,13 @@ configureiPXE() {
                 echo "✓ iPXE recompilation completed successfully."
                 
                 # Copy the newly built iPXE files to TFTP directory
-                if [ -d "/tmp/ipxe/src/bin" ]; then
-                    echo "Copying newly built iPXE files to TFTP directory..."
-                    cp /tmp/ipxe/src/bin/*.pxe /tftpboot/ 2>/dev/null || true
-                    cp /tmp/ipxe/src/bin/*.efi /tftpboot/ 2>/dev/null || true
-                    cp /tmp/ipxe/src/bin/*.lkrn /tftpboot/ 2>/dev/null || true
-                    cp /tmp/ipxe/src/bin/*.iso /tftpboot/ 2>/dev/null || true
-                    cp /tmp/ipxe/src/bin/*.usb /tftpboot/ 2>/dev/null || true
-                    chown -R www-data:www-data /tftpboot
-                fi
+                echo "Copying newly built iPXE files to TFTP directory..."
+                cp /opt/fog/packages/tftp/*.pxe /tftpboot/ 2>/dev/null || true
+                cp /opt/fog/packages/tftp/*.efi /tftpboot/ 2>/dev/null || true
+                cp /opt/fog/packages/tftp/*.lkrn /tftpboot/ 2>/dev/null || true
+                cp /opt/fog/packages/tftp/*.iso /tftpboot/ 2>/dev/null || true
+                cp /opt/fog/packages/tftp/*.usb /tftpboot/ 2>/dev/null || true
+                chown -R www-data:www-data /tftpboot
             else
                 echo "Warning: iPXE recompilation failed, using pre-built binaries."
                 echo "This may cause SSL certificate trust issues with self-signed certificates."
@@ -424,6 +421,16 @@ configureiPXE() {
         fi
     else
         echo "iPXE recompilation not needed (HTTP or external certificates)."
+        # Ensure pre-built iPXE files are available in TFTP directory
+        if [ ! -f "/tftpboot/ipxe.pxe" ]; then
+            echo "Copying pre-built iPXE files to TFTP directory..."
+            cp /opt/fog/packages/tftp/*.pxe /tftpboot/ 2>/dev/null || true
+            cp /opt/fog/packages/tftp/*.efi /tftpboot/ 2>/dev/null || true
+            cp /opt/fog/packages/tftp/*.lkrn /tftpboot/ 2>/dev/null || true
+            cp /opt/fog/packages/tftp/*.iso /tftpboot/ 2>/dev/null || true
+            cp /opt/fog/packages/tftp/*.usb /tftpboot/ 2>/dev/null || true
+            chown -R www-data:www-data /tftpboot
+        fi
     fi
 }
 
@@ -517,11 +524,8 @@ fogFirstStartInit() {
         return 0
     fi
     
-    # Create admin user in database
-    echo "Creating FOG admin user..."
-    mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" -p"$DB_PASS" -D"$DB_NAME" << EOF
-INSERT IGNORE INTO users (uName, uPass, uDesc, uCreatedBy, uCreatedTime) VALUES ('$FOG_ADMIN_USER', MD5('$FOG_ADMIN_PASS'), 'FOG Administrator', 'System', NOW());
-EOF
+    echo "FOG will be initialized through the web interface."
+    echo "Please visit http://localhost/fog to complete the initial setup."
     
     touch "$DATA_DIR/.fog-initiated"
     echo "FOG first start initialization completed."
@@ -530,8 +534,9 @@ EOF
 configureSupervisor() {
     echo "Configuring supervisor services..."
     
-    # Create dynamic supervisord configuration based on environment
+    # Copy the supervisor template to the config directory
     local supervisor_config="/etc/supervisor/conf.d/supervisord.conf"
+    cp /opt/fog/templates/supervisord.conf "$supervisor_config"
     
     # If DHCP is disabled, remove the DHCP service from supervisord config
     if [ "$FOG_DHCP_ENABLED" != "true" ]; then
@@ -576,6 +581,10 @@ appRun() {
     echo "=== Begin Run Phase ==="
     echo "Starting FOG using supervisor with \"/etc/supervisor/conf.d/supervisord.conf\" config..."
     echo ""
+    
+    # Clean up any stale PID files before starting services
+    echo "Cleaning up stale PID files..."
+    rm -f /var/run/apache2/apache2.pid
     
     # Set timezone for all processes
     export TZ="${TZ:-UTC}"

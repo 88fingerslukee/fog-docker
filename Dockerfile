@@ -64,20 +64,6 @@ RUN git clone "$FOG_GIT_URL" fogproject && \
 
 WORKDIR /home/fog/fogproject
 
-# Build iPXE with Secure Boot support
-RUN cd /home/fog/fogproject && \
-    if [ -d "src/ipxe" ]; then \
-        cd src/ipxe && \
-        # Enable Secure Boot support by adding SHIM_CMD define
-        sed -i '/^#define.*SHIM_CMD/d' config/general.h && \
-        echo '#define SHIM_CMD		/* EFI shim command (or dummy command) */' >> config/general.h && \
-        # Build iPXE with EFI support
-        make bin-x86_64-efi/ipxe.efi && \
-        echo "iPXE built successfully"; \
-    else \
-        echo "iPXE source not found, skipping build"; \
-    fi
-
 # Create FOG installation tarball
 RUN cd /home/fog && \
     tar -czf /tmp/fog-installation.tar.gz fogproject/ && \
@@ -109,13 +95,15 @@ RUN apt-get -q update && \
         php-bcmath \
         libapache2-mod-php \
         # Database
-        mysql-client \
+        mariadb-client \
         # Network services
         tftpd-hpa \
         tftp-hpa \
         nfs-kernel-server \
         vsftpd \
         isc-dhcp-server \
+        iproute2 \
+        net-tools \
         # System utilities
         curl \
         wget \
@@ -193,24 +181,43 @@ RUN cd /opt && \
     rm -f /tmp/fog-installation.tar.gz && \
     mv fogproject fog
 
-# Copy iPXE binary if it was built
-COPY --from=fog-builder /home/fog/fogproject/src/ipxe/bin-x86_64-efi/ipxe.efi /tftpboot/ 2>/dev/null || echo "iPXE binary not found, will be built at runtime"
-
 # Copy shim and MOK manager from Debian packages
 RUN cp /usr/lib/shim/shimx64.efi /opt/fog/secure-boot/shim/shimx64.efi && \
     cp /usr/lib/shim/mmx64.efi /opt/fog/secure-boot/shim/mmx64.efi
 
 # Copy FOG web files
-RUN cp -r /opt/fog/packages/web/* /var/www/html/fog/ && \
-    chown -R www-data:www-data /var/www/html/fog
+RUN if [ -d "/opt/fog/fogproject/packages/web" ]; then \
+        cp -r /opt/fog/fogproject/packages/web/* /var/www/html/fog/ && \
+        chown -R www-data:www-data /var/www/html/fog; \
+    else \
+        echo "Warning: FOG web directory not found"; \
+    fi
 
 # Copy TFTP files
-RUN cp -r /opt/fog/packages/tftp/* /tftpboot/ && \
-    chown -R www-data:www-data /tftpboot
+RUN if [ -d "/opt/fog/fogproject/packages/tftp" ]; then \
+        cp -r /opt/fog/fogproject/packages/tftp/* /tftpboot/ && \
+        chown -R www-data:www-data /tftpboot; \
+    else \
+        echo "Warning: FOG TFTP directory not found"; \
+    fi
 
 # Copy snapins
-RUN cp -r /opt/fog/packages/snapins/* /opt/fog/snapins/ && \
-    chown -R www-data:www-data /opt/fog/snapins
+RUN if [ -d "/opt/fog/fogproject/packages/snapins" ]; then \
+        cp -r /opt/fog/fogproject/packages/snapins/* /opt/fog/snapins/ && \
+        chown -R www-data:www-data /opt/fog/snapins; \
+    else \
+        echo "Warning: FOG snapins directory not found"; \
+    fi
+
+# Copy FOG service files to expected location
+RUN if [ -d "/opt/fog/fogproject/packages/service" ]; then \
+        cp -r /opt/fog/fogproject/packages/service/* /opt/fog/service/ && \
+        chown -R www-data:www-data /opt/fog/service && \
+        chmod +x /opt/fog/service/*/*; \
+    else \
+        echo "Warning: FOG service directory not found"; \
+    fi
+
 
 # Set up Apache modules
 RUN a2enmod rewrite headers ssl && \
