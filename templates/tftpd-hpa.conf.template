@@ -1,8 +1,6 @@
 # /etc/default/tftpd-hpa
 
-TFTP_USERNAME="tftp"
+TFTP_USERNAME="root"
 TFTP_DIRECTORY="/tftpboot"
-TFTP_ADDRESS="{{FOG_TFTP_HOST}}:69"
-TFTP_OPTIONS="--secure --create"
-RUN_DAEMON="yes"
-OPTIONS="-l -s /tftpboot"
+TFTP_ADDRESS="0.0.0.0:69"
+TFTP_OPTIONS="-s -L"

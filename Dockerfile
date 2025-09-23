@@ -229,9 +229,6 @@ RUN ln -sf /var/www/html/fog /var/www/html/fog/fog
 # Copy configuration templates
 COPY templates/ /opt/fog/templates/
 
-# Copy supervisord configuration
-COPY templates/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
-
 # Copy entrypoint and scripts
 COPY entrypoint.sh /sbin/entrypoint.sh
 COPY scripts/ /opt/fog/scripts/
@@ -251,6 +248,26 @@ RUN rm -f /etc/apache2/sites-available/*.conf \
           /etc/tftpd-hpa/tftpd-hpa.conf \
           /etc/exports \
           /etc/dhcp/dhcpd.conf
+
+# Download FOG kernel files (bzImage, init.xz, etc.)
+RUN mkdir -p /tmp/fog-kernels && \
+    cd /tmp/fog-kernels && \
+    # Download kernel files from FOG releases
+    curl -L -o bzImage https://github.com/FOGProject/fos/releases/latest/download/bzImage && \
+    curl -L -o bzImage32 https://github.com/FOGProject/fos/releases/latest/download/bzImage32 && \
+    curl -L -o init.xz https://github.com/FOGProject/fos/releases/latest/download/init.xz && \
+    curl -L -o init_32.xz https://github.com/FOGProject/fos/releases/latest/download/init_32.xz && \
+    curl -L -o arm_Image https://github.com/FOGProject/fos/releases/latest/download/arm_Image && \
+    curl -L -o arm_init.cpio.gz https://github.com/FOGProject/fos/releases/latest/download/arm_init.cpio.gz && \
+    # Copy kernel files to the correct location
+    cp bzImage bzImage32 init.xz init_32.xz arm_Image arm_init.cpio.gz /var/www/html/fog/service/ipxe/ && \
+    chown www-data:www-data /var/www/html/fog/service/ipxe/bzImage* /var/www/html/fog/service/ipxe/init* /var/www/html/fog/service/ipxe/arm_* && \
+    rm -rf /tmp/fog-kernels
+
+# Copy iPXE files to TFTP directory
+RUN mkdir -p /data/tftpboot && \
+    cp -r /opt/fog/fogproject/packages/tftp/* /data/tftpboot/ && \
+    chown -R www-data:www-data /data/tftpboot
 
 # Create volume mount points
 VOLUME ["$DATA_DIR"]

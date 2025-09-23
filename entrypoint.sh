@@ -26,7 +26,8 @@ FOG_MULTICAST_INTERFACE="${FOG_MULTICAST_INTERFACE:-eth0}"
 # Apache Configuration
 FOG_APACHE_PORT="${FOG_APACHE_PORT:-80}"
 FOG_APACHE_SSL_PORT="${FOG_APACHE_SSL_PORT:-443}"
-FOG_HTTPS_ENABLED="${FOG_HTTPS_ENABLED:-false}"
+FOG_HTTPS_ENABLED="${FOG_HTTPS_ENABLED:-true}"
+FOG_HTTP_PROTOCOL="${FOG_HTTP_PROTOCOL:-https}"
 
 # FTP Configuration
 FOG_FTP_USER="${FOG_FTP_USER:-fogproject}"
@@ -337,6 +338,9 @@ configureTFTP() {
     # Generate tftpd-hpa config from template
     /opt/fog/scripts/process-template.sh /opt/fog/templates/tftpd-hpa.conf.template "$TFTP_CONFIG_FILE"
     
+    # Create default.ipxe file from template
+    /opt/fog/scripts/process-template.sh /opt/fog/templates/default.ipxe.template "/tftpboot/default.ipxe"
+    
     echo "TFTP configuration completed."
 }
 
@@ -534,9 +538,9 @@ fogFirstStartInit() {
 configureSupervisor() {
     echo "Configuring supervisor services..."
     
-    # Copy the supervisor template to the config directory
+    # Process the supervisor template to the config directory
     local supervisor_config="/etc/supervisor/conf.d/supervisord.conf"
-    cp /opt/fog/templates/supervisord.conf "$supervisor_config"
+    /opt/fog/scripts/process-template.sh /opt/fog/templates/supervisord.conf.template "$supervisor_config"
     
     # If DHCP is disabled, remove the DHCP service from supervisord config
     if [ "$FOG_DHCP_ENABLED" != "true" ]; then

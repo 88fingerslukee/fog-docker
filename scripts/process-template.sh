@@ -55,6 +55,7 @@ process_template() {
         "DB_NAME"
         "DB_USER"
         "DB_PASS"
+        "TZ"
         "FOG_TFTP_HOST"
         "FOG_NFS_HOST"
         "FOG_WOL_HOST"
@@ -64,6 +65,7 @@ process_template() {
         "FOG_APACHE_PORT"
         "FOG_APACHE_SSL_PORT"
         "FOG_HTTPS_ENABLED"
+        "FOG_HTTP_PROTOCOL"
         "FOG_SSL_PATH"
         "FOG_SSL_CERT_FILE"
         "FOG_SSL_KEY_FILE"
@@ -78,8 +80,10 @@ process_template() {
     )
     
     for placeholder in "${placeholders[@]}"; do
-        local var_name="FOG_${placeholder#FOG_}"  # Handle both FOG_* and non-FOG_* variables
+        local var_name="$placeholder"  # Use the placeholder name directly
         if [[ "$placeholder" =~ ^(DB_|FOG_) ]]; then
+            var_name="$placeholder"
+        elif [[ "$placeholder" =~ ^(TZ)$ ]]; then
             var_name="$placeholder"
         fi
         

@@ -1,0 +1,16 @@
+#!ipxe
+set arch ${buildarch}
+iseq ${arch} i386 && cpuid --ext 29 && set arch x86_64 ||
+params
+param mac0 ${net0/mac}
+param arch ${arch}
+param platform ${platform}
+param product ${product}
+param manufacturer ${product}
+param ipxever ${version}
+param filename ${filename}
+param sysuuid ${uuid}
+isset ${net1/mac} && param mac1 ${net1/mac} || goto bootme
+isset ${net2/mac} && param mac2 ${net2/mac} || goto bootme
+:bootme
+chain {{FOG_HTTP_PROTOCOL}}://{{FOG_WEB_HOST}}{{FOG_WEB_ROOT}}/service/ipxe/boot.php##params
