@@ -79,9 +79,6 @@ services:
       # FOG Version
       FOG_VERSION: "${FOG_VERSION:-stable}"
       
-      # Data Directory
-      FOG_DATA_DIR: "${FOG_DATA_DIR:-/data}"
-      
       # Timezone
       TZ: "${TZ:-UTC}"
       
@@ -90,31 +87,31 @@ services:
       FORCE_FIRST_START_INIT: "${FORCE_FIRST_START_INIT:-false}"
     volumes:
       # FOG Images (main storage - matches bare metal /images)
-      - "fog_images:/data/images:rw"
+      - "fog_images:/images:rw"
       
       # TFTP Boot files (matches bare metal /tftpboot)
-      - "fog_tftpboot:/data/tftpboot:rw"
+      - "fog_tftpboot:/tftpboot:rw"
       
       # FOG Snapins (matches bare metal /opt/fog/snapins)
-      - "fog_snapins:/data/snapins:rw"
+      - "fog_snapins:/opt/fog/snapins:rw"
       
       # FOG Logs (matches bare metal /opt/fog/log)
-      - "fog_logs:/data/logs:rw"
+      - "fog_logs:/opt/fog/log:rw"
       
       # FOG Configuration (persistent config files)
-      - "fog_config:/data/config:rw"
+      - "fog_config:/opt/fog/config:rw"
       
-      # SSL Certificates (matches bare metal /opt/fog/snapins/ssl)
-      - "fog_ssl:/data/ssl:rw"
+      # SSL Certificates (matches bare metal /opt/fog/ssl)
+      - "fog_ssl:/opt/fog/ssl:rw"
       
       # Secure Boot files (if enabled)
-      - "fog_secure_boot:/data/secure-boot:rw"
+      - "fog_secure_boot:/opt/fog/secure-boot:rw"
       
       # Uncomment the following lines to mount external directories
-      # - "/path/to/your/images:/data/images:rw"
-      # - "/path/to/your/tftpboot:/data/tftpboot:rw"
-      # - "/path/to/your/snapins:/data/snapins:rw"
-      # - "/path/to/your/ssl/certificates:/data/ssl:ro"
+      # - "/path/to/your/images:/images:rw"
+      # - "/path/to/your/tftpboot:/tftpboot:rw"
+      # - "/path/to/your/snapins:/opt/fog/snapins:rw"
+      # - "/path/to/your/ssl/certificates:/opt/fog/ssl:ro"
     networks:
       - fog_network
     depends_on:

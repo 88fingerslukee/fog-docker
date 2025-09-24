@@ -20,7 +20,7 @@ chmod_enable=YES
 seccomp_sandbox=NO
 
 # Logging
-xferlog_file=/data/logs/vsftpd_xfer.log
+xferlog_file=/opt/fog/log/vsftpd_xfer.log
 log_ftp_protocol=YES
 
 # FTP User Configuration

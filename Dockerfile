@@ -72,7 +72,6 @@ RUN cd /home/fog && \
 # Stage 2: Production image
 FROM debian:13
 
-ENV DATA_DIR="/data"
 ENV FOG_VERSION="stable"
 
 # Install all FOG dependencies
@@ -165,14 +164,13 @@ RUN mkdir -p /var/www/html/fog \
              /opt/fog/secure-boot/keys \
              /opt/fog/secure-boot/scripts \
              /opt/fog/secure-boot/shim \
-             "$DATA_DIR" \
-             "$DATA_DIR/database" \
-             "$DATA_DIR/images" \
-             "$DATA_DIR/snapins" \
-             "$DATA_DIR/logs" \
-             "$DATA_DIR/ssl" \
-             "$DATA_DIR/config" \
-             "$DATA_DIR/tftpboot"
+             "/images" \
+             "/tftpboot" \
+             "/opt/fog/snapins" \
+             "/opt/fog/log" \
+             "/opt/fog/ssl" \
+             "/opt/fog/config" \
+             "/opt/fog/secure-boot"
 
 # Copy FOG installation from builder stage
 COPY --from=fog-builder /tmp/fog-installation.tar.gz /tmp/
@@ -265,12 +263,12 @@ RUN mkdir -p /tmp/fog-kernels && \
     rm -rf /tmp/fog-kernels
 
 # Copy iPXE files to TFTP directory
-RUN mkdir -p /data/tftpboot && \
-    cp -r /opt/fog/fogproject/packages/tftp/* /data/tftpboot/ && \
-    chown -R www-data:www-data /data/tftpboot
+RUN mkdir -p /tftpboot && \
+    cp -r /opt/fog/fogproject/packages/tftp/* /tftpboot/ && \
+    chown -R www-data:www-data /tftpboot
 
 # Create volume mount points
-VOLUME ["$DATA_DIR"]
+VOLUME ["/images", "/tftpboot", "/opt/fog/snapins", "/opt/fog/log", "/opt/fog/ssl", "/opt/fog/config", "/opt/fog/secure-boot"]
 EXPOSE 80 443 69 2049 21
 
 ENTRYPOINT ["/sbin/entrypoint.sh"]

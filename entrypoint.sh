@@ -58,9 +58,6 @@ FOG_DHCP_DNS="${FOG_DHCP_DNS:-8.8.8.8}"
 # FOG Version
 FOG_VERSION="${FOG_VERSION:-stable}"
 
-# Data Directory (persistent volume mount point)
-DATA_DIR="${FOG_DATA_DIR:-/data}"
-
 # Timezone Configuration
 TZ="${TZ:-UTC}"
 
@@ -129,40 +126,14 @@ setConfigurationValue() {
 
 prepareDirectories() {
     echo "Preparing directories and linking persistent data..."
-    
-    # Create directories that will be linked to volume mounts
-    mkdir -p /images /tftpboot /opt/fog/snapins /opt/fog/log /opt/fog/config /opt/fog/secure-boot
-    
-    # Link volume mounts to application paths (these are mounted by docker-compose)
-    # Images directory (main storage)
-    rm -rf /images
-    ln -sfT /data/images /images
-    
-    # TFTP boot files
-    rm -rf /tftpboot
-    ln -sfT /data/tftpboot /tftpboot
-    
-    # FOG snapins
-    rm -rf /opt/fog/snapins
-    ln -sfT /data/snapins /opt/fog/snapins
-    
-    # FOG logs
-    rm -rf /opt/fog/log
-    ln -sfT /data/logs /opt/fog/log
-    
-    # FOG configuration
-    rm -rf /opt/fog/config
-    ln -sfT /data/config /opt/fog/config
-    
+      
     # SSL certificates (mounted to /opt/fog/snapins/ssl)
     mkdir -p /opt/fog/snapins/ssl
     
     # Secure Boot files
-    rm -rf /opt/fog/secure-boot
-    ln -sfT /data/secure-boot /opt/fog/secure-boot
+    mkdir -p /opt/fog/secure-boot
     
     # Set proper ownership
-    chown -R www-data:www-data /data
     chown -R www-data:www-data /var/www/html/fog
     
     echo "Directory preparation completed."
@@ -523,7 +494,7 @@ checkSecureBootRequirements() {
 
 fogFirstStartInit() {
     echo "Executing FOG first start initialization..."
-    if [ -e "$DATA_DIR/.fog-initiated" ] && [ "$FORCE_FIRST_START_INIT" != "True" ] && [ "$FORCE_FIRST_START_INIT" != "true" ]; then
+    if [ -e "/opt/fog/config/.fog-initiated" ] && [ "$FORCE_FIRST_START_INIT" != "True" ] && [ "$FORCE_FIRST_START_INIT" != "true" ]; then
         echo "First Start Init not needed. Continuing."
         return 0
     fi
@@ -531,7 +502,7 @@ fogFirstStartInit() {
     echo "FOG will be initialized through the web interface."
     echo "Please visit http://localhost/fog to complete the initial setup."
     
-    touch "$DATA_DIR/.fog-initiated"
+    touch "/opt/fog/config/.fog-initiated"
     echo "FOG first start initialization completed."
 }
 
