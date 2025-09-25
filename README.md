@@ -8,6 +8,38 @@ A Docker containerization of the FOG Project - an open-source computer cloning a
 
 ### Production Setup (Recommended)
 
+**Option 1: Quick Setup (Recommended)**
+1. **Create a directory and download the required files:**
+   ```bash
+   mkdir fog-docker && cd fog-docker
+   curl -O https://raw.githubusercontent.com/88fingerslukee/fog-docker/main/docker-compose.yml
+   curl -O https://raw.githubusercontent.com/88fingerslukee/fog-docker/main/.env.example
+   cp .env.example .env
+   # Edit .env with your settings (see Configuration section below)
+   ```
+
+2. **Start FOG:**
+   ```bash
+   docker compose up -d
+   ```
+
+3. **Access FOG:**
+   - Web Interface: `http://your-server-ip/fog`
+   - Default login: `fog` / `password`
+
+**Option 2: Full Repository Clone**
+```bash
+git clone https://github.com/88fingerslukee/fog-docker.git
+cd fog-docker
+cp .env.example .env
+# Edit .env with your settings
+docker compose up -d
+```
+
+### Development Setup
+
+For development, testing, or custom FOG versions:
+
 1. **Clone the repository:**
    ```bash
    git clone https://github.com/88fingerslukee/fog-docker.git
@@ -17,29 +49,10 @@ A Docker containerization of the FOG Project - an open-source computer cloning a
 2. **Configure your environment:**
    ```bash
    cp .env.example .env
-   # Edit .env with your settings (see Configuration section below)
+   # Edit .env to set your variables, including FOG_VERSION for specific versions
    ```
 
-3. **Start FOG:**
-   ```bash
-   docker compose up -d
-   ```
-
-4. **Access FOG:**
-   - Web Interface: `http://your-server-ip/fog`
-   - Default login: `fog` / `password`
-
-### Development Setup
-
-For development, testing, or custom FOG versions:
-
-1. **Configure your environment:**
-   ```bash
-   cp .env.example .env
-   # Edit .env to set your variables, including FOG_GIT_REF for specific versions
-   ```
-
-2. **Build and start the containers:**
+3. **Build and start the containers:**
    ```bash
    docker compose -f docker-compose-dev.yml up -d --build
    ```
