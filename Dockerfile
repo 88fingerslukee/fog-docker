@@ -78,6 +78,8 @@ ENV FOG_VERSION="stable"
 RUN apt-get -q update && \
     apt-get -q dist-upgrade -y && \
     DEBIAN_FRONTEND=noninteractive apt-get -q install --no-install-recommends -y \
+        # Essential certificates for HTTPS downloads
+        ca-certificates \
         # Web server and PHP
         apache2 \
         php \
