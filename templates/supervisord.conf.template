@@ -30,7 +30,7 @@ stderr_logfile_backups=5
 environment=TZ="{{TZ}}"
 
 [program:tftpd-hpa]
-command="/usr/sbin/in.tftpd -l -s -a 0.0.0.0:69 /tftpboot"
+command=/usr/sbin/in.tftpd -L -s -a 0.0.0.0:69 /tftpboot
 user=root
 autostart=true
 autorestart=true
@@ -73,7 +73,7 @@ stderr_logfile_backups=5
 environment=TZ="{{TZ}}"
 
 [program:nfs-kernel-server]
-command=/bin/bash -c 'sleep 3 && exportfs -ra && /usr/sbin/rpc.nfsd 8 && /usr/sbin/rpc.mountd -F'
+command=/bin/bash -c "sleep 3 && exportfs -ra && /usr/sbin/rpc.nfsd 8 && /usr/sbin/rpc.mountd -F"
 user=root
 autostart=true
 autorestart=true
