@@ -37,24 +37,24 @@ process_template() {
     cp "$template_file" "$temp_file"
     
     # Handle conditional sections first
-    if [[ "$FOG_HTTPS_ENABLED" = "true" ]]; then
+    if [[ "$FOG_INTERNAL_HTTPS_ENABLED" = "true" ]]; then
         echo "  - Enabling HTTPS configuration"
         # Remove conditional markers and keep the content
-        sed -i 's/{{#FOG_HTTPS_ENABLED}}//g' "$temp_file"
-        sed -i 's/{{\/FOG_HTTPS_ENABLED}}//g' "$temp_file"
+        sed -i 's/{{#FOG_INTERNAL_HTTPS_ENABLED}}//g' "$temp_file"
+        sed -i 's/{{\/FOG_INTERNAL_HTTPS_ENABLED}}//g' "$temp_file"
     else
         echo "  - Disabling HTTPS configuration"
         # Remove the entire conditional block
-        sed -i '/{{#FOG_HTTPS_ENABLED}}/,/{{\/FOG_HTTPS_ENABLED}}/d' "$temp_file"
+        sed -i '/{{#FOG_INTERNAL_HTTPS_ENABLED}}/,/{{\/FOG_INTERNAL_HTTPS_ENABLED}}/d' "$temp_file"
     fi
     
     # Process all remaining placeholders
     local placeholders=(
-        "DB_HOST"
-        "DB_PORT" 
-        "DB_NAME"
-        "DB_USER"
-        "DB_PASS"
+        "FOG_DB_HOST"
+        "FOG_DB_PORT" 
+        "FOG_DB_NAME"
+        "FOG_DB_USER"
+        "FOG_DB_PASS"
         "TZ"
         "FOG_TFTP_HOST"
         "FOG_NFS_HOST"
@@ -64,15 +64,13 @@ process_template() {
         "FOG_WEB_ROOT"
         "FOG_APACHE_PORT"
         "FOG_APACHE_SSL_PORT"
-        "FOG_HTTPS_ENABLED"
+        "FOG_INTERNAL_HTTPS_ENABLED"
         "FOG_HTTP_PROTOCOL"
         "FOG_SSL_PATH"
         "FOG_SSL_CERT_FILE"
         "FOG_SSL_KEY_FILE"
         "FOG_FTP_USER"
         "FOG_FTP_PASS"
-        "FOG_STORAGE_LOCATION"
-        "FOG_STORAGE_CAPTURE"
         "FOG_DHCP_START_RANGE"
         "FOG_DHCP_END_RANGE"
         "FOG_DHCP_BOOTFILE"

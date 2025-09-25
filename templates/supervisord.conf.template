@@ -30,7 +30,7 @@ stderr_logfile_backups=5
 environment=TZ="{{TZ}}"
 
 [program:tftpd-hpa]
-command="/usr/sbin/in.tftpd -L -s -a 0.0.0.0:69 -c /tftpboot"
+command="/usr/sbin/in.tftpd -l -s -a 0.0.0.0:69 /tftpboot"
 user=root
 autostart=true
 autorestart=true
@@ -104,7 +104,7 @@ environment=TZ="{{TZ}}"
 [program:fog-image-replicator]
 command=/bin/bash -c 'cd /opt/fog/service/FOGImageReplicator && php FOGImageReplicator'
 user=www-data
-autostart=true
+autostart=false
 autorestart=true
 priority=400
 stdout_logfile=/opt/fog/log/fogreplicator.log
@@ -118,7 +118,7 @@ environment=TZ="{{TZ}}"
 [program:fog-snapin-replicator]
 command=/bin/bash -c 'cd /opt/fog/service/FOGSnapinReplicator && php FOGSnapinReplicator'
 user=www-data
-autostart=true
+autostart=false
 autorestart=true
 priority=400
 stdout_logfile=/opt/fog/log/fogsnapinrep.log
@@ -132,7 +132,7 @@ environment=TZ="{{TZ}}"
 [program:fog-multicast-manager]
 command=/bin/bash -c 'cd /opt/fog/service/FOGMulticastManager && php FOGMulticastManager'
 user=www-data
-autostart=true
+autostart=false
 autorestart=true
 priority=400
 stdout_logfile=/opt/fog/log/multicast.log
@@ -146,7 +146,7 @@ environment=TZ="{{TZ}}"
 [program:fog-task-scheduler]
 command=/bin/bash -c 'cd /opt/fog/service/FOGTaskScheduler && php FOGTaskScheduler'
 user=www-data
-autostart=true
+autostart=false
 autorestart=true
 priority=400
 stdout_logfile=/opt/fog/log/fogscheduler.log
@@ -160,7 +160,7 @@ environment=TZ="{{TZ}}"
 [program:fog-ping-hosts]
 command=/bin/bash -c 'cd /opt/fog/service/FOGPingHosts && php FOGPingHosts'
 user=www-data
-autostart=true
+autostart=false
 autorestart=true
 priority=400
 stdout_logfile=/opt/fog/log/pinghost.log
@@ -174,7 +174,7 @@ environment=TZ="{{TZ}}"
 [program:fog-snapin-hash]
 command=/bin/bash -c 'cd /opt/fog/service/FOGSnapinHash && php FOGSnapinHash'
 user=www-data
-autostart=true
+autostart=false
 autorestart=true
 priority=400
 stdout_logfile=/opt/fog/log/fogsnapinhash.log
@@ -188,7 +188,7 @@ environment=TZ="{{TZ}}"
 [program:fog-image-size]
 command=/bin/bash -c 'cd /opt/fog/service/FOGImageSize && php FOGImageSize'
 user=www-data
-autostart=true
+autostart=false
 autorestart=true
 priority=400
 stdout_logfile=/opt/fog/log/fogimagesize.log
@@ -202,7 +202,7 @@ environment=TZ="{{TZ}}"
 [program:isc-dhcp-server]
 command=/usr/sbin/dhcpd -f -d -cf /etc/dhcp/dhcpd.conf
 user=root
-autostart=true
+autostart=false
 autorestart=true
 priority=350
 stdout_logfile=/opt/fog/log/dhcpd.log

@@ -26,7 +26,7 @@ FOG_MULTICAST_INTERFACE="${FOG_MULTICAST_INTERFACE:-eth0}"
 # Apache Configuration
 FOG_APACHE_PORT="${FOG_APACHE_PORT:-80}"
 FOG_APACHE_SSL_PORT="${FOG_APACHE_SSL_PORT:-443}"
-FOG_HTTPS_ENABLED="${FOG_HTTPS_ENABLED:-true}"
+FOG_INTERNAL_HTTPS_ENABLED="${FOG_INTERNAL_HTTPS_ENABLED:-false}"
 FOG_HTTP_PROTOCOL="${FOG_HTTP_PROTOCOL:-https}"
 
 # FTP Configuration
@@ -136,6 +136,13 @@ prepareDirectories() {
     # Set proper ownership
     chown -R www-data:www-data /var/www/html/fog
     
+    # Set proper permissions for FOG services to write to log directory
+    chown -R www-data:www-data /opt/fog/log/
+    
+    # Set proper permissions for image and snapin directories
+    chown -R www-data:www-data /images
+    chown -R www-data:www-data /opt/fog/snapins
+    
     echo "Directory preparation completed."
 }
 
@@ -175,11 +182,11 @@ configureFOGConfig() {
     cp /opt/fog/templates/config.class.php.template "$FOG_CONFIG_FILE"
     
     # Replace placeholders with environment variables
-    sed -i "s|{{DB_HOST}}|$DB_HOST|g" "$FOG_CONFIG_FILE"
-    sed -i "s|{{DB_PORT}}|$DB_PORT|g" "$FOG_CONFIG_FILE"
-    sed -i "s|{{DB_NAME}}|$DB_NAME|g" "$FOG_CONFIG_FILE"
-    sed -i "s|{{DB_USER}}|$DB_USER|g" "$FOG_CONFIG_FILE"
-    sed -i "s|{{DB_PASS}}|$DB_PASS|g" "$FOG_CONFIG_FILE"
+    sed -i "s|{{FOG_DB_HOST}}|$FOG_DB_HOST|g" "$FOG_CONFIG_FILE"
+    sed -i "s|{{FOG_DB_PORT}}|$FOG_DB_PORT|g" "$FOG_CONFIG_FILE"
+    sed -i "s|{{FOG_DB_NAME}}|$FOG_DB_NAME|g" "$FOG_CONFIG_FILE"
+    sed -i "s|{{FOG_DB_USER}}|$FOG_DB_USER|g" "$FOG_CONFIG_FILE"
+    sed -i "s|{{FOG_DB_PASS}}|$FOG_DB_PASS|g" "$FOG_CONFIG_FILE"
     sed -i "s|{{FOG_TFTP_HOST}}|$FOG_TFTP_HOST|g" "$FOG_CONFIG_FILE"
     sed -i "s|{{FOG_NFS_HOST}}|$FOG_NFS_HOST|g" "$FOG_CONFIG_FILE"
     sed -i "s|{{FOG_WOL_HOST}}|$FOG_WOL_HOST|g" "$FOG_CONFIG_FILE"
@@ -232,7 +239,7 @@ createFOGCA() {
 }
 
 configureSSL() {
-    if [ "$FOG_HTTPS_ENABLED" = "true" ]; then
+    if [ "$FOG_INTERNAL_HTTPS_ENABLED" = "true" ]; then
         echo "Configuring SSL certificates..."
         
         # Check if external certificates exist
@@ -336,14 +343,18 @@ configureFTP() {
     # Create FTP user if it doesn't exist
     if ! id "$FOG_FTP_USER" &>/dev/null; then
         echo "Creating FTP user: $FOG_FTP_USER"
-        useradd -r -s /bin/bash -d /opt/fog/snapins -m "$FOG_FTP_USER"
+        useradd -r -s /bin/bash -d "/home/$FOG_FTP_USER" -m -g www-data "$FOG_FTP_USER"
     fi
     
     # Set FTP user password
     echo "$FOG_FTP_USER:$FOG_FTP_PASS" | chpasswd
     
+    # Add FTP user to www-data group for access to /images
+    usermod -a -G www-data "$FOG_FTP_USER"
+    echo "Added '$FOG_FTP_USER' to www-data group for /images access"
+    
     # Set proper ownership for FTP user's home directory
-    chown -R "$FOG_FTP_USER:$FOG_FTP_USER" /opt/fog/snapins
+    chown -R "$FOG_FTP_USER:www-data" "/home/$FOG_FTP_USER"
     
     echo "FTP configuration completed."
 }
@@ -362,7 +373,7 @@ configureDHCP() {
 }
 
 configureiPXE() {
-    if [ "$FOG_HTTPS_ENABLED" = "true" ] && [ "$FOG_SSL_GENERATE_SELF_SIGNED" = "true" ]; then
+    if [ "$FOG_INTERNAL_HTTPS_ENABLED" = "true" ] && [ "$FOG_SSL_GENERATE_SELF_SIGNED" = "true" ]; then
         echo "Recompiling iPXE with self-signed certificate trust..."
         
         # Check if we have the build script
@@ -492,18 +503,40 @@ checkSecureBootRequirements() {
     return 0
 }
 
-fogFirstStartInit() {
-    echo "Executing FOG first start initialization..."
+databaseCheck() {
+    echo "Checking database initialization status..."
+    
+    # Only initialize database if this is a first start
     if [ -e "/opt/fog/config/.fog-initiated" ] && [ "$FORCE_FIRST_START_INIT" != "True" ] && [ "$FORCE_FIRST_START_INIT" != "true" ]; then
-        echo "First Start Init not needed. Continuing."
+        echo "Database already initialized. Skipping initialization."
         return 0
     fi
     
-    echo "FOG will be initialized through the web interface."
-    echo "Please visit http://localhost/fog to complete the initial setup."
+    echo "Database initialization needed. Will be performed after Apache starts."
+    echo "Database check completed."
+}
+
+enableFOGServices() {
+    echo "Enabling FOG services after database initialization..."
+    local supervisor_config="/etc/supervisor/conf.d/supervisord.conf"
     
-    touch "/opt/fog/config/.fog-initiated"
-    echo "FOG first start initialization completed."
+    # Enable FOG services (but not DHCP if it's disabled)
+    sed -i '/\[program:fog-/s/autostart=false/autostart=true/' "$supervisor_config"
+    
+    # Reload supervisor to apply changes
+    supervisorctl reread
+    supervisorctl update
+    
+    # Start all FOG services
+    supervisorctl start fog-image-replicator
+    supervisorctl start fog-image-size
+    supervisorctl start fog-multicast-manager
+    supervisorctl start fog-ping-hosts
+    supervisorctl start fog-snapin-hash
+    supervisorctl start fog-snapin-replicator
+    supervisorctl start fog-task-scheduler
+    
+    echo "FOG services enabled and started."
 }
 
 configureSupervisor() {
@@ -526,8 +559,8 @@ configureSupervisor() {
     echo "Supervisor configuration completed."
 }
 
-initialConfiguration() {
-    echo "=== Begin Initial Configuration Phase ==="
+staticConfiguration() {
+    echo "=== Begin Static Configuration Phase ==="
     prepareDirectories
     configureFOGConfig
     configureApache
@@ -539,19 +572,19 @@ initialConfiguration() {
     configureDHCP
     configureSecureBoot
     configureSupervisor
-    echo "=== End Initial Configuration Phase ==="
+    echo "=== End Static Configuration Phase ==="
 }
 
 bootstrappingEnvironment() {
     echo "=== Begin Bootstrap Phase ==="
     waitingForDatabase
-    fogFirstStartInit
+    databaseCheck
     echo "=== End Bootstrap Phase ==="
 }
 
 # BEGIN app functions
 appRun() {
-    initialConfiguration
+    staticConfiguration
     bootstrappingEnvironment
     echo "=== Begin Run Phase ==="
     echo "Starting FOG using supervisor with \"/etc/supervisor/conf.d/supervisord.conf\" config..."
@@ -564,13 +597,53 @@ appRun() {
     # Set timezone for all processes
     export TZ="${TZ:-UTC}"
     
-    # Start supervisor (which will manage all FOG services)
-    exec supervisord -n -c "/etc/supervisor/conf.d/supervisord.conf"
+    # Start supervisor in the background
+    supervisord -c "/etc/supervisor/conf.d/supervisord.conf" &
+    SUPERVISOR_PID=$!
+    
+    # Wait a moment for supervisor to start
+    sleep 5
+    
+    # Wait for Apache to be ready
+    echo "Waiting for Apache to be ready..."
+    for i in {1..30}; do
+        if curl -s -f "http://localhost:${FOG_APACHE_PORT}${FOG_WEB_ROOT}/management/" >/dev/null 2>&1; then
+            echo "Apache is ready."
+            break
+        fi
+        echo "Waiting for Apache... (attempt $i/30)"
+        sleep 2
+    done
+    
+    # Initialize database if this is a first start
+    if [ ! -e "/opt/fog/config/.fog-initiated" ] || [ "$FORCE_FIRST_START_INIT" = "True" ] || [ "$FORCE_FIRST_START_INIT" = "true" ]; then
+        echo "Automatically initializing FOG database..."
+        local init_url="http://localhost:${FOG_APACHE_PORT}${FOG_WEB_ROOT}/management/index.php?node=schema"
+        local init_result=$(curl -s -f --data "confirm&fogverified" "$init_url" 2>&1)
+        
+        if [ $? -eq 0 ]; then
+            echo "Database initialization completed successfully."
+            touch "/opt/fog/config/.fog-initiated"
+        else
+            echo "Database initialization failed: $init_result"
+            echo "FOG will be initialized through the web interface."
+            echo "Please visit http://localhost:${FOG_APACHE_PORT}${FOG_WEB_ROOT}/management to complete the initial setup."
+        fi
+    else
+        echo "Database already initialized, skipping initialization."
+    fi
+    
+    # Enable FOG services now that supervisor is running and database is initialized
+    echo "Enabling FOG services after database initialization..."
+    enableFOGServices
+    
+    # Wait for supervisor to finish
+    wait $SUPERVISOR_PID
 }
 
 appInit() {
     echo "=== Running initial setup ==="
-    initialConfiguration
+    staticConfiguration
     bootstrappingEnvironment
 }
 

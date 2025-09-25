@@ -19,7 +19,7 @@
     CustomLog ${APACHE_LOG_DIR}/fog_access.log combined
 </VirtualHost>
 
-{{#FOG_HTTPS_ENABLED}}
+{{#FOG_INTERNAL_HTTPS_ENABLED}}
 <VirtualHost *:{{FOG_APACHE_SSL_PORT}}>
     ServerName {{FOG_WEB_HOST}}
     DocumentRoot /var/www/html/fog
@@ -45,4 +45,4 @@
     ErrorLog ${APACHE_LOG_DIR}/fog_ssl_error.log
     CustomLog ${APACHE_LOG_DIR}/fog_ssl_access.log combined
 </VirtualHost>
-{{/FOG_HTTPS_ENABLED}}
+{{/FOG_INTERNAL_HTTPS_ENABLED}}

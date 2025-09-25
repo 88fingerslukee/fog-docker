@@ -39,10 +39,10 @@ class Config
     private static function _dbSettings()
     {
         define('DATABASE_TYPE', 'mysql');
-        define('DATABASE_HOST', '{{DB_HOST}}:{{DB_PORT}}');
-        define('DATABASE_NAME', '{{DB_NAME}}');
-        define('DATABASE_USERNAME', '{{DB_USER}}');
-        define('DATABASE_PASSWORD', '{{DB_PASS}}');
+        define('DATABASE_HOST', '{{FOG_DB_HOST}}:{{FOG_DB_PORT}}');
+        define('DATABASE_NAME', '{{FOG_DB_NAME}}');
+        define('DATABASE_USERNAME', '{{FOG_DB_USER}}');
+        define('DATABASE_PASSWORD', '{{FOG_DB_PASS}}');
     }
     
     /**

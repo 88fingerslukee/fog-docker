@@ -46,7 +46,7 @@ RUN apt-get -q update && \
         sudo \
         && rm -rf /var/lib/apt/lists/*
 
-# Create fog user for building
+# Create temporary fog user for building
 RUN useradd -d /home/fog -m fog -u 1000 && \
     echo 'fog ALL=(ALL:ALL) NOPASSWD:ALL' >> /etc/sudoers
 
@@ -266,6 +266,10 @@ RUN mkdir -p /tmp/fog-kernels && \
 RUN mkdir -p /tftpboot && \
     cp -r /opt/fog/fogproject/packages/tftp/* /tftpboot/ && \
     chown -R www-data:www-data /tftpboot
+
+# Clean up temporary fog user used for building
+RUN userdel -r fog && \
+    sed -i '/fog ALL=(ALL:ALL) NOPASSWD:ALL/d' /etc/sudoers
 
 # Create volume mount points
 VOLUME ["/images", "/tftpboot", "/opt/fog/snapins", "/opt/fog/log", "/opt/fog/ssl", "/opt/fog/config", "/opt/fog/secure-boot"]
