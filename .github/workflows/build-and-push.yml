@@ -48,7 +48,9 @@ jobs:
       uses: docker/build-push-action@v5
       with:
         context: .
-        platforms: linux/amd64,linux/arm64
+        # Note: Building only for AMD64 due to architecture-specific dependencies
+        # (Secure Boot tools, shim files, etc.) that are not available for ARM64
+        platforms: linux/amd64
         push: true
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}

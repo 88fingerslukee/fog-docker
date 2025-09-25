@@ -1,491 +1,340 @@
 # FOG Docker
 
-A FOG Docker implementation for complete containerization.
+**⚠️ BETA SOFTWARE - This project is in active development and may have bugs or incomplete features.**
 
-## 🎯 Goals
+A Docker containerization of the FOG Project - an open-source computer cloning and imaging solution. This project provides a complete FOG server running in Docker containers with automatic configuration and setup.
 
-This implementation achieves true statelessness by:
-- **Pre-building everything** in the Docker image
-- **Environment-driven configuration** for all runtime settings
-- **Template-based configuration** generation
-- **Persistent data separation** from application code
-- **State management** to avoid re-initialization
+## Quick Start
 
-## 🚀 Features
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/88fingerslukee/fog-docker.git
+   cd fog-docker
+   ```
 
-- **Two-stage build process** for optimal image size
-- **Environment variable configuration** for all settings
-- **Automatic configuration generation** from templates
-- **Supervisor-based service management** for all FOG services
-- **Secure Boot support** with automatic key generation
-- **Persistent data management** via Docker volumes
-- **Database schema initialization** without web interface dependency
+2. **Configure your environment:**
+   ```bash
+   cp .env.example .env
+   # Edit .env with your settings (see Configuration section below)
+   ```
 
-## 📋 Prerequisites
+3. **Start FOG:**
+   ```bash
+   docker compose up -d
+   ```
 
-- Docker Engine 20.10+
-- Docker Compose 2.0+
-- At least 4GB RAM
-- At least 20GB free disk space
-- Root or sudo access
+4. **Access FOG:**
+   - Web Interface: `http://your-server-ip/fog`
+   - Default login: `fog` / `password`
 
-## 🛠️ Quick Start
+## Configuration
 
-### 1. Clone and Configure
+### Required Settings
 
-```bash
-git clone <repository-url> fog-docker
-cd fog-docker
-
-# Copy environment template
-cp .env.example .env
-
-# Edit configuration
-nano .env
-```
-
-### 2. Required Configuration
-
-**Minimum required settings in `.env`:**
+Edit your `.env` file and set these **required** variables:
 
 ```bash
-# REQUIRED - No defaults
-FOG_WEB_HOST=192.168.1.100                    # Your server IP or FQDN
-FOG_DB_ROOT_PASSWORD=your_secure_password     # Database root password
+# Your server's IP address or FQDN that clients will use to access FOG
+FOG_WEB_HOST=192.168.1.100
+
+# Secure password for the MySQL root user
+FOG_DB_ROOT_PASSWORD=your-secure-password
 ```
 
-### 3. Deploy
+### Network Configuration
+
+Configure how clients will connect to your FOG server:
 
 ```bash
-# Build and start services
-docker compose up -d
+# Storage node - where clients access image storage
+FOG_STORAGE_HOST=192.168.1.100
 
-# View logs
-docker compose logs -f
+# TFTP server - where PXE clients download boot files
+FOG_TFTP_HOST=192.168.1.100
 
-# Check status
-docker compose ps
+# Wake-on-LAN server - sends WOL packets
+FOG_WOL_HOST=192.168.1.100
 ```
 
-### 4. Access FOG
+**For single-server setups:** Set all host variables to the same IP/FQDN as `FOG_WEB_HOST`.
 
-- **Web Interface**: `http://your-server-ip/fog/management/`
-- **Default Login**: `fog` / `password`
+### DHCP Configuration (Optional)
 
-## ⚙️ Configuration
-
-### Environment Variables
-
-All configuration is done via environment variables in the `.env` file:
-
-#### Required Variables
-
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `FOG_WEB_HOST` | Server IP or FQDN | `192.168.1.100` |
-| `FOG_DB_ROOT_PASSWORD` | MySQL root password | `secure_password123` |
-
-#### Optional Variables
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `FOG_VERSION` | FOG version to install | `stable` |
-| `FOG_WEB_ROOT` | Web root path | `/fog` |
-| `FOG_HTTPS_ENABLED` | Enable HTTPS | `false` |
-| `FOG_SECURE_BOOT_ENABLED` | Enable Secure Boot | `false` |
-| `FOG_DHCP_ENABLED` | Enable DHCP server | `false` |
-
-### Persistent Storage
-
-The implementation uses Docker volumes for persistent data:
-
-- `fog_mysql`: Database data
-- `fog_data`: All FOG data (images, snapins, logs, SSL certificates)
-
-### Secure Boot
-
-When `FOG_SECURE_BOOT_ENABLED=true`:
-
-1. **Automatic key generation** on first run
-2. **iPXE compilation** with Secure Boot support
-3. **Shim and MOK manager** integration
-4. **FAT32 image creation** for MOK certificate enrollment
-
-**Important**: MOK Manager cannot access network shares. The certificate must be downloaded and placed on a USB drive (FAT32 formatted) for enrollment during boot.
-
-### Secure Boot Setup Process
-
-1. **Enable Secure Boot**: Set `FOG_SECURE_BOOT_ENABLED=true` in your `.env` file
-2. **Build and start the container**: `docker compose up -d`
-3. **Download the certificate**: Access `http://your-server/fog/mok/fog.mok.crt`
-4. **Prepare USB drive**: Format a USB drive as FAT32
-5. **Copy certificate to USB**: Place `fog.mok.crt` on the USB drive
-6. **Boot client machine**: Insert USB drive and boot
-7. **Enroll certificate**: Use MOK Manager to select and enroll the certificate
-8. **Complete setup**: Reboot to finish Secure Boot enrollment
-
-#### USB Drive Requirements
-
-**USB Drive Specifications:**
-- **Format**: FAT32 (required for UEFI compatibility)
-- **Size**: Minimum 1GB (certificate is only a few KB)
-- **Type**: Any USB 2.0 or 3.0 drive
-
-**Certificate File:**
-- **Filename**: `fog.mok.crt`
-- **Location**: Root directory of USB drive
-- **Size**: Typically 1-2KB
-- **Format**: X.509 certificate in PEM format
-
-**Step-by-Step USB Preparation:**
-```bash
-# 1. Insert USB drive
-# 2. Format as FAT32 (Windows: Right-click → Format → FAT32)
-# 3. Download certificate from FOG server
-wget http://your-fog-server/fog/mok/fog.mok.crt
-
-# 4. Copy to USB drive
-cp fog.mok.crt /media/usb-drive/
-
-# 5. Safely eject USB drive
-```
-
-**MOK Manager Enrollment Process:**
-1. Boot client machine with USB drive inserted
-2. MOK Manager will appear during boot
-3. Select "Enroll MOK" from the menu
-4. Navigate to the USB drive (usually appears as "USB" or drive letter)
-5. Select `fog.mok.crt` file
-6. Confirm enrollment
-7. Reboot to complete the process
-
-#### Troubleshooting USB Drive Issues
-
-**Common Problems and Solutions:**
-
-**USB Drive Not Detected:**
-- Ensure USB drive is formatted as FAT32
-- Try a different USB port (prefer USB 2.0 ports)
-- Check if USB drive is properly inserted
-- Some systems require USB drive to be inserted before power-on
-
-**MOK Manager Can't Find Certificate:**
-- Verify certificate file is named exactly `fog.mok.crt`
-- Ensure certificate is in the root directory of USB drive
-- Check that certificate file is not corrupted
-- Try downloading the certificate again from FOG server
-
-**Certificate Enrollment Fails:**
-- Verify certificate is valid X.509 format
-- Check that certificate hasn't expired
-- Ensure MOK Manager has proper permissions
-- Try using a different USB drive
-
-**USB Drive Format Issues:**
-```bash
-# Linux: Format USB drive as FAT32
-sudo mkfs.fat -F 32 /dev/sdX
-
-# Windows: Use Disk Management or format command
-format X: /FS:FAT32
-
-# macOS: Use Disk Utility
-# Select USB drive → Erase → MS-DOS (FAT)
-```
-
-**Alternative Certificate Access:**
-If USB drive issues persist, you can also:
-1. Copy certificate to the EFI System Partition (ESP)
-2. Use `mokutil` command from within the OS
-3. Access certificate via network share (if OS is running)
-
-## 🔧 Architecture
-
-### Two-Stage Build Process
-
-**Stage 1 (fog-builder):**
-- Installs build dependencies
-- Clones FOG source code
-- Compiles iPXE with Secure Boot support
-- Creates installation tarball
-
-**Stage 2 (Production):**
-- Installs all FOG dependencies
-- Extracts pre-built FOG installation
-- Sets up directory structure
-- Removes configuration files (generated at runtime)
-
-### Runtime Configuration
-
-**Configuration Generation:**
-- Templates processed with environment variables
-- Dynamic file creation from templates
-- Type-aware configuration (string, bool, array)
-
-**Service Management:**
-- Supervisor manages all FOG services
-- Automatic service restarts on failure
-- Centralized logging for all services
-- Process monitoring and health checks
-
-**State Management:**
-- Tracks initialization state
-- Avoids re-running setup steps
-- Database schema initialization
-
-## 📁 Directory Structure
-
-```
-fog-docker/
-├── Dockerfile                 # Two-stage build
-├── docker-compose.yml         # Service orchestration
-├── entrypoint.sh             # Runtime configuration
-├── .env.example              # Environment template
-├── README.md                 # This file
-├── config/
-│   └── server/               # Server configuration
-├── templates/                # Configuration templates
-│   ├── config.class.php.template
-│   ├── apache-fog.conf.template
-│   ├── tftpd-hpa.conf.template
-│   ├── exports.template
-│   └── dhcpd.conf.template
-└── scripts/                  # Utility scripts
-    ├── generate-keys.sh
-    └── setup-secure-boot.sh
-```
-
-## 🔍 Troubleshooting
-
-### Common Issues
-
-1. **Database Connection Failed**
-   - Check `FOG_DB_ROOT_PASSWORD` is set
-   - Verify database container is running
-   - Check network connectivity
-
-2. **Configuration Generation Failed**
-   - Verify all required environment variables are set
-   - Check template files exist
-   - Review container logs
-
-3. **Secure Boot Issues**
-   - Ensure `FOG_SECURE_BOOT_ENABLED=true`
-   - Check key generation completed
-   - Verify shim binaries are present
-
-### Debug Mode
-
-Enable debug mode for detailed logging:
+If you want FOG to handle DHCP services (`FOG_DHCP_ENABLED=true`), configure these network-specific variables:
 
 ```bash
-DEBUG=true docker compose up
+# Network Configuration
+FOG_DHCP_SUBNET=192.168.1.0
+FOG_DHCP_NETMASK=255.255.255.0
+FOG_DHCP_ROUTER=192.168.1.1
+FOG_DHCP_DOMAIN_NAME=fog.local
+
+# IP Address Range
+FOG_DHCP_START_RANGE=192.168.1.100
+FOG_DHCP_END_RANGE=192.168.1.200
+
+# DNS and Boot Files
+FOG_DHCP_DNS=8.8.8.8
+FOG_DHCP_BOOTFILE_BIOS=undionly.kpxe   # Legacy BIOS clients
+FOG_DHCP_BOOTFILE_UEFI32=ipxe32.efi   # UEFI 32-bit clients
+FOG_DHCP_BOOTFILE_UEFI64=ipxe.efi     # UEFI 64-bit clients
+FOG_DHCP_BOOTFILE_ARM32=arm32.efi     # ARM 32-bit clients
+FOG_DHCP_BOOTFILE_ARM64=arm64.efi     # ARM 64-bit clients
+
+# Optional: HTTPBoot support (for clients that support HTTPBoot)
+# URL is automatically constructed from FOG_HTTP_PROTOCOL, FOG_WEB_HOST, and FOG_WEB_ROOT
+FOG_DHCP_HTTPBOOT_ENABLED=false
+
+# Lease Times (in seconds)
+FOG_DHCP_DEFAULT_LEASE_TIME=600        # 10 minutes
+FOG_DHCP_MAX_LEASE_TIME=7200           # 2 hours
 ```
 
-### Logs
+**Note:** Most setups use an existing DHCP server. Only enable FOG's DHCP if you need it to handle DHCP services.
 
-View container logs:
+### HTTPBoot Support
 
-```bash
-# All services
-docker compose logs -f
+FOG Docker supports HTTPBoot for clients that prefer HTTP over TFTP for network booting. HTTPBoot offers several advantages:
 
-# Specific service
-docker compose logs -f fog
-docker compose logs -f database
+- **Faster booting** - HTTP is typically faster than TFTP
+- **Better reliability** - HTTP has superior error handling and retry mechanisms
+- **Modern client support** - Many newer UEFI clients prefer HTTPBoot
+- **Automatic URL construction** - The HTTPBoot URL is built from your existing FOG configuration
+
+When `FOG_DHCP_HTTPBOOT_ENABLED=true`, the DHCP server will provide:
+```
+{{FOG_HTTP_PROTOCOL}}://{{FOG_WEB_HOST}}{{FOG_WEB_ROOT}}/service/ipxe/boot.php
 ```
 
-## 🚀 Advanced Usage
+For example:
+- HTTP: `http://192.168.1.100/fog/service/ipxe/boot.php`
+- HTTPS: `https://fog.example.com/fog/service/ipxe/boot.php`
 
-### Custom FOG Version
+## Setup Scenarios
+
+### Scenario 1: Single Server (Most Common)
+
+For a single FOG server handling everything:
 
 ```bash
-# Use development branch
-FOG_VERSION=dev-branch
-
-# Use specific version
-FOG_VERSION=1.5.10.1673
-
-# Use custom repository
-FOG_GIT_URL=https://github.com/your-fork/fogproject.git
+FOG_WEB_HOST=192.168.1.100
+FOG_STORAGE_HOST=192.168.1.100
+FOG_TFTP_HOST=192.168.1.100
+FOG_WOL_HOST=192.168.1.100
+FOG_DHCP_ENABLED=false  # Use existing DHCP server
+FOG_INTERNAL_HTTPS_ENABLED=false
+FOG_HTTP_PROTOCOL=http
 ```
 
-### HTTPS Configuration
+**DHCP Configuration:** Configure your existing DHCP server with:
+- Option 66 (next-server): `192.168.1.100`
+- Option 67 (filename): Architecture-specific boot files (see DHCP Configuration section)
 
-FOG Docker supports three HTTPS scenarios:
+### Scenario 2: FQDN with Reverse Proxy
 
-#### **Scenario 1: HTTP (Default)**
+For a server behind a reverse proxy with a domain name:
+
 ```bash
-FOG_HTTPS_ENABLED=false
-# No SSL configuration needed
+FOG_WEB_HOST=fog.example.com
+FOG_STORAGE_HOST=fog.example.com
+FOG_TFTP_HOST=fog.example.com
+FOG_WOL_HOST=fog.example.com
+FOG_DHCP_ENABLED=false  # Use existing DHCP server
+FOG_INTERNAL_HTTPS_ENABLED=false
+FOG_HTTP_PROTOCOL=https
 ```
 
-#### **Scenario 2: External Certificates (Let's Encrypt, Commercial)**
+**DHCP Configuration:** Configure your existing DHCP server with:
+- Option 66 (next-server): `fog.example.com`
+- Option 67 (filename): Architecture-specific boot files (see DHCP Configuration section)
+
+### Scenario 3: Distributed Setup
+
+For separate servers handling different functions:
+
 ```bash
-FOG_HTTPS_ENABLED=true
+FOG_WEB_HOST=192.168.1.100      # Web interface server
+FOG_STORAGE_HOST=192.168.1.101  # Storage server
+FOG_TFTP_HOST=192.168.1.102     # TFTP server
+FOG_WOL_HOST=192.168.1.100      # WOL server
+FOG_DHCP_ENABLED=false
+```
+
+**DHCP Configuration:** Configure your existing DHCP server with:
+- Option 66 (next-server): `192.168.1.102`
+- Option 67 (filename): Architecture-specific boot files (see DHCP Configuration section)
+
+### Scenario 4: FOG as DHCP Server
+
+For FOG to handle DHCP as well (less common):
+
+```bash
+FOG_WEB_HOST=192.168.1.100
+FOG_STORAGE_HOST=192.168.1.100
+FOG_TFTP_HOST=192.168.1.100
+FOG_WOL_HOST=192.168.1.100
+
+# Enable FOG's DHCP server
+FOG_DHCP_ENABLED=true
+
+# Network configuration
+FOG_DHCP_SUBNET=192.168.1.0
+FOG_DHCP_NETMASK=255.255.255.0
+FOG_DHCP_ROUTER=192.168.1.1
+FOG_DHCP_DOMAIN_NAME=fog.local
+
+# IP address range
+FOG_DHCP_START_RANGE=192.168.1.100
+FOG_DHCP_END_RANGE=192.168.1.200
+
+# DNS and boot files
+FOG_DHCP_DNS=8.8.8.8
+FOG_DHCP_BOOTFILE_BIOS=undionly.kpxe
+FOG_DHCP_BOOTFILE_UEFI32=ipxe32.efi
+FOG_DHCP_BOOTFILE_UEFI64=ipxe.efi
+FOG_DHCP_BOOTFILE_ARM32=arm32.efi
+FOG_DHCP_BOOTFILE_ARM64=arm64.efi
+```
+
+**Note:** This scenario is less common and requires careful network configuration to avoid conflicts with existing DHCP servers.
+
+## SSL/HTTPS Configuration
+
+### Option 1: External Certificates (Recommended)
+
+```bash
+FOG_INTERNAL_HTTPS_ENABLED=true
+FOG_HTTP_PROTOCOL=https
 FOG_SSL_GENERATE_SELF_SIGNED=false
 FOG_SSL_CERT_FILE=fullchain.pem
 FOG_SSL_KEY_FILE=privkey.pem
-# Mount certificates as volume: /path/to/certs:/opt/fog/snapins/ssl:ro
 ```
 
-#### **Scenario 3: Self-Signed Certificates**
+Mount your certificates:
 ```bash
-FOG_HTTPS_ENABLED=true
+# Add to docker-compose.yml volumes:
+- /path/to/certs:/opt/fog/snapins/ssl:ro
+```
+
+### Option 2: Self-signed Certificates
+
+```bash
+FOG_INTERNAL_HTTPS_ENABLED=true
+FOG_HTTP_PROTOCOL=https
 FOG_SSL_GENERATE_SELF_SIGNED=true
-FOG_SSL_CN=your-domain.com
-FOG_SSL_SAN=alt1.your-domain.com,alt2.your-domain.com
-# iPXE will be automatically recompiled with certificate trust
+FOG_SSL_CN=192.168.1.100
+FOG_SSL_SAN=alt1.domain.com,alt2.domain.com
 ```
 
-#### **Scenario 4: Reverse Proxy**
-```bash
-FOG_HTTPS_ENABLED=false
-# SSL termination handled by reverse proxy (Nginx, Apache, etc.)
-```
-
-### DHCP Server
-
-FOG Docker includes a comprehensive DHCP server configuration that supports all the same features as bare metal FOG installation.
-
-#### Basic Configuration
+### Option 3: Reverse Proxy (No SSL in Container)
 
 ```bash
-FOG_DHCP_ENABLED=true
-FOG_DHCP_START_RANGE=192.168.1.100
-FOG_DHCP_END_RANGE=192.168.1.200
-FOG_DHCP_DNS=8.8.8.8
-FOG_DHCP_BOOTFILE=undionly.kpxe
+FOG_INTERNAL_HTTPS_ENABLED=false
+FOG_HTTP_PROTOCOL=https
+FOG_SSL_GENERATE_SELF_SIGNED=false
 ```
 
-#### DHCP Features Comparison
+### Option 4: HTTP Only (Default)
 
-| Feature | Bare Metal FOG | FOG Docker | Status |
-|---------|----------------|------------|---------|
-| **Basic DHCP** | ✅ | ✅ | **Full Support** |
-| **PXE Boot Configuration** | ✅ | ✅ | **Full Support** |
-| **Multiple Architecture Support** | ✅ | ✅ | **Full Support** |
-| **UEFI Boot Support** | ✅ | ✅ | **Full Support** |
-| **Legacy BIOS Support** | ✅ | ✅ | **Full Support** |
-| **Apple Intel Netboot** | ✅ | ✅ | **Full Support** |
-| **Surface Pro 4 Support** | ✅ | ✅ | **Full Support** |
-| **ARM64 UEFI Support** | ✅ | ✅ | **Full Support** |
-| **Custom Lease Times** | ✅ | ✅ | **Full Support** |
-| **Domain Name Configuration** | ✅ | ✅ | **Full Support** |
-| **Router/Gateway Configuration** | ✅ | ✅ | **Full Support** |
-| **DNS Server Configuration** | ✅ | ✅ | **Full Support** |
-| **Subnet Mask Configuration** | ✅ | ✅ | **Full Support** |
-| **PXE Vendor Options** | ✅ | ✅ | **Full Support** |
-| **MTFTP Configuration** | ✅ | ✅ | **Full Support** |
-| **Dynamic DNS Updates** | ✅ | ✅ | **Full Support** |
-
-#### Supported Architectures
-
-The DHCP server automatically detects and serves the appropriate boot file for:
-
-- **Legacy BIOS** (`undionly.kpxe`)
-- **UEFI 32-bit** (`i386-efi/snponly.efi`)
-- **UEFI 64-bit** (`snponly.efi`)
-- **ARM64 UEFI** (`arm64-efi/snponly.efi`)
-- **Apple Intel** (Special Apple NetBoot configuration)
-- **Surface Pro 4** (Special UEFI configuration)
-
-#### Advanced Configuration
-
-For advanced DHCP configuration, you can modify the template at `templates/dhcpd.conf.template` or extend the environment variables in the entrypoint script.
-
-#### DHCP vs External DHCP
-
-**Using FOG DHCP Server:**
-- ✅ Automatic PXE configuration
-- ✅ All architecture support included
-- ✅ No external DHCP configuration needed
-- ✅ Integrated with FOG services
-
-**Using External DHCP Server:**
-- Set `FOG_DHCP_ENABLED=false`
-- Configure your existing DHCP server with the following options:
-
-#### Required DHCP Options
-
-| DHCP Server Type | Option Name | Value | Description |
-|------------------|-------------|-------|-------------|
-| **Linux DHCP** | `next-server` | FOG server IP | TFTP server IP address |
-| **Linux DHCP** | `filename` | Boot file name | PXE boot file to download |
-| **Windows DHCP** | **Option 66** | FOG server IP | TFTP server IP address |
-| **Windows DHCP** | **Option 67** | Boot file name | PXE boot file to download |
-
-#### Boot Files by Architecture
-
-| Architecture | Boot File | Description |
-|--------------|-----------|-------------|
-| **Legacy BIOS** | `undionly.kpxe` | Standard BIOS PXE boot |
-| **UEFI 64-bit** | `snponly.efi` | Standard UEFI boot |
-| **UEFI 32-bit** | `i386-efi/snponly.efi` | 32-bit UEFI boot |
-| **ARM64 UEFI** | `arm64-efi/snponly.efi` | ARM64 UEFI boot |
-
-#### External DHCP Server Examples
-
-**pfSense Configuration:**
-1. Navigate to **Services → DHCP Server**
-2. Edit your DHCP scope
-3. Add the following options:
-   - **Option 66**: Your FOG server IP (e.g., `192.168.1.100`)
-   - **Option 67**: Boot file (e.g., `undionly.kpxe` for BIOS or `snponly.efi` for UEFI)
-
-**Microsoft DHCP Server Configuration:**
-1. Open **DHCP Manager**
-2. Right-click your scope → **Configure Options**
-3. Add the following options:
-   - **Option 66**: Your FOG server IP (e.g., `192.168.1.100`)
-   - **Option 67**: Boot file (e.g., `undionly.kpxe` for BIOS or `snponly.efi` for UEFI)
-
-**PowerShell Script for Microsoft DHCP:**
-```powershell
-# Set DHCP options for FOG PXE boot
-Set-DhcpServerv4OptionValue -ScopeId 192.168.1.0 -OptionId 66 -Value "192.168.1.100"
-Set-DhcpServerv4OptionValue -ScopeId 192.168.1.0 -OptionId 67 -Value "undionly.kpxe"
-```
-
-**Linux ISC DHCP Server:**
 ```bash
-# Add to your dhcpd.conf
-subnet 192.168.1.0 netmask 255.255.255.0 {
-    range 192.168.1.100 192.168.1.200;
-    option routers 192.168.1.1;
-    option domain-name-servers 8.8.8.8;
-    next-server 192.168.1.100;  # FOG server IP
-    filename "undionly.kpxe";   # Boot file
-}
+FOG_INTERNAL_HTTPS_ENABLED=false
+FOG_HTTP_PROTOCOL=http
+FOG_SSL_GENERATE_SELF_SIGNED=false
 ```
 
-**Cisco DHCP Server:**
-```cisco
-ip dhcp pool FOG_POOL
-   network 192.168.1.0 255.255.255.0
-   default-router 192.168.1.1
-   dns-server 8.8.8.8
-   option 66 ip 192.168.1.100
-   option 67 ascii "undionly.kpxe"
+## Ports
+
+FOG Docker exposes the following ports:
+
+- **80/443**: Web interface (HTTP/HTTPS)
+- **69/UDP**: TFTP server
+- **21**: FTP server
+- **2049**: NFS server
+- **111**: NFS RPC portmapper
+- **32765**: NFS RPC statd
+- **32767**: NFS RPC mountd
+
+## Troubleshooting
+
+### Storage Node Connectivity Issues
+
+1. Verify `FOG_STORAGE_HOST` is reachable from client machines
+2. Check that the FQDN resolves correctly from client machines
+3. Verify firewall rules allow access to ports 80, 443, 69, 2049, 21
+
+### PXE Boot Issues
+
+1. Ensure `FOG_TFTP_HOST` is reachable from client machines
+2. Check that port 69/UDP is open and accessible
+3. Verify DHCP is configured to point to the correct TFTP server
+4. Check that DHCP option 66 (next-server) points to `FOG_TFTP_HOST`
+5. Verify DHCP option 67 (filename) is set to the correct boot file
+6. For UEFI/ARM clients, ensure appropriate boot files are configured (`FOG_DHCP_BOOTFILE_UEFI32`, `FOG_DHCP_BOOTFILE_UEFI64`, etc.)
+7. For HTTPBoot clients, verify `FOG_DHCP_HTTPBOOT_ENABLED=true` and check that the constructed URL is accessible
+
+### Image Capture/Deploy Failures
+
+1. Check that `FOG_STORAGE_HOST` is accessible from client machines
+2. Verify NFS exports are working (port 2049)
+3. Check FTP connectivity (port 21)
+
+### DHCP Configuration Issues
+
+1. Verify all DHCP network variables match your actual network configuration
+2. Ensure `FOG_DHCP_SUBNET` and `FOG_DHCP_NETMASK` are correct for your network
+3. Check that `FOG_DHCP_ROUTER` points to your actual gateway
+4. Verify IP address range (`FOG_DHCP_START_RANGE` to `FOG_DHCP_END_RANGE`) doesn't conflict with existing devices
+5. Ensure `FOG_DHCP_DNS` contains valid DNS servers
+6. Check that all required boot files are present in `/tftpboot/` (BIOS, UEFI 32/64-bit, ARM 32/64-bit)
+
+### Container Logs
+
+```bash
+# View FOG server logs
+docker compose logs fog-server
+
+# View database logs
+docker compose logs fog-db
+
+# Follow logs in real-time
+docker compose logs -f fog-server
 ```
 
-#### Network Requirements
+## Features
 
-When using FOG DHCP server:
-- Container must run with `network_mode: host`
-- DHCP server binds to the specified network interface
-- Requires root privileges for DHCP port binding
-- Automatically configures `/etc/default/isc-dhcp-server`
+- ✅ **Complete FOG Server**: Full FOG functionality in Docker
+- ✅ **Automatic Configuration**: Environment-based configuration
+- ✅ **Database Integration**: MySQL database with automatic setup
+- ✅ **NFS Support**: Image storage via NFS
+- ✅ **FTP Support**: Image transfer via FTP
+- ✅ **TFTP Support**: PXE boot file serving
+- ✅ **UEFI Support**: Automatic BIOS/UEFI client detection and boot file selection
+- ✅ **SSL/HTTPS Support**: Multiple SSL configuration options
+- ✅ **Reverse Proxy Support**: Works behind reverse proxies
 
-## 📚 References
+## Beta Features (Needs Testing)
 
-- [FOG Project](https://fogproject.org/)
-- [Docker Compose Documentation](https://docs.docker.com/compose/)
+The following features are implemented but need thorough testing:
 
-## 🤝 Contributing
+- 🔄 **Multicasting**: Image deployment to multiple clients simultaneously
+- 🔄 **Secure Boot**: UEFI Secure Boot support
+- 🔄 **DHCP Server**: Built-in DHCP server functionality
 
-This implementation follows the Zulip Docker pattern for statelessness. Contributions are welcome to improve the implementation and add features.
+## Contributing
 
-## 📄 License
+This project is in active development. Contributions, bug reports, and feature requests are welcome!
 
-This project is licensed under the same terms as the FOG Project.
+## Support
+
+If you find this project useful, consider supporting development:
+
+[![PayPal](https://www.paypalobjects.com/en_US/i/btn/btn_donateCC_LG.gif)](https://paypal.me/88fingerslukee)
+
+## License
+
+This project is licensed under the GPL v3 License - see the [LICENSE](LICENSE) file for details.
+
+## Acknowledgments
+
+- [FOG Project](https://github.com/FOGProject/fogproject) - The original FOG imaging solution
+- Docker community for containerization best practices

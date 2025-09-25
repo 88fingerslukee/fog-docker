@@ -19,7 +19,7 @@ DB_PASS="${FOG_DB_PASS:-fogmaster123}"
 FOG_WEB_HOST="${FOG_WEB_HOST:-localhost}"
 FOG_WEB_ROOT="${FOG_WEB_ROOT:-/fog}"
 FOG_TFTP_HOST="${FOG_TFTP_HOST:-localhost}"
-FOG_NFS_HOST="${FOG_NFS_HOST:-localhost}"
+FOG_STORAGE_HOST="${FOG_STORAGE_HOST:-localhost}"
 FOG_WOL_HOST="${FOG_WOL_HOST:-localhost}"
 FOG_MULTICAST_INTERFACE="${FOG_MULTICAST_INTERFACE:-eth0}"
 
@@ -30,8 +30,8 @@ FOG_INTERNAL_HTTPS_ENABLED="${FOG_INTERNAL_HTTPS_ENABLED:-false}"
 FOG_HTTP_PROTOCOL="${FOG_HTTP_PROTOCOL:-https}"
 
 # FTP Configuration
-FOG_FTP_USER="${FOG_FTP_USER:-fogproject}"
-FOG_FTP_PASS="${FOG_FTP_PASS:-fogftp123}"
+FOG_USER="${FOG_USER:-fogproject}"
+FOG_PASS="${FOG_PASS:-fogftp123}"
 
 # SSL Configuration
 FOG_SSL_PATH="${FOG_SSL_PATH:-/opt/fog/snapins/ssl}"
@@ -188,13 +188,13 @@ configureFOGConfig() {
     sed -i "s|{{FOG_DB_USER}}|$FOG_DB_USER|g" "$FOG_CONFIG_FILE"
     sed -i "s|{{FOG_DB_PASS}}|$FOG_DB_PASS|g" "$FOG_CONFIG_FILE"
     sed -i "s|{{FOG_TFTP_HOST}}|$FOG_TFTP_HOST|g" "$FOG_CONFIG_FILE"
-    sed -i "s|{{FOG_NFS_HOST}}|$FOG_NFS_HOST|g" "$FOG_CONFIG_FILE"
+    sed -i "s|{{FOG_STORAGE_HOST}}|$FOG_STORAGE_HOST|g" "$FOG_CONFIG_FILE"
     sed -i "s|{{FOG_WOL_HOST}}|$FOG_WOL_HOST|g" "$FOG_CONFIG_FILE"
     sed -i "s|{{FOG_MULTICAST_INTERFACE}}|$FOG_MULTICAST_INTERFACE|g" "$FOG_CONFIG_FILE"
     sed -i "s|{{FOG_WEB_HOST}}|$FOG_WEB_HOST|g" "$FOG_CONFIG_FILE"
     sed -i "s|{{FOG_WEB_ROOT}}|$FOG_WEB_ROOT|g" "$FOG_CONFIG_FILE"
-    sed -i "s|{{FOG_FTP_USER}}|$FOG_FTP_USER|g" "$FOG_CONFIG_FILE"
-    sed -i "s|{{FOG_FTP_PASS}}|$FOG_FTP_PASS|g" "$FOG_CONFIG_FILE"
+    sed -i "s|{{FOG_USER}}|$FOG_USER|g" "$FOG_CONFIG_FILE"
+    sed -i "s|{{FOG_PASS}}|$FOG_PASS|g" "$FOG_CONFIG_FILE"
     
     chown www-data:www-data "$FOG_CONFIG_FILE"
     
@@ -341,20 +341,20 @@ configureFTP() {
     /opt/fog/scripts/process-template.sh /opt/fog/templates/vsftpd.conf.template "$FTP_CONFIG_FILE"
     
     # Create FTP user if it doesn't exist
-    if ! id "$FOG_FTP_USER" &>/dev/null; then
-        echo "Creating FTP user: $FOG_FTP_USER"
-        useradd -r -s /bin/bash -d "/home/$FOG_FTP_USER" -m -g www-data "$FOG_FTP_USER"
+    if ! id "$FOG_USER" &>/dev/null; then
+        echo "Creating FTP user: $FOG_USER"
+        useradd -r -s /bin/bash -d "/home/$FOG_USER" -m -g www-data "$FOG_USER"
     fi
     
     # Set FTP user password
-    echo "$FOG_FTP_USER:$FOG_FTP_PASS" | chpasswd
+    echo "$FOG_USER:$FOG_PASS" | chpasswd
     
     # Add FTP user to www-data group for access to /images
-    usermod -a -G www-data "$FOG_FTP_USER"
-    echo "Added '$FOG_FTP_USER' to www-data group for /images access"
+    usermod -a -G www-data "$FOG_USER"
+    echo "Added '$FOG_USER' to www-data group for /images access"
     
     # Set proper ownership for FTP user's home directory
-    chown -R "$FOG_FTP_USER:www-data" "/home/$FOG_FTP_USER"
+    chown -R "$FOG_USER:www-data" "/home/$FOG_USER"
     
     echo "FTP configuration completed."
 }

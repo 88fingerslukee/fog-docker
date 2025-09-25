@@ -9,7 +9,7 @@
  * with environment variables.
  *
  * @category Config
- * @package  FOGProject  
+ * @package  FOG-Docker  
  * @author   Lucas Burdick
  * @license  http://opensource.org/licenses/gpl-3.0 GPLv3
  * @link     https://fogproject.org
@@ -72,17 +72,17 @@ class Config
     private static function _initSetting()
     {
         define('TFTP_HOST', '{{FOG_TFTP_HOST}}');
-        define('TFTP_FTP_USERNAME', '{{FOG_FTP_USER}}');
-        define('TFTP_FTP_PASSWORD', '{{FOG_FTP_PASS}}');
+        define('TFTP_FTP_USERNAME', '{{FOG_USER}}');
+        define('TFTP_FTP_PASSWORD', '{{FOG_PASS}}');
         define('TFTP_PXE_KERNEL_DIR', '/var/www/html/fog/service/ipxe/');
         define('PXE_KERNEL', 'bzImage');
         define('PXE_KERNEL_RAMDISK', 275000);
         define('USE_SLOPPY_NAME_LOOKUPS', true);
         define('MEMTEST_KERNEL', 'memtest.bin');
         define('PXE_IMAGE', 'init.xz');
-        define('STORAGE_HOST', '{{FOG_NFS_HOST}}');
-        define('STORAGE_FTP_USERNAME', '{{FOG_FTP_USER}}');
-        define('STORAGE_FTP_PASSWORD', '{{FOG_FTP_PASS}}');
+        define('STORAGE_HOST', '{{FOG_STORAGE_HOST}}');
+        define('STORAGE_FTP_USERNAME', '{{FOG_USER}}');
+        define('STORAGE_FTP_PASSWORD', '{{FOG_PASS}}');
         define('STORAGE_DATADIR', '/images/');
         define('STORAGE_DATADIR_CAPTURE', '/images/dev');
         define('STORAGE_BANDWIDTHPATH', '{{FOG_WEB_ROOT}}/status/bandwidth.php');

@@ -134,12 +134,10 @@ RUN apt-get -q update && \
         python3-setuptools \
         python3-wheel \
         python3-venv \
-        # Secure Boot tools
+        # Secure Boot tools (architecture-specific)
         sbsigntool \
         efitools \
         openssl \
-        shim-signed \
-        grub-efi-amd64-signed \
         # FAT32 filesystem tools
         dosfstools \
         util-linux \
@@ -150,6 +148,15 @@ RUN apt-get -q update && \
         supervisor \
         cron \
         && rm -rf /var/lib/apt/lists/*
+
+# Install architecture-specific secure boot packages
+RUN if [ "$(dpkg --print-architecture)" = "amd64" ]; then \
+        apt-get -q update && \
+        DEBIAN_FRONTEND=noninteractive apt-get -q install --no-install-recommends -y \
+            shim-signed \
+            grub-efi-amd64-signed \
+        && rm -rf /var/lib/apt/lists/*; \
+    fi
 
 # Create fog user
 RUN useradd -d /home/fog -m fog -u 1000 && \
@@ -179,9 +186,13 @@ RUN cd /opt && \
     rm -f /tmp/fog-installation.tar.gz && \
     mv fogproject fog
 
-# Copy shim and MOK manager from Debian packages
-RUN cp /usr/lib/shim/shimx64.efi /opt/fog/secure-boot/shim/shimx64.efi && \
-    cp /usr/lib/shim/mmx64.efi /opt/fog/secure-boot/shim/mmx64.efi
+# Copy shim and MOK manager from Debian packages (if available)
+RUN if [ -f "/usr/lib/shim/shimx64.efi" ]; then \
+        cp /usr/lib/shim/shimx64.efi /opt/fog/secure-boot/shim/shimx64.efi; \
+    fi && \
+    if [ -f "/usr/lib/shim/mmx64.efi" ]; then \
+        cp /usr/lib/shim/mmx64.efi /opt/fog/secure-boot/shim/mmx64.efi; \
+    fi
 
 # Copy FOG web files
 RUN if [ -d "/opt/fog/fogproject/packages/web" ]; then \
@@ -250,16 +261,16 @@ RUN rm -f /etc/apache2/sites-available/*.conf \
 # Download FOG kernel files (bzImage, init.xz, etc.)
 RUN mkdir -p /tmp/fog-kernels && \
     cd /tmp/fog-kernels && \
-    # Download kernel files from FOG releases
-    curl -L -o bzImage https://github.com/FOGProject/fos/releases/latest/download/bzImage && \
-    curl -L -o bzImage32 https://github.com/FOGProject/fos/releases/latest/download/bzImage32 && \
-    curl -L -o init.xz https://github.com/FOGProject/fos/releases/latest/download/init.xz && \
-    curl -L -o init_32.xz https://github.com/FOGProject/fos/releases/latest/download/init_32.xz && \
-    curl -L -o arm_Image https://github.com/FOGProject/fos/releases/latest/download/arm_Image && \
-    curl -L -o arm_init.cpio.gz https://github.com/FOGProject/fos/releases/latest/download/arm_init.cpio.gz && \
-    # Copy kernel files to the correct location
-    cp bzImage bzImage32 init.xz init_32.xz arm_Image arm_init.cpio.gz /var/www/html/fog/service/ipxe/ && \
-    chown www-data:www-data /var/www/html/fog/service/ipxe/bzImage* /var/www/html/fog/service/ipxe/init* /var/www/html/fog/service/ipxe/arm_* && \
+    # Download kernel files from FOG releases (with error handling)
+    (curl -L -o bzImage https://github.com/FOGProject/fos/releases/latest/download/bzImage || echo "bzImage download failed") && \
+    (curl -L -o bzImage32 https://github.com/FOGProject/fos/releases/latest/download/bzImage32 || echo "bzImage32 download failed") && \
+    (curl -L -o init.xz https://github.com/FOGProject/fos/releases/latest/download/init.xz || echo "init.xz download failed") && \
+    (curl -L -o init_32.xz https://github.com/FOGProject/fos/releases/latest/download/init_32.xz || echo "init_32.xz download failed") && \
+    (curl -L -o arm_Image https://github.com/FOGProject/fos/releases/latest/download/arm_Image || echo "arm_Image download failed") && \
+    (curl -L -o arm_init.cpio.gz https://github.com/FOGProject/fos/releases/latest/download/arm_init.cpio.gz || echo "arm_init.cpio.gz download failed") && \
+    # Copy available kernel files to the correct location
+    cp -f bzImage* init* arm_* /var/www/html/fog/service/ipxe/ 2>/dev/null || true && \
+    chown www-data:www-data /var/www/html/fog/service/ipxe/* 2>/dev/null || true && \
     rm -rf /tmp/fog-kernels
 
 # Copy iPXE files to TFTP directory

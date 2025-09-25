@@ -27,8 +27,8 @@ services:
       - "${FOG_APACHE_EXPOSED_PORT:-80}:${FOG_APACHE_PORT:-80}"
       - "${FOG_APACHE_EXPOSED_SSL_PORT:-443}:${FOG_APACHE_SSL_PORT:-443}"
       - "69:69/udp"
-      - "111:111"
       - "2049:2049"
+      - "111:111"
       - "32765:32765"
       - "32767:32767"
       - "21:21"
@@ -44,7 +44,7 @@ services:
       FOG_WEB_HOST: "${FOG_WEB_HOST}"
       FOG_WEB_ROOT: "${FOG_WEB_ROOT:-/fog}"
       FOG_TFTP_HOST: "${FOG_TFTP_HOST:-localhost}"
-      FOG_NFS_HOST: "${FOG_NFS_HOST:-localhost}"
+      FOG_STORAGE_HOST: "${FOG_STORAGE_HOST:-localhost}"
       FOG_WOL_HOST: "${FOG_WOL_HOST:-localhost}"
       FOG_MULTICAST_INTERFACE: "${FOG_MULTICAST_INTERFACE:-eth0}"
       
@@ -55,8 +55,8 @@ services:
       FOG_HTTP_PROTOCOL: "${FOG_HTTP_PROTOCOL:-https}"
       
       # FTP Configuration
-      FOG_FTP_USER: "${FOG_FTP_USER:-fogproject}"
-      FOG_FTP_PASS: "${FOG_FTP_PASS:-fogftp123}"
+      FOG_USER: "${FOG_USER:-fogproject}"
+      FOG_PASS: "${FOG_PASS:-fogftp123}"
       
       # SSL Configuration
       FOG_SSL_PATH: "/opt/fog/snapins/ssl"
@@ -75,9 +75,20 @@ services:
       
       # DHCP Configuration
       FOG_DHCP_ENABLED: "${FOG_DHCP_ENABLED:-false}"
+      FOG_DHCP_SUBNET: "${FOG_DHCP_SUBNET:-192.168.1.0}"
+      FOG_DHCP_NETMASK: "${FOG_DHCP_NETMASK:-255.255.255.0}"
+      FOG_DHCP_ROUTER: "${FOG_DHCP_ROUTER:-192.168.1.1}"
+      FOG_DHCP_DOMAIN_NAME: "${FOG_DHCP_DOMAIN_NAME:-fog.local}"
+      FOG_DHCP_DEFAULT_LEASE_TIME: "${FOG_DHCP_DEFAULT_LEASE_TIME:-600}"
+      FOG_DHCP_MAX_LEASE_TIME: "${FOG_DHCP_MAX_LEASE_TIME:-7200}"
       FOG_DHCP_START_RANGE: "${FOG_DHCP_START_RANGE:-192.168.1.100}"
       FOG_DHCP_END_RANGE: "${FOG_DHCP_END_RANGE:-192.168.1.200}"
-      FOG_DHCP_BOOTFILE: "${FOG_DHCP_BOOTFILE:-undionly.kpxe}"
+      FOG_DHCP_BOOTFILE_BIOS: "${FOG_DHCP_BOOTFILE_BIOS:-undionly.kpxe}"
+      FOG_DHCP_BOOTFILE_UEFI32: "${FOG_DHCP_BOOTFILE_UEFI32:-ipxe32.efi}"
+      FOG_DHCP_BOOTFILE_UEFI64: "${FOG_DHCP_BOOTFILE_UEFI64:-ipxe.efi}"
+      FOG_DHCP_BOOTFILE_ARM32: "${FOG_DHCP_BOOTFILE_ARM32:-arm32.efi}"
+      FOG_DHCP_BOOTFILE_ARM64: "${FOG_DHCP_BOOTFILE_ARM64:-arm64.efi}"
+      FOG_DHCP_HTTPBOOT_ENABLED: "${FOG_DHCP_HTTPBOOT_ENABLED:-false}"
       FOG_DHCP_DNS: "${FOG_DHCP_DNS:-8.8.8.8}"
       
       # FOG Version
@@ -91,7 +102,7 @@ services:
       FORCE_FIRST_START_INIT: "${FORCE_FIRST_START_INIT:-false}"
     volumes:
       # FOG Images (main storage - matches bare metal /images)
-      - "fog_images:/images:rw"
+      - "/files/images:/images:rw"
       
       # TFTP Boot files (matches bare metal /tftpboot)
       - "fog_tftpboot:/tftpboot:rw"
