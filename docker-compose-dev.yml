@@ -1,7 +1,9 @@
+version: '3.8'
+
 services:
   fog-db:
     image: mariadb:10.11
-    container_name: fog-db
+    container_name: fog-db-dev
     restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: ${FOG_DB_ROOT_PASSWORD}
@@ -9,17 +11,22 @@ services:
       MYSQL_USER: ${FOG_DB_USER:-fogmaster}
       MYSQL_PASSWORD: ${FOG_DB_PASS:-fogmaster123}
     volumes:
-      - fog-db-data:/var/lib/mysql
+      - fog-db-data-dev:/var/lib/mysql
     networks:
-      - fog-network
+      - fog-network-dev
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       timeout: 20s
       retries: 10
 
   fog-server:
-    image: ghcr.io/88fingerslukee/fog-docker:latest
-    container_name: fog-server
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        FOG_GIT_URL: ${FOG_GIT_URL:-https://github.com/FOGProject/fogproject.git}
+        FOG_VERSION: ${FOG_VERSION:-stable}
+    container_name: fog-server-dev
     restart: unless-stopped
     depends_on:
       fog-db:
@@ -29,30 +36,22 @@ services:
       - NET_RAW
       - SYS_ADMIN
     ports:
-      - "${FOG_APACHE_EXPOSED_PORT:-80}:${FOG_APACHE_PORT:-80}"
-      - "${FOG_APACHE_EXPOSED_SSL_PORT:-443}:${FOG_APACHE_SSL_PORT:-443}"
-      - "69:69/udp"
+      - "${FOG_APACHE_EXPOSED_PORT:-8080}:${FOG_APACHE_PORT:-80}"
+      - "${FOG_APACHE_EXPOSED_SSL_PORT:-8443}:${FOG_APACHE_SSL_PORT:-443}"
+      - "6969:69/udp"
       - "2049:2049"
       - "111:111"
       - "32765:32765"
       - "32767:32767"
-      - "21:21"
+      - "2121:21"
     volumes:
-      - fog-images:/images
-      - fog-tftpboot:/tftpboot
-      - fog-snapins:/opt/fog/snapins
-      - fog-logs:/opt/fog/log
-      - fog-ssl:/opt/fog/ssl
-      - fog-config:/opt/fog/config
-      - fog-secure-boot:/opt/fog/secure-boot
-      # Uncomment the following lines to use host directories instead of Docker volumes:
-      # - /path/to/images:/images
-      # - /path/to/tftpboot:/tftpboot
-      # - /path/to/snapins:/opt/fog/snapins
-      # - /path/to/logs:/opt/fog/log
-      # - /path/to/ssl:/opt/fog/ssl
-      # - /path/to/config:/opt/fog/config
-      # - /path/to/secure-boot:/opt/fog/secure-boot
+      - fog-images-dev:/images
+      - fog-tftpboot-dev:/tftpboot
+      - fog-snapins-dev:/opt/fog/snapins
+      - fog-logs-dev:/opt/fog/log
+      - fog-ssl-dev:/opt/fog/ssl
+      - fog-config-dev:/opt/fog/config
+      - fog-secure-boot-dev:/opt/fog/secure-boot
     environment:
       # Database Configuration
       FOG_DB_HOST: "${FOG_DB_HOST:-fog-db}"
@@ -114,29 +113,29 @@ services:
       TZ: "${TZ:-UTC}"
       
       # Debug
-      DEBUG: "${DEBUG:-false}"
+      DEBUG: "${DEBUG:-true}"
       FORCE_FIRST_START_INIT: "${FORCE_FIRST_START_INIT:-false}"
     networks:
-      - fog-network
+      - fog-network-dev
 
 volumes:
-  fog-db-data:
+  fog-db-data-dev:
     driver: local
-  fog-images:
+  fog-images-dev:
     driver: local
-  fog-tftpboot:
+  fog-tftpboot-dev:
     driver: local
-  fog-snapins:
+  fog-snapins-dev:
     driver: local
-  fog-logs:
+  fog-logs-dev:
     driver: local
-  fog-ssl:
+  fog-ssl-dev:
     driver: local
-  fog-config:
+  fog-config-dev:
     driver: local
-  fog-secure-boot:
+  fog-secure-boot-dev:
     driver: local
 
 networks:
-  fog-network:
+  fog-network-dev:
     driver: bridge

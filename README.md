@@ -6,6 +6,8 @@ A Docker containerization of the FOG Project - an open-source computer cloning a
 
 ## Quick Start
 
+### Production Setup (Recommended)
+
 1. **Clone the repository:**
    ```bash
    git clone https://github.com/88fingerslukee/fog-docker.git
@@ -26,6 +28,38 @@ A Docker containerization of the FOG Project - an open-source computer cloning a
 4. **Access FOG:**
    - Web Interface: `http://your-server-ip/fog`
    - Default login: `fog` / `password`
+
+### Development Setup
+
+For development, testing, or custom FOG versions:
+
+1. **Configure your environment:**
+   ```bash
+   cp .env.example .env
+   # Edit .env to set your variables, including FOG_GIT_REF for specific versions
+   ```
+
+2. **Build and start the containers:**
+   ```bash
+   docker compose -f docker-compose-dev.yml up -d --build
+   ```
+
+**Note:** Development setup builds from source and uses different ports (8080, 8443, 6969, 2121) to avoid conflicts with production.
+
+## Automatic Releases
+
+This project automatically builds and publishes new Docker images when the FOG Project releases new versions:
+
+- **Automatic Detection**: Checks for new FOG releases every 6 hours
+- **Versioned Tags**: Each FOG release gets its own Docker tag (e.g., `fog-1.5.10`)
+- **Latest Tag**: The latest stable FOG version is always available as `latest`
+- **Manual Trigger**: You can manually trigger builds for specific FOG versions
+
+### Available Image Tags
+
+- `ghcr.io/88fingerslukee/fog-docker:latest` - Latest stable FOG version
+- `ghcr.io/88fingerslukee/fog-docker:fog-1.5.10` - Specific FOG version
+- `ghcr.io/88fingerslukee/fog-docker:fog-dev-branch` - Development branch
 
 ## Configuration
 
@@ -57,6 +91,34 @@ FOG_WOL_HOST=192.168.1.100
 ```
 
 **For single-server setups:** Set all host variables to the same IP/FQDN as `FOG_WEB_HOST`.
+
+### FOG User Configuration
+
+The FOG user account is used for various FOG operations:
+
+```bash
+# FOG User Configuration
+FOG_USER=fogproject
+FOG_PASS=fogftp123
+```
+
+**What the FOG user is used for:**
+- **FTP access** to image storage directories
+- **Service operations** for FOG background services
+- **File permissions** for images, snapins, and logs
+- **General FOG functionality** throughout the system
+
+**Important:** This is **SEPARATE** from the FOG web UI admin user!
+
+**FOG Web UI Admin User:**
+- **Username:** `fog`
+- **Password:** `password` (default)
+- **Created:** During database initialization
+- **Action Required:** **MUST be changed immediately** after first login for security!
+
+**Security Notes:**
+- Choose a strong password for `FOG_PASS` in production environments
+- Change the web UI admin password immediately after setup
 
 ### DHCP Configuration (Optional)
 

@@ -1,0 +1,120 @@
+name: FOG Release Trigger
+
+on:
+  schedule:
+    # Check for new FOG releases every 6 hours
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+    inputs:
+      fog_version:
+        description: 'FOG version to build (e.g., stable, dev-branch, or specific version)'
+        required: false
+        default: 'stable'
+
+jobs:
+  check-fog-releases:
+    runs-on: ubuntu-latest
+    outputs:
+      new-release: ${{ steps.check.outputs.new-release }}
+      fog-version: ${{ steps.check.outputs.fog-version }}
+    steps:
+    - name: Check for new FOG releases
+      id: check
+      run: |
+        # Get the latest FOG release
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          FOG_VERSION="${{ github.event.inputs.fog_version }}"
+        else
+          FOG_VERSION="stable"
+        fi
+        
+        # Get the latest release tag from FOG repository
+        if [ "$FOG_VERSION" = "stable" ]; then
+          LATEST_TAG=$(curl -s https://api.github.com/repos/FOGProject/fogproject/releases/latest | jq -r '.tag_name')
+        else
+          LATEST_TAG="$FOG_VERSION"
+        fi
+        
+        echo "Checking FOG version: $LATEST_TAG"
+        
+        # Check if we already have this version
+        EXISTING_TAGS=$(curl -s https://api.github.com/repos/88fingerslukee/fog-docker/tags | jq -r '.[].name' | grep "fog-$LATEST_TAG" || echo "")
+        
+        if [ -z "$EXISTING_TAGS" ]; then
+          echo "New FOG release found: $LATEST_TAG"
+          echo "new-release=true" >> $GITHUB_OUTPUT
+          echo "fog-version=$LATEST_TAG" >> $GITHUB_OUTPUT
+        else
+          echo "FOG version $LATEST_TAG already exists"
+          echo "new-release=false" >> $GITHUB_OUTPUT
+          echo "fog-version=$LATEST_TAG" >> $GITHUB_OUTPUT
+        fi
+
+  build-and-push:
+    needs: check-fog-releases
+    if: needs.check-fog-releases.outputs.new-release == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Log in to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ghcr.io/88fingerslukee/fog-docker
+        tags: |
+          type=raw,value=fog-${{ needs.check-fog-releases.outputs.fog-version }}
+          type=raw,value=latest,enable={{is_default_branch}}
+
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        platforms: linux/amd64
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        build-args: |
+          FOG_GIT_REF=${{ needs.check-fog-releases.outputs.fog-version }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+    - name: Create GitHub Release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: fog-${{ needs.check-fog-releases.outputs.fog-version }}
+        release_name: FOG Docker ${{ needs.check-fog-releases.outputs.fog-version }}
+        body: |
+          This release contains FOG Docker image built with FOG Project version ${{ needs.check-fog-releases.outputs.fog-version }}.
+          
+          ## Usage
+          
+          ```bash
+          docker pull ghcr.io/88fingerslukee/fog-docker:fog-${{ needs.check-fog-releases.outputs.fog-version }}
+          ```
+          
+          ## What's New
+          - Updated to FOG Project ${{ needs.check-fog-releases.outputs.fog-version }}
+          - All previous features and improvements included
+          
+          ## Full Changelog
+          See the [FOG Project releases](https://github.com/FOGProject/fogproject/releases) for detailed changelog.
+        draft: false
+        prerelease: false
