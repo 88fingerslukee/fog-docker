@@ -70,7 +70,7 @@ RUN cd /home/fog && \
     echo "FOG installation tarball created"
 
 # Stage 2: Production image
-FROM debian:13-slim
+FROM debian:13
 
 ENV FOG_VERSION="stable"
 
@@ -78,8 +78,6 @@ ENV FOG_VERSION="stable"
 RUN apt-get -q update && \
     apt-get -q dist-upgrade -y && \
     DEBIAN_FRONTEND=noninteractive apt-get -q install --no-install-recommends -y \
-        # Essential certificates for HTTPS downloads
-        ca-certificates \
         # Web server and PHP
         apache2 \
         php \
@@ -103,19 +101,39 @@ RUN apt-get -q update && \
         nfs-kernel-server \
         vsftpd \
         isc-dhcp-server \
+        iproute2 \
         net-tools \
         # System utilities
         curl \
         wget \
         git \
-        python3 \
-        # Essential build tools (needed for iPXE recompilation)
         build-essential \
         gcc \
+        g++ \
         make \
-        # Essential network utilities (missing in slim)
-        iproute2 \
-        iputils-ping \
+        autoconf \
+        automake \
+        libtool \
+        pkg-config \
+        liblzma-dev \
+        libc6-dev \
+        libssl-dev \
+        libcurl4-openssl-dev \
+        zlib1g-dev \
+        libncurses5-dev \
+        libncursesw5-dev \
+        bison \
+        flex \
+        libelf-dev \
+        libdw-dev \
+        libaudit-dev \
+        libslang2-dev \
+        libperl-dev \
+        python3 \
+        python3-pip \
+        python3-setuptools \
+        python3-wheel \
+        python3-venv \
         # Secure Boot tools (architecture-specific)
         sbsigntool \
         efitools \
@@ -129,7 +147,6 @@ RUN apt-get -q update && \
         sudo \
         supervisor \
         cron \
-        procps \
         && rm -rf /var/lib/apt/lists/*
 
 # Install architecture-specific secure boot packages
