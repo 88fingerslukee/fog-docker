@@ -594,6 +594,11 @@ appRun() {
     echo "Cleaning up stale PID files..."
     rm -f /var/run/apache2/apache2.pid
     
+    # Mount nfsd filesystem for NFS kernel server
+    echo "Mounting nfsd filesystem..."
+    mkdir -p /proc/fs/nfsd
+    mount -t nfsd nfsd /proc/fs/nfsd || echo "Warning: Could not mount nfsd filesystem"
+    
     # Set timezone for all processes
     export TZ="${TZ:-UTC}"
     

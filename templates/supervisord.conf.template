@@ -73,7 +73,7 @@ stderr_logfile_backups=5
 environment=TZ="{{TZ}}"
 
 [program:nfs-kernel-server]
-command=/bin/bash -c "sleep 3 && exportfs -ra && /usr/sbin/rpc.nfsd 8 && /usr/sbin/rpc.mountd -F"
+command=/bin/bash -c 'sleep 3 && exportfs -ra && /usr/sbin/rpc.nfsd 8 && /usr/sbin/rpc.mountd -F'
 user=root
 autostart=true
 autorestart=true
