@@ -103,16 +103,15 @@ jobs:
         release_name: FOG Docker ${{ needs.check-fog-releases.outputs.fog-version }}
         body: |
           This release contains FOG Docker image built with FOG Project version ${{ needs.check-fog-releases.outputs.fog-version }}.
-          
-          ## Usage
-          
-          ```bash
-          docker pull ghcr.io/88fingerslukee/fog-docker:fog-${{ needs.check-fog-releases.outputs.fog-version }}
-          ```
-          
+
           ## What's New
           - Updated to FOG Project ${{ needs.check-fog-releases.outputs.fog-version }}
           - All previous features and improvements included
+          
+          ## Documentation
+          - [Full README](https://github.com/88fingerslukee/fog-docker/blob/main/README.md)
+          - [Configuration Guide](https://github.com/88fingerslukee/fog-docker/blob/main/.env.example)
+          - [FOG Project Documentation](https://wiki.fogproject.org/)
           
           ## Full Changelog
           See the [FOG Project releases](https://github.com/FOGProject/fogproject/releases) for detailed changelog.

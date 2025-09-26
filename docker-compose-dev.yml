@@ -31,10 +31,7 @@ services:
     depends_on:
       fog-db:
         condition: service_healthy
-    cap_add:
-      - NET_ADMIN
-      - NET_RAW
-      - SYS_ADMIN
+    privileged: true
     ports:
       - "${FOG_APACHE_EXPOSED_PORT:-8080}:${FOG_APACHE_PORT:-80}"
       - "${FOG_APACHE_EXPOSED_SSL_PORT:-8443}:${FOG_APACHE_SSL_PORT:-443}"

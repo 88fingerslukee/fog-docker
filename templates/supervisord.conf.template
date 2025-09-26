@@ -61,7 +61,7 @@ environment=TZ="{{TZ}}"
 command=/usr/sbin/rpc.statd --no-notify --foreground
 user=root
 autostart=true
-autorestart=false
+autorestart=true
 exitcodes=0
 priority=310
 stdout_logfile=/opt/fog/log/rpc-statd.log
@@ -72,8 +72,23 @@ stderr_logfile_maxbytes=10MB
 stderr_logfile_backups=5
 environment=TZ="{{TZ}}"
 
+[program:rpc-mountd]
+command=/usr/sbin/rpc.mountd -F
+user=root
+autostart=true
+autorestart=true
+exitcodes=0
+priority=315
+stdout_logfile=/opt/fog/log/rpc-mountd.log
+stdout_logfile_maxbytes=10MB
+stdout_logfile_backups=5
+stderr_logfile=/opt/fog/log/rpc-mountd_error.log
+stderr_logfile_maxbytes=10MB
+stderr_logfile_backups=5
+environment=TZ="{{TZ}}"
+
 [program:nfs-kernel-server]
-command=/bin/bash -c 'sleep 3 && exportfs -ra && /usr/sbin/rpc.nfsd 8 && /usr/sbin/rpc.mountd -F'
+command=/bin/bash -c 'sleep 3 && exportfs -ra && /usr/sbin/rpc.nfsd 8'
 user=root
 autostart=true
 autorestart=true
