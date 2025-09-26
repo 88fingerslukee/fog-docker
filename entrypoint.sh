@@ -331,6 +331,17 @@ configureNFS() {
     # Generate exports from template
     /opt/fog/scripts/process-template.sh /opt/fog/templates/exports.template "$NFS_CONFIG_FILE"
     
+    # Mount NFS filesystems
+    echo "Mounting NFS filesystems..."
+    
+    # Mount rpc_pipefs
+    echo "Mounting rpc_pipefs filesystem..."
+    mount -t rpc_pipefs /var/lib/nfs/rpc_pipefs /var/lib/nfs/rpc_pipefs || echo "Warning: Could not mount rpc_pipefs filesystem"
+    
+    # Mount nfsd
+    echo "Mounting nfsd filesystem..."
+    mount -t nfsd /proc/fs/nfsd /proc/fs/nfsd || echo "Warning: Could not mount nfsd filesystem"
+    
     echo "NFS configuration completed."
 }
 
@@ -589,15 +600,6 @@ appRun() {
     echo "=== Begin Run Phase ==="
     echo "Starting FOG using supervisor with \"/etc/supervisor/conf.d/supervisord.conf\" config..."
     echo ""
-    
-    # Clean up any stale PID files before starting services
-    echo "Cleaning up stale PID files..."
-    rm -f /var/run/apache2/apache2.pid
-    
-    # Mount nfsd filesystem for NFS kernel server
-    echo "Mounting nfsd filesystem..."
-    mkdir -p /proc/fs/nfsd
-    mount -t nfsd nfsd /proc/fs/nfsd || echo "Warning: Could not mount nfsd filesystem"
     
     # Set timezone for all processes
     export TZ="${TZ:-UTC}"

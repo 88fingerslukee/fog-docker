@@ -58,7 +58,7 @@ stderr_logfile_backups=5
 environment=TZ="{{TZ}}"
 
 [program:rpc-statd]
-command=/usr/sbin/rpc.statd --no-notify
+command=/usr/sbin/rpc.statd --no-notify --foreground
 user=root
 autostart=true
 autorestart=false

@@ -179,6 +179,11 @@ RUN mkdir -p /var/www/html/fog \
              "/opt/fog/config" \
              "/opt/fog/secure-boot"
 
+# Set up NFS filesystem mounts in fstab
+RUN mkdir -p /var/lib/nfs/rpc_pipefs && \
+    echo "rpc_pipefs  /var/lib/nfs/rpc_pipefs  rpc_pipefs  defaults  0  0" >> /etc/fstab && \
+    echo "nfsd        /proc/fs/nfsd            nfsd        defaults  0  0" >> /etc/fstab
+
 # Copy FOG installation from builder stage
 COPY --from=fog-builder /tmp/fog-installation.tar.gz /tmp/
 RUN cd /opt && \
