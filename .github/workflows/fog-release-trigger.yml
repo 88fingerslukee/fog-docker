@@ -55,7 +55,7 @@ jobs:
     if: needs.check-fog-releases.outputs.new-release == 'true'
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       packages: write
 
     steps:
