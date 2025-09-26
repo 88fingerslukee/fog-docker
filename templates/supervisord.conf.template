@@ -58,7 +58,7 @@ stderr_logfile_backups=5
 environment=TZ="{{TZ}}"
 
 [program:rpc-statd]
-command=/usr/sbin/rpc.statd --no-notify --foreground
+command=/usr/sbin/rpc.statd --no-notify --foreground --port 32765
 user=root
 autostart=true
 autorestart=true
@@ -73,7 +73,7 @@ stderr_logfile_backups=5
 environment=TZ="{{TZ}}"
 
 [program:rpc-mountd]
-command=/usr/sbin/rpc.mountd -F
+command=/usr/sbin/rpc.mountd -F --port 32767
 user=root
 autostart=true
 autorestart=true
