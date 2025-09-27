@@ -50,6 +50,7 @@ services:
       # - /path/to/ssl:/opt/fog/ssl
       # - /path/to/config:/opt/fog/config
       # - /path/to/secure-boot:/opt/fog/secure-boot
+      # - /path/to/FOG_MIGRATION_DUMP.sql:/opt/migration/FOG_MIGRATION_DUMP.sql  # For FOG database migration
     environment:
       # Database Configuration
       FOG_DB_HOST: "${FOG_DB_HOST:-fog-db}"
@@ -57,6 +58,10 @@ services:
       FOG_DB_NAME: "${FOG_DB_NAME:-fog}"
       FOG_DB_USER: "${FOG_DB_USER:-fogmaster}"
       FOG_DB_PASS: "${FOG_DB_PASS:-fogmaster123}"
+      
+      # Database Migration Configuration
+      FOG_DB_MIGRATION_ENABLED: "${FOG_DB_MIGRATION_ENABLED:-false}"
+      FOG_DB_MIGRATION_FORCE: "${FOG_DB_MIGRATION_FORCE:-false}"
       
       # Web Configuration
       FOG_WEB_HOST: "${FOG_WEB_HOST}"

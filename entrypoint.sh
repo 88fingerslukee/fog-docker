@@ -515,15 +515,10 @@ checkSecureBootRequirements() {
 }
 
 databaseCheck() {
-    echo "Checking database initialization status..."
+    echo "Checking database schema status..."
     
-    # Only initialize database if this is a first start
-    if [ -e "/opt/fog/config/.fog-initiated" ] && [ "$FORCE_FIRST_START_INIT" != "True" ] && [ "$FORCE_FIRST_START_INIT" != "true" ]; then
-        echo "Database already initialized. Skipping initialization."
-        return 0
-    fi
-    
-    echo "Database initialization needed. Will be performed after Apache starts."
+    # Always check/update database schema (handles both new installs and upgrades)
+    echo "Database schema check/update will be performed after Apache starts."
     echo "Database check completed."
 }
 
@@ -586,9 +581,57 @@ staticConfiguration() {
     echo "=== End Static Configuration Phase ==="
 }
 
+importDatabaseDump() {
+    echo "=== Checking for FOG database migration ==="
+    
+    # Check if migration is enabled
+    if [ "${FOG_DB_MIGRATION_ENABLED:-false}" != "true" ]; then
+        echo "Database migration is disabled. Skipping import."
+        return 0
+    fi
+    
+    # Check for the specific migration dump file
+    local dump_file="/opt/migration/FOG_MIGRATION_DUMP.sql"
+    
+    if [ ! -f "$dump_file" ]; then
+        echo "No FOG migration dump found at $dump_file. Skipping import."
+        return 0
+    fi
+    
+    echo "Found FOG migration dump: $dump_file"
+    
+    # Check if FOG database already exists
+    if mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" -p"$DB_PASS" --ssl=0 -e "USE $DB_NAME;" 2>/dev/null; then
+        if [ "${FOG_DB_MIGRATION_FORCE:-false}" = "true" ]; then
+            echo "WARNING: FOG database '$DB_NAME' already exists, but FOG_DB_MIGRATION_FORCE=true"
+            echo "Proceeding with migration (this will overwrite existing data)..."
+        else
+            echo "WARNING: FOG database '$DB_NAME' already exists!"
+            echo "Migration would overwrite existing data. Skipping import for safety."
+            echo "To force migration, set FOG_DB_MIGRATION_FORCE=true"
+            return 1
+        fi
+    fi
+    
+    echo "Importing database dump for FOG migration..."
+    
+    # Import the dump
+    if mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" -p"$DB_PASS" --ssl=0 < "$dump_file" 2>/dev/null; then
+        echo "FOG database migration completed successfully."
+        echo "Removing migration dump file to prevent re-import on next restart."
+        rm -f "$dump_file"
+        return 0
+    else
+        echo "Failed to import FOG migration dump. Check the file format and database connection."
+        echo "Migration dump file left in place for manual inspection: $dump_file"
+        return 1
+    fi
+}
+
 bootstrappingEnvironment() {
     echo "=== Begin Bootstrap Phase ==="
     waitingForDatabase
+    importDatabaseDump
     databaseCheck
     echo "=== End Bootstrap Phase ==="
 }
@@ -622,22 +665,17 @@ appRun() {
         sleep 2
     done
     
-    # Initialize database if this is a first start
-    if [ ! -e "/opt/fog/config/.fog-initiated" ] || [ "$FORCE_FIRST_START_INIT" = "True" ] || [ "$FORCE_FIRST_START_INIT" = "true" ]; then
-        echo "Automatically initializing FOG database..."
-        local init_url="http://localhost:${FOG_APACHE_PORT}${FOG_WEB_ROOT}/management/index.php?node=schema"
-        local init_result=$(curl -s -f --data "confirm&fogverified" "$init_url" 2>&1)
-        
-        if [ $? -eq 0 ]; then
-            echo "Database initialization completed successfully."
-            touch "/opt/fog/config/.fog-initiated"
-        else
-            echo "Database initialization failed: $init_result"
-            echo "FOG will be initialized through the web interface."
-            echo "Please visit http://localhost:${FOG_APACHE_PORT}${FOG_WEB_ROOT}/management to complete the initial setup."
-        fi
+    # Check and update FOG database schema (handles both new installs and upgrades)
+    echo "Checking/updating FOG database schema..."
+    local init_url="http://localhost:${FOG_APACHE_PORT}${FOG_WEB_ROOT}/management/index.php?node=schema"
+    local init_result=$(curl -s -f --data "confirm&fogverified" "$init_url" 2>&1)
+    
+    if [ $? -eq 0 ]; then
+        echo "Database schema check/update completed successfully."
     else
-        echo "Database already initialized, skipping initialization."
+        echo "Database schema check/update failed: $init_result"
+        echo "FOG will be initialized through the web interface."
+        echo "Please visit ${FOG_HTTP_PROTOCOL}://${FOG_WEB_HOST}:${FOG_APACHE_PORT}${FOG_WEB_ROOT}/management to complete the initial setup."
     fi
     
     # Enable FOG services now that supervisor is running and database is initialized

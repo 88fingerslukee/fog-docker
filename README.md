@@ -15,15 +15,16 @@ A Docker containerization of the FOG Project - an open-source computer cloning a
    curl -O https://raw.githubusercontent.com/88fingerslukee/fog-docker/main/docker-compose.yml
    curl -O https://raw.githubusercontent.com/88fingerslukee/fog-docker/main/.env.example
    cp .env.example .env
-   # Edit .env with your settings (see Configuration section below)
    ```
 
-2. **Start FOG:**
+2. **Edit .env with your settings (see Configuration section below)**
+
+3. **Start FOG:**
    ```bash
    docker compose up -d
    ```
 
-3. **Access FOG:**
+4. **Access FOG:**
    - Web Interface: `http://your-server-ip/fog`
    - Default login: `fog` / `password`
 
@@ -73,6 +74,114 @@ This project automatically builds and publishes new Docker images when the FOG P
 - `ghcr.io/88fingerslukee/fog-docker:latest` - Latest stable FOG version
 - `ghcr.io/88fingerslukee/fog-docker:fog-1.5.10` - Specific FOG version
 - `ghcr.io/88fingerslukee/fog-docker:fog-dev-branch` - Development branch
+
+## Migration from Bare Metal FOG
+
+If you're migrating from a bare metal FOG installation, you can easily import your existing database:
+
+### Method 1: Automatic Database Import (Recommended)
+
+1. **Export your database from bare metal FOG:**
+   ```bash
+   # On your bare metal FOG server
+   mysqldump --single-transaction --routines --triggers --databases fog > FOG_MIGRATION_DUMP.sql
+   ```
+
+2. **Copy the dump file to your Docker host:**
+   ```bash
+   scp FOG_MIGRATION_DUMP.sql user@docker-host:/path/to/fog-docker/
+   ```
+
+3. **Enable migration in your .env file:**
+   ```bash
+   FOG_DB_MIGRATION_ENABLED=true
+   ```
+
+4. **Mount the dump file in docker-compose.yml:**
+   ```yaml
+   volumes:
+     - ./FOG_MIGRATION_DUMP.sql:/opt/migration/FOG_MIGRATION_DUMP.sql
+   ```
+
+5. **Start the container:**
+   ```bash
+   docker compose up -d
+   ```
+
+The container will automatically detect and import the database dump on first startup. The dump file will be removed after successful import to prevent re-import on subsequent restarts.
+
+**Safety Features:**
+- Migration is disabled by default (`FOG_DB_MIGRATION_ENABLED=false`)
+- If the FOG database already exists, migration will be skipped for safety
+- To force migration over existing data, set `FOG_DB_MIGRATION_FORCE=true`
+
+### Migration Dump File Requirements
+
+**Important**: The dump file must be named exactly `FOG_MIGRATION_DUMP.sql` and mounted to `/opt/migration/FOG_MIGRATION_DUMP.sql` in the container.
+
+**Migration Environment Variables:**
+- `FOG_DB_MIGRATION_ENABLED=true` - Enable database migration (default: false)
+- `FOG_DB_MIGRATION_FORCE=true` - Force migration even if database exists (default: false)
+
+This specific naming and explicit enablement prevents accidental imports and makes the migration process intentional and clear.
+
+## Using an External Database
+
+For when you want to separate your database from the FOG container, you can use an external MySQL/MariaDB server.
+
+### Configure FOG to Use External Database
+
+1. **Update your `.env` file:**
+   ```bash
+   # Database Configuration
+   FOG_DB_HOST=your-db-server-ip-or-hostname
+   FOG_DB_PORT=3306
+   FOG_DB_NAME=fog
+   FOG_DB_USER=fogmaster
+   FOG_DB_PASS=your-secure-password
+   ```
+
+2. **Remove the database service and dependency from `docker-compose.yml`:**
+   ```yaml
+   # Comment out or remove the entire fog-db service:
+   # services:
+   #   fog-db:
+   #     image: mariadb:10.11
+   #     ...
+   
+   # Also remove the depends_on section from fog-server:
+   # depends_on:
+   #   fog-db:
+   #     condition: service_healthy
+   ```
+
+3. **Start only the FOG server:**
+   ```bash
+   docker compose up -d fog-server
+   ```
+
+### Troubleshooting External Database
+
+**Connection Issues:**
+```bash
+# Test database connectivity from FOG container
+docker exec -it fog-container mysql -h your-db-host -u fogmaster -p
+
+# Check if database is accessible
+docker exec -it fog-container telnet your-db-host 3306
+```
+
+**Permission Issues:**
+```sql
+-- Check user permissions
+SHOW GRANTS FOR 'fogmaster'@'%';
+
+-- Recreate user if needed
+DROP USER 'fogmaster'@'%';
+CREATE USER 'fogmaster'@'%' IDENTIFIED BY 'password';
+GRANT ALL PRIVILEGES ON fog.* TO 'fogmaster'@'%';
+FLUSH PRIVILEGES;
+```
 
 ## Configuration
 
