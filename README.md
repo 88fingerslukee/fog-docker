@@ -489,85 +489,85 @@ docker compose logs -f fog-server
 ### Core FOG Features
 
 #### Image Management
-[ ] **Image Creation**: Capture images from reference machines
-[ ] **Image Deployment**: Deploy images to target machines
-[ ] **Image Storage**: NFS-based image storage and management
-[ ] **Image Replication**: Multi-server image synchronization
-[ ] **Image Size Management**: Automatic image size optimization
+- [ ] **Image Creation**: Capture images from reference machines
+- [ ] **Image Deployment**: Deploy images to target machines
+- [ ] **Image Storage**: NFS-based image storage and management
+- [ ] **Image Replication**: Multi-server image synchronization
+- [ ] **Image Size Management**: Automatic image size optimization
 
 #### Client Management
-[ ] **Host Registration**: Automatic client registration via PXE
-[ ] **Host Management**: Web-based host administration
-[ ] **Group Management**: Organize hosts into groups
-[ ] **Client Communication**: FOG client service communication
-[ ] **Host Inventory**: Hardware and software inventory collection
+- [ ] **Host Registration**: Automatic client registration via PXE
+- [ ] **Host Management**: Web-based host administration
+- [ ] **Group Management**: Organize hosts into groups
+- [ ] **Client Communication**: FOG client service communication
+- [ ] **Host Inventory**: Hardware and software inventory collection
 
 #### Task Management
-[ ] **Task Scheduling**: Schedule image deployments and captures
-[ ] **Task Management**: Monitor and manage deployment tasks
-[ ] **Multicast Tasks**: Deploy to multiple clients simultaneously
-[ ] **Task History**: Track completed and failed tasks
+- [ ] **Task Scheduling**: Schedule image deployments and captures
+- [ ] **Task Management**: Monitor and manage deployment tasks
+- [ ] **Multicast Tasks**: Deploy to multiple clients simultaneously
+- [ ] **Task History**: Track completed and failed tasks
 
 #### Snapins
-[ ] **Snapin Management**: Create and manage software packages
-[ ] **Snapin Deployment**: Deploy software to registered hosts
-[ ] **Snapin Replication**: Multi-server snapin synchronization
-[ ] **Snapin Hashing**: Verify snapin integrity
+- [ ] **Snapin Management**: Create and manage software packages
+- [ ] **Snapin Deployment**: Deploy software to registered hosts
+- [ ] **Snapin Replication**: Multi-server snapin synchronization
+- [ ] **Snapin Hashing**: Verify snapin integrity
 
 #### Network Services
-[ ] **PXE Boot**: Network boot support via TFTP
-[ ] **TFTP Server**: PXE boot file serving
-[ ] **FTP Server**: Image transfer via FTP
-[ ] **HTTP Server**: Web interface and file serving
-[ ] **NFS Server**: Network file system for image storage
-[ ] **DHCP Integration**: External DHCP server configuration
-[ ] **Built-in DHCP Server**: Optional integrated DHCP server
+- [ ] **PXE Boot**: Network boot support via TFTP
+- [ ] **TFTP Server**: PXE boot file serving
+- [ ] **FTP Server**: Image transfer via FTP
+- [ ] **HTTP Server**: Web interface and file serving
+- [ ] **NFS Server**: Network file system for image storage
+- [ ] **DHCP Integration**: External DHCP server configuration
+- [ ] **Built-in DHCP Server**: Optional integrated DHCP server
 
 #### Boot Support
-[ ] **BIOS Boot**: Traditional BIOS PXE boot
-[ ] **UEFI Boot**: UEFI PXE boot support
-[ ] **UEFI 32-bit**: 32-bit UEFI client support
-[ ] **UEFI 64-bit**: 64-bit UEFI client support
-[ ] **ARM 32-bit**: ARM 32-bit client support
-[ ] **ARM 64-bit**: ARM 64-bit client support
-[ ] **HTTPBoot**: UEFI HTTP boot support
-[ ] **Secure Boot**: UEFI Secure Boot support
+- [ ] **BIOS Boot**: Traditional BIOS PXE boot
+- [ ] **UEFI Boot**: UEFI PXE boot support
+- [ ] **UEFI 32-bit**: 32-bit UEFI client support
+- [ ] **UEFI 64-bit**: 64-bit UEFI client support
+- [ ] **ARM 32-bit**: ARM 32-bit client support
+- [ ] **ARM 64-bit**: ARM 64-bit client support
+- [ ] **HTTPBoot**: UEFI HTTP boot support
+- [ ] **Secure Boot**: UEFI Secure Boot support
 
 #### Advanced Features
-[ ] **Wake on LAN**: Remote power management
-[ ] **Multicasting**: Simultaneous deployment to multiple clients
-[ ] **Image Encryption**: Encrypt images for security
-[ ] **User Management**: Multi-user access control
-[ ] **Plugin System**: Extend functionality with plugins
-[ ] **Reporting**: Generate deployment and inventory reports
-[ ] **Printer Management**: Network printer configuration
+- [ ] **Wake on LAN**: Remote power management
+- [ ] **Multicasting**: Simultaneous deployment to multiple clients
+- [ ] **Image Encryption**: Encrypt images for security
+- [ ] **User Management**: Multi-user access control
+- [ ] **Plugin System**: Extend functionality with plugins
+- [ ] **Reporting**: Generate deployment and inventory reports
+- [ ] **Printer Management**: Network printer configuration
 
 ### Docker-Specific Features
 
 #### Containerization
-[ ] **Docker Compose**: Multi-service orchestration
-[ ] **Environment Configuration**: Environment variable-based setup
-[ ] **Volume Mounts**: Persistent data storage
-[ ] **Network Configuration**: Container networking setup
-[ ] **Health Checks**: Service health monitoring
+- [ ] **Docker Compose**: Multi-service orchestration
+- [ ] **Environment Configuration**: Environment variable-based setup
+- [ ] **Volume Mounts**: Persistent data storage
+- [ ] **Network Configuration**: Container networking setup
+- [ ] **Health Checks**: Service health monitoring
 
 #### Database Integration
-[ ] **MariaDB Integration**: Database container with automatic setup
-[ ] **Database Migration**: Import existing FOG databases
-[ ] **Schema Management**: Automatic database schema updates
-[ ] **External Database**: Support for external database servers
+- [ ] **MariaDB Integration**: Database container with automatic setup
+- [ ] **Database Migration**: Import existing FOG databases
+- [ ] **Schema Management**: Automatic database schema updates
+- [ ] **External Database**: Support for external database servers
 
 #### Security & SSL
-[ ] **SSL/HTTPS Support**: Multiple SSL configuration options
-[ ] **Reverse Proxy Support**: Works behind reverse proxies
-[ ] **Secure Configuration**: Environment-based security settings
-[ ] **Certificate Management**: SSL certificate handling
+- [ ] **SSL/HTTPS Support**: Multiple SSL configuration options
+- [ ] **Reverse Proxy Support**: Works behind reverse proxies
+- [ ] **Secure Configuration**: Environment-based security settings
+- [ ] **Certificate Management**: SSL certificate handling
 
 #### Development & CI/CD
-[ ] **Multi-platform Builds**: Docker image builds for different architectures
-[ ] **Automated Releases**: Automatic builds on FOG Project releases
-[ ] **Development Mode**: Build from source with version selection
-[ ] **Production Mode**: Use pre-built images from registry
+- [ ] **Multi-platform Builds**: Docker image builds for different architectures
+- [ ] **Automated Releases**: Automatic builds on FOG Project releases
+- [ ] **Development Mode**: Build from source with version selection
+- [ ] **Production Mode**: Use pre-built images from registry
 
 ## Contributing
 
