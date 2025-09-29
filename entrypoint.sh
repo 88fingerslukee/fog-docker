@@ -446,11 +446,8 @@ configureiPXE() {
         echo "Copying TFTP boot files to /tftpboot..."
         # Copy from the FOG source directory (where files are during build)
         if [ -d "/opt/fog/fogproject/packages/tftp" ]; then
-            cp /opt/fog/fogproject/packages/tftp/*.pxe /tftpboot/ 2>/dev/null || true
-            cp /opt/fog/fogproject/packages/tftp/*.efi /tftpboot/ 2>/dev/null || true
-            cp /opt/fog/fogproject/packages/tftp/*.lkrn /tftpboot/ 2>/dev/null || true
-            cp /opt/fog/fogproject/packages/tftp/*.iso /tftpboot/ 2>/dev/null || true
-            cp /opt/fog/fogproject/packages/tftp/*.usb /tftpboot/ 2>/dev/null || true
+            cp -r /opt/fog/fogproject/packages/tftp/ /tftpboot/ 2>/dev/null || true
+
             echo "TFTP boot files copied from FOG source."
         else
             echo "Warning: FOG TFTP source directory not found at /opt/fog/fogproject/packages/tftp"
