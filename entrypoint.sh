@@ -392,6 +392,20 @@ configureDHCP() {
 }
 
 configureiPXE() {
+    echo "Configuring iPXE and TFTP boot files..."
+    
+    # Function to copy TFTP files
+    copyTFTPFiles() {
+        echo "Copying TFTP boot files to /tftpboot..."
+        cp /opt/fog/packages/tftp/*.pxe /tftpboot/ 2>/dev/null || true
+        cp /opt/fog/packages/tftp/*.efi /tftpboot/ 2>/dev/null || true
+        cp /opt/fog/packages/tftp/*.lkrn /tftpboot/ 2>/dev/null || true
+        cp /opt/fog/packages/tftp/*.iso /tftpboot/ 2>/dev/null || true
+        cp /opt/fog/packages/tftp/*.usb /tftpboot/ 2>/dev/null || true
+        chown -R www-data:www-data /tftpboot
+        echo "TFTP boot files copied successfully."
+    }
+    
     if [ "$FOG_INTERNAL_HTTPS_ENABLED" = "true" ] && [ "$FOG_SSL_GENERATE_SELF_SIGNED" = "true" ]; then
         echo "Recompiling iPXE with self-signed certificate trust..."
         
@@ -407,36 +421,28 @@ configureiPXE() {
             
             if [ $? -eq 0 ]; then
                 echo "✓ iPXE recompilation completed successfully."
-                
-                # Copy the newly built iPXE files to TFTP directory
-                echo "Copying newly built iPXE files to TFTP directory..."
-                cp /opt/fog/packages/tftp/*.pxe /tftpboot/ 2>/dev/null || true
-                cp /opt/fog/packages/tftp/*.efi /tftpboot/ 2>/dev/null || true
-                cp /opt/fog/packages/tftp/*.lkrn /tftpboot/ 2>/dev/null || true
-                cp /opt/fog/packages/tftp/*.iso /tftpboot/ 2>/dev/null || true
-                cp /opt/fog/packages/tftp/*.usb /tftpboot/ 2>/dev/null || true
-                chown -R www-data:www-data /tftpboot
+                copyTFTPFiles
             else
                 echo "Warning: iPXE recompilation failed, using pre-built binaries."
                 echo "This may cause SSL certificate trust issues with self-signed certificates."
+                copyTFTPFiles
             fi
         else
             echo "Warning: iPXE build script not found, using pre-built binaries."
             echo "This may cause SSL certificate trust issues with self-signed certificates."
+            copyTFTPFiles
         fi
     else
         echo "iPXE recompilation not needed (HTTP or external certificates)."
-        # Ensure pre-built iPXE files are available in TFTP directory
-        if [ ! -f "/tftpboot/ipxe.pxe" ]; then
-            echo "Copying pre-built iPXE files to TFTP directory..."
-            cp /opt/fog/packages/tftp/*.pxe /tftpboot/ 2>/dev/null || true
-            cp /opt/fog/packages/tftp/*.efi /tftpboot/ 2>/dev/null || true
-            cp /opt/fog/packages/tftp/*.lkrn /tftpboot/ 2>/dev/null || true
-            cp /opt/fog/packages/tftp/*.iso /tftpboot/ 2>/dev/null || true
-            cp /opt/fog/packages/tftp/*.usb /tftpboot/ 2>/dev/null || true
-            chown -R www-data:www-data /tftpboot
+        # Ensure TFTP boot files are available (handles volume mount overwrites)
+        if [ ! -f "/tftpboot/ipxe.pxe" ] || [ ! -f "/tftpboot/undionly.kpxe" ]; then
+            copyTFTPFiles
+        else
+            echo "TFTP boot files already present."
         fi
     fi
+    
+    echo "iPXE and TFTP configuration completed."
 }
 
 configureSecureBoot() {

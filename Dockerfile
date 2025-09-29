@@ -265,9 +265,6 @@ RUN cd /var/www/html/fog/service/ipxe && \
     (curl -L -o arm_Image https://github.com/FOGProject/fos/releases/latest/download/arm_Image || echo "arm_Image download failed") && \
     (curl -L -o arm_init.cpio.gz https://github.com/FOGProject/fos/releases/latest/download/arm_init.cpio.gz || echo "arm_init.cpio.gz download failed")
 
-# Copy iPXE files to TFTP directory (duplicate copy for redundancy)
-RUN cp -r /opt/fog/fogproject/packages/tftp/* /tftpboot/
-
 # Set all permissions and ownership after all copy operations are complete
 RUN chmod +x /sbin/entrypoint.sh && \
     chmod +x /opt/fog/scripts/*.sh && \
