@@ -143,7 +143,10 @@ setConfigurationValue() {
 
 prepareDirectories() {
     echo "Preparing directories and linking persistent data..."
-        
+    
+    # Check for mount transitions and provide guidance
+    checkMountTransitions
+    
     # Set proper ownership
     chown -R www-data:www-data /var/www/html/fog
     
@@ -155,6 +158,48 @@ prepareDirectories() {
     chown -R www-data:www-data /opt/fog/snapins
     
     echo "Directory preparation completed."
+}
+
+checkMountTransitions() {
+    echo "Checking for mount configuration changes..."
+    
+    # Check if critical directories are empty (indicating potential mount change)
+    local empty_dirs=()
+    
+    if [ ! -d "/images" ] || [ -z "$(ls -A /images 2>/dev/null)" ]; then
+        empty_dirs+=("images")
+    fi
+    
+    if [ ! -d "/tftpboot" ] || [ -z "$(ls -A /tftpboot 2>/dev/null)" ]; then
+        empty_dirs+=("tftpboot")
+    fi
+    
+    if [ ! -d "/opt/fog/snapins" ] || [ -z "$(ls -A /opt/fog/snapins 2>/dev/null)" ]; then
+        empty_dirs+=("snapins")
+    fi
+    
+    if [ ${#empty_dirs[@]} -gt 0 ]; then
+        echo "⚠️  WARNING: The following directories appear to be empty:"
+        for dir in "${empty_dirs[@]}"; do
+            echo "   - /$dir"
+        done
+        echo ""
+        echo "This may indicate:"
+        echo "1. First-time startup (normal)"
+        echo "2. Mount configuration change (volume ↔ persistent)"
+        echo "3. Data loss or corruption"
+        echo ""
+        echo "If you switched from volume mounts to persistent mounts:"
+        echo "- Ensure your host directories contain the expected data"
+        echo "- Or copy data from Docker volumes before switching"
+        echo ""
+        echo "If you switched from persistent mounts to volume mounts:"
+        echo "- You'll need to re-upload images and reconfigure FOG"
+        echo "- This is expected behavior for a clean slate"
+        echo ""
+    else
+        echo "✓ All critical directories contain data"
+    fi
 }
 
 waitingForDatabase() {
@@ -399,11 +444,17 @@ configureiPXE() {
     # Function to copy TFTP files
     copyTFTPFiles() {
         echo "Copying TFTP boot files to /tftpboot..."
-        cp /opt/fog/packages/tftp/*.pxe /tftpboot/ 2>/dev/null || true
-        cp /opt/fog/packages/tftp/*.efi /tftpboot/ 2>/dev/null || true
-        cp /opt/fog/packages/tftp/*.lkrn /tftpboot/ 2>/dev/null || true
-        cp /opt/fog/packages/tftp/*.iso /tftpboot/ 2>/dev/null || true
-        cp /opt/fog/packages/tftp/*.usb /tftpboot/ 2>/dev/null || true
+        # Copy from the FOG source directory (where files are during build)
+        if [ -d "/opt/fog/fogproject/packages/tftp" ]; then
+            cp /opt/fog/fogproject/packages/tftp/*.pxe /tftpboot/ 2>/dev/null || true
+            cp /opt/fog/fogproject/packages/tftp/*.efi /tftpboot/ 2>/dev/null || true
+            cp /opt/fog/fogproject/packages/tftp/*.lkrn /tftpboot/ 2>/dev/null || true
+            cp /opt/fog/fogproject/packages/tftp/*.iso /tftpboot/ 2>/dev/null || true
+            cp /opt/fog/fogproject/packages/tftp/*.usb /tftpboot/ 2>/dev/null || true
+            echo "TFTP boot files copied from FOG source."
+        else
+            echo "Warning: FOG TFTP source directory not found at /opt/fog/fogproject/packages/tftp"
+        fi
         chown -R www-data:www-data /tftpboot
         echo "TFTP boot files copied successfully."
     }
@@ -436,12 +487,8 @@ configureiPXE() {
         fi
     else
         echo "iPXE recompilation not needed (HTTP or external certificates)."
-        # Ensure TFTP boot files are available (handles volume mount overwrites)
-        if [ ! -f "/tftpboot/ipxe.pxe" ] || [ ! -f "/tftpboot/undionly.kpxe" ]; then
-            copyTFTPFiles
-        else
-            echo "TFTP boot files already present."
-        fi
+        # Always copy TFTP files to handle volume mount overwrites
+        copyTFTPFiles
     fi
     
     echo "iPXE and TFTP configuration completed."
