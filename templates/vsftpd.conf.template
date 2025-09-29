@@ -15,8 +15,6 @@ listen=YES
 pam_service_name=vsftpd
 userlist_enable=NO
 chmod_enable=YES
-
-# Security Configuration
 seccomp_sandbox=NO
 
 # Passive Mode Configuration (for external clients)
@@ -24,6 +22,9 @@ pasv_enable=YES
 pasv_min_port={{FOG_FTP_PASV_MIN_PORT}}
 pasv_max_port={{FOG_FTP_PASV_MAX_PORT}}
 pasv_address={{FOG_WEB_HOST}}
+{{#FOG_WEB_HOST_IS_FQDN}}
+pasv_addr_resolve=YES
+{{/FOG_WEB_HOST_IS_FQDN}}
 
 # Logging
 xferlog_file=/opt/fog/log/vsftpd_xfer.log

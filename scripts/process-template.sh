@@ -60,6 +60,18 @@ process_template() {
         sed -i '/{{#FOG_HTTP_PROTOCOL_IS_HTTPS}}/,/{{\/FOG_HTTP_PROTOCOL_IS_HTTPS}}/d' "$temp_file"
     fi
     
+    # Handle FOG_WEB_HOST_IS_FQDN conditional
+    if [[ "$FOG_WEB_HOST" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        echo "  - FOG_WEB_HOST is an IP address, not enabling pasv_addr_resolve"
+        # Remove the entire conditional block
+        sed -i '/{{#FOG_WEB_HOST_IS_FQDN}}/,/{{\/FOG_WEB_HOST_IS_FQDN}}/d' "$temp_file"
+    else
+        echo "  - FOG_WEB_HOST is a hostname/FQDN, enabling pasv_addr_resolve"
+        # Remove conditional markers and keep the content
+        sed -i 's/{{#FOG_WEB_HOST_IS_FQDN}}//g' "$temp_file"
+        sed -i 's/{{\/FOG_WEB_HOST_IS_FQDN}}//g' "$temp_file"
+    fi
+    
     # Process all remaining placeholders
     local placeholders=(
         "FOG_DB_HOST"
