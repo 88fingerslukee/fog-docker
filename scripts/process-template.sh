@@ -83,6 +83,8 @@ process_template() {
         "FOG_SSL_KEY_FILE"
         "FOG_USER"
         "FOG_PASS"
+        "FOG_FTP_PASV_MIN_PORT"
+        "FOG_FTP_PASV_MAX_PORT"
         "FOG_DHCP_SUBNET"
         "FOG_DHCP_NETMASK"
         "FOG_DHCP_ROUTER"

@@ -150,6 +150,7 @@ RUN apt-get -q update && \
         sudo \
         supervisor \
         cron \
+        bind9-dnsutils \
         && rm -rf /var/lib/apt/lists/*
 
 # Install architecture-specific secure boot packages

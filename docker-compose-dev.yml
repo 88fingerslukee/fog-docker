@@ -41,6 +41,7 @@ services:
       - "32765:32765"
       - "32767:32767"
       - "2121:21"
+      - "${FOG_FTP_PASV_MIN_PORT:-21100}-${FOG_FTP_PASV_MAX_PORT:-21110}:${FOG_FTP_PASV_MIN_PORT:-21100}-${FOG_FTP_PASV_MAX_PORT:-21110}"
     volumes:
       - fog-images-dev:/images
       - fog-tftpboot-dev:/tftpboot
@@ -84,6 +85,8 @@ services:
       # FTP Configuration
       FOG_USER: "${FOG_USER:-fogproject}"
       FOG_PASS: "${FOG_PASS:-fogftp123}"
+      FOG_FTP_PASV_MIN_PORT: "${FOG_FTP_PASV_MIN_PORT:-21100}"
+      FOG_FTP_PASV_MAX_PORT: "${FOG_FTP_PASV_MAX_PORT:-21110}"
       
       # Secure Boot Configuration
       FOG_SECURE_BOOT_ENABLED: "${FOG_SECURE_BOOT_ENABLED:-false}"

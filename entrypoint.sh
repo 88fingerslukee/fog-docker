@@ -36,6 +36,8 @@ FOG_HTTP_PROTOCOL="${FOG_HTTP_PROTOCOL:-https}"
 # FTP Configuration
 FOG_USER="${FOG_USER:-fogproject}"
 FOG_PASS="${FOG_PASS:-fogftp123}"
+FOG_FTP_PASV_MIN_PORT="${FOG_FTP_PASV_MIN_PORT:-21100}"
+FOG_FTP_PASV_MAX_PORT="${FOG_FTP_PASV_MAX_PORT:-21110}"
 
 # SSL Configuration
 FOG_SSL_PATH="${FOG_SSL_PATH:-/opt/fog/snapins/ssl}"
