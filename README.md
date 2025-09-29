@@ -489,14 +489,14 @@ docker compose logs -f fog-server
 ### Core FOG Features
 
 #### Image Management
-- [ ] **Image Creation**: Capture images from reference machines
+- [x] **Image Creation**: Capture images from reference machines
 - [ ] **Image Deployment**: Deploy images to target machines
 - [ ] **Image Storage**: NFS-based image storage and management
 - [ ] **Image Replication**: Multi-server image synchronization
-- [ ] **Image Size Management**: Automatic image size optimization
+- [x] **Image Size Management**: Automatic image size optimization
 
 #### Client Management
-- [ ] **Host Registration**: Automatic client registration via PXE
+- [x] **Host Registration**: Automatic client registration via PXE
 - [ ] **Host Management**: Web-based host administration
 - [ ] **Group Management**: Organize hosts into groups
 - [ ] **Client Communication**: FOG client service communication
