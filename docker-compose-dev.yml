@@ -15,7 +15,7 @@ services:
     networks:
       - fog-network-dev
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${FOG_DB_ROOT_PASSWORD}"]
       timeout: 20s
       retries: 10
 
@@ -25,7 +25,7 @@ services:
       dockerfile: Dockerfile
       args:
         FOG_GIT_URL: ${FOG_GIT_URL:-https://github.com/FOGProject/fogproject.git}
-        FOG_VERSION: ${FOG_VERSION:-stable}
+        FOG_GIT_REF: ${FOG_VERSION:-stable}
     container_name: fog-server-dev
     restart: unless-stopped
     depends_on:
@@ -56,6 +56,10 @@ services:
       FOG_DB_NAME: "${FOG_DB_NAME:-fog}"
       FOG_DB_USER: "${FOG_DB_USER:-fogmaster}"
       FOG_DB_PASS: "${FOG_DB_PASS:-fogmaster123}"
+      
+      # Database Migration Configuration
+      FOG_DB_MIGRATION_ENABLED: "${FOG_DB_MIGRATION_ENABLED:-false}"
+      FOG_DB_MIGRATION_FORCE: "${FOG_DB_MIGRATION_FORCE:-false}"
       
       # Web Configuration
       FOG_WEB_HOST: "${FOG_WEB_HOST}"
@@ -105,6 +109,8 @@ services:
       FOG_DHCP_BOOTFILE_ARM64: "${FOG_DHCP_BOOTFILE_ARM64:-arm64.efi}"
       FOG_DHCP_HTTPBOOT_ENABLED: "${FOG_DHCP_HTTPBOOT_ENABLED:-false}"
       FOG_DHCP_DNS: "${FOG_DHCP_DNS:-8.8.8.8}"
+      FOG_TFTP_HOST: "${FOG_TFTP_HOST}"
+
       
       # Timezone
       TZ: "${TZ:-UTC}"

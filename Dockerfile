@@ -60,7 +60,8 @@ ARG FOG_GIT_REF=stable
 # Clone and checkout FOG source
 RUN git clone "$FOG_GIT_URL" fogproject && \
     cd fogproject && \
-    git checkout -b current "$FOG_GIT_REF"
+    git fetch --all && \
+    git checkout "$FOG_GIT_REF"
 
 WORKDIR /home/fog/fogproject
 
@@ -72,7 +73,9 @@ RUN cd /home/fog && \
 # Stage 2: Production image
 FROM debian:13
 
-ENV FOG_VERSION="stable"
+# Pass the Git reference as the version
+ARG FOG_GIT_REF=stable
+ENV FOG_VERSION="${FOG_GIT_REF}"
 
 # Install all FOG dependencies
 RUN apt-get -q update && \
@@ -162,26 +165,28 @@ RUN if [ "$(dpkg --print-architecture)" = "amd64" ]; then \
 RUN useradd -d /home/fog -m fog -u 1000 && \
     echo 'fog ALL=(ALL:ALL) NOPASSWD:ALL' >> /etc/sudoers
 
-# Create FOG directories
-RUN mkdir -p /var/www/html/fog \
-             /tftpboot \
-             /opt/fog/snapins \
-             /opt/fog/log \
-             /opt/fog/service \
-             /opt/fog/secure-boot/keys \
-             /opt/fog/secure-boot/scripts \
-             /opt/fog/secure-boot/shim \
-             "/images" \
-             "/tftpboot" \
-             "/opt/fog/snapins" \
-             "/opt/fog/log" \
-             "/opt/fog/ssl" \
-             "/opt/fog/config" \
-             "/opt/fog/secure-boot"
+# Create all FOG directories
+RUN mkdir -p \
+    /var/www/html/fog \
+    /var/www/html/fog/service/ipxe \
+    /var/lib/nfs/rpc_pipefs \
+    /tftpboot \
+    /opt/fog/snapins \
+    /opt/fog/snapins/ssl \
+    /opt/fog/log \
+    /opt/fog/service \
+    /opt/fog/service/etc \
+    /opt/fog/secure-boot \
+    /opt/fog/secure-boot/keys \
+    /opt/fog/secure-boot/scripts \
+    /opt/fog/secure-boot/shim \
+    /opt/fog/ssl \
+    /opt/fog/config \
+    /images \
+    /opt/migration
 
 # Set up NFS filesystem mounts in fstab
-RUN mkdir -p /var/lib/nfs/rpc_pipefs && \
-    echo "rpc_pipefs  /var/lib/nfs/rpc_pipefs  rpc_pipefs  defaults  0  0" >> /etc/fstab && \
+RUN echo "rpc_pipefs  /var/lib/nfs/rpc_pipefs  rpc_pipefs  defaults  0  0" >> /etc/fstab && \
     echo "nfsd        /proc/fs/nfsd            nfsd        defaults  0  0" >> /etc/fstab
 
 # Copy FOG installation from builder stage
@@ -201,33 +206,28 @@ RUN if [ -f "/usr/lib/shim/shimx64.efi" ]; then \
 
 # Copy FOG web files
 RUN if [ -d "/opt/fog/fogproject/packages/web" ]; then \
-        cp -r /opt/fog/fogproject/packages/web/* /var/www/html/fog/ && \
-        chown -R www-data:www-data /var/www/html/fog; \
+        cp -r /opt/fog/fogproject/packages/web/* /var/www/html/fog/; \
     else \
         echo "Warning: FOG web directory not found"; \
     fi
 
 # Copy TFTP files
 RUN if [ -d "/opt/fog/fogproject/packages/tftp" ]; then \
-        cp -r /opt/fog/fogproject/packages/tftp/* /tftpboot/ && \
-        chown -R www-data:www-data /tftpboot; \
+        cp -r /opt/fog/fogproject/packages/tftp/* /tftpboot/; \
     else \
         echo "Warning: FOG TFTP directory not found"; \
     fi
 
 # Copy snapins
 RUN if [ -d "/opt/fog/fogproject/packages/snapins" ]; then \
-        cp -r /opt/fog/fogproject/packages/snapins/* /opt/fog/snapins/ && \
-        chown -R www-data:www-data /opt/fog/snapins; \
+        cp -r /opt/fog/fogproject/packages/snapins/* /opt/fog/snapins/; \
     else \
         echo "Warning: FOG snapins directory not found"; \
     fi
 
 # Copy FOG service files to expected location
 RUN if [ -d "/opt/fog/fogproject/packages/service" ]; then \
-        cp -r /opt/fog/fogproject/packages/service/* /opt/fog/service/ && \
-        chown -R www-data:www-data /opt/fog/service && \
-        chmod +x /opt/fog/service/*/*; \
+        cp -r /opt/fog/fogproject/packages/service/* /opt/fog/service/; \
     else \
         echo "Warning: FOG service directory not found"; \
     fi
@@ -247,14 +247,6 @@ COPY templates/ /opt/fog/templates/
 COPY entrypoint.sh /sbin/entrypoint.sh
 COPY scripts/ /opt/fog/scripts/
 
-# Make scripts executable
-RUN chmod +x /sbin/entrypoint.sh && \
-    chmod +x /opt/fog/scripts/*.sh
-
-# Set proper permissions
-RUN chown -R www-data:www-data /var/www/html/fog /tftpboot /opt/fog/snapins && \
-    chmod -R 755 /var/www/html/fog /tftpboot /opt/fog/snapins
-
 # Remove configuration files that will be generated at runtime
 RUN rm -f /etc/apache2/sites-available/*.conf \
           /etc/apache2/sites-enabled/*.conf \
@@ -263,33 +255,44 @@ RUN rm -f /etc/apache2/sites-available/*.conf \
           /etc/exports \
           /etc/dhcp/dhcpd.conf
 
-# Download FOG kernel files (bzImage, init.xz, etc.)
-RUN mkdir -p /tmp/fog-kernels && \
-    cd /tmp/fog-kernels && \
+# Download FOG kernel files directly to iPXE directory
+RUN cd /var/www/html/fog/service/ipxe && \
     # Download kernel files from FOG releases (with error handling)
     (curl -L -o bzImage https://github.com/FOGProject/fos/releases/latest/download/bzImage || echo "bzImage download failed") && \
     (curl -L -o bzImage32 https://github.com/FOGProject/fos/releases/latest/download/bzImage32 || echo "bzImage32 download failed") && \
     (curl -L -o init.xz https://github.com/FOGProject/fos/releases/latest/download/init.xz || echo "init.xz download failed") && \
     (curl -L -o init_32.xz https://github.com/FOGProject/fos/releases/latest/download/init_32.xz || echo "init_32.xz download failed") && \
     (curl -L -o arm_Image https://github.com/FOGProject/fos/releases/latest/download/arm_Image || echo "arm_Image download failed") && \
-    (curl -L -o arm_init.cpio.gz https://github.com/FOGProject/fos/releases/latest/download/arm_init.cpio.gz || echo "arm_init.cpio.gz download failed") && \
-    # Copy available kernel files to the correct location
-    cp -f bzImage* init* arm_* /var/www/html/fog/service/ipxe/ 2>/dev/null || true && \
-    chown www-data:www-data /var/www/html/fog/service/ipxe/* 2>/dev/null || true && \
-    rm -rf /tmp/fog-kernels
+    (curl -L -o arm_init.cpio.gz https://github.com/FOGProject/fos/releases/latest/download/arm_init.cpio.gz || echo "arm_init.cpio.gz download failed")
 
-# Copy iPXE files to TFTP directory
-RUN mkdir -p /tftpboot && \
-    cp -r /opt/fog/fogproject/packages/tftp/* /tftpboot/ && \
-    chown -R www-data:www-data /tftpboot
+# Copy iPXE files to TFTP directory (duplicate copy for redundancy)
+RUN cp -r /opt/fog/fogproject/packages/tftp/* /tftpboot/
+
+# Set all permissions and ownership after all copy operations are complete
+RUN chmod +x /sbin/entrypoint.sh && \
+    chmod +x /opt/fog/scripts/*.sh && \
+    chmod +x /opt/fog/service/*/* && \
+    chmod -R 755 /var/www/html/fog /tftpboot /opt/fog/snapins && \
+    chown -R www-data:www-data \
+        /var/www/html/fog \
+        /tftpboot \
+        /opt/fog/snapins \
+        /opt/fog/service \
+        /opt/fog/secure-boot \
+        /opt/fog/ssl \
+        /opt/fog/config \
+        /opt/migration
 
 # Clean up temporary fog user used for building
 RUN userdel -r fog && \
     sed -i '/fog ALL=(ALL:ALL) NOPASSWD:ALL/d' /etc/sudoers
 
-# Create volume mount points
+# Create volume mount points for persistent data
 VOLUME ["/images", "/tftpboot", "/opt/fog/snapins", "/opt/fog/log", "/opt/fog/ssl", "/opt/fog/config", "/opt/fog/secure-boot"]
-EXPOSE 80 443 69 2049 21
+
+# Expose ports that are always needed and not configurable
+# Note: Apache ports (80/443) are configurable via environment variables
+EXPOSE 69/udp 2049 21 111 32765 32767
 
 ENTRYPOINT ["/sbin/entrypoint.sh"]
 CMD ["app:run"]

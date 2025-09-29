@@ -48,8 +48,8 @@ For development, testing, or custom FOG versions:
    ```
 
 2. **Configure your environment:**
-   ```bash
-   cp .env.example .env
+```bash
+cp .env.example .env
    # Edit .env to set your variables, including FOG_VERSION for specific versions
    ```
 
@@ -88,7 +88,7 @@ If you're migrating from a bare metal FOG installation, you can easily import yo
    ```
 
 2. **Copy the dump file to your Docker host:**
-   ```bash
+```bash
    scp FOG_MIGRATION_DUMP.sql user@docker-host:/path/to/fog-docker/
    ```
 
@@ -104,8 +104,8 @@ If you're migrating from a bare metal FOG installation, you can easily import yo
    ```
 
 5. **Start the container:**
-   ```bash
-   docker compose up -d
+```bash
+docker compose up -d
    ```
 
 The container will automatically detect and import the database dump on first startup. The dump file will be removed after successful import to prevent re-import on subsequent restarts.
@@ -132,7 +132,7 @@ For when you want to separate your database from the FOG container, you can use 
 ### Configure FOG to Use External Database
 
 1. **Update your `.env` file:**
-   ```bash
+```bash
    # Database Configuration
    FOG_DB_HOST=your-db-server-ip-or-hostname
    FOG_DB_PORT=3306
@@ -484,25 +484,90 @@ docker compose logs fog-db
 docker compose logs -f fog-server
 ```
 
-## Features
+## Progress Tracker
 
-- ✅ **Complete FOG Server**: Full FOG functionality in Docker
-- ✅ **Automatic Configuration**: Environment-based configuration
-- ✅ **Database Integration**: MySQL database with automatic setup
-- ✅ **NFS Support**: Image storage via NFS
-- ✅ **FTP Support**: Image transfer via FTP
-- ✅ **TFTP Support**: PXE boot file serving
-- ✅ **UEFI Support**: Automatic BIOS/UEFI client detection and boot file selection
-- ✅ **SSL/HTTPS Support**: Multiple SSL configuration options
-- ✅ **Reverse Proxy Support**: Works behind reverse proxies
+### Core FOG Features
 
-## Beta Features (Needs Testing)
+#### Image Management
+[ ] **Image Creation**: Capture images from reference machines
+[ ] **Image Deployment**: Deploy images to target machines
+[ ] **Image Storage**: NFS-based image storage and management
+[ ] **Image Replication**: Multi-server image synchronization
+[ ] **Image Size Management**: Automatic image size optimization
 
-The following features are implemented but need thorough testing:
+#### Client Management
+[ ] **Host Registration**: Automatic client registration via PXE
+[ ] **Host Management**: Web-based host administration
+[ ] **Group Management**: Organize hosts into groups
+[ ] **Client Communication**: FOG client service communication
+[ ] **Host Inventory**: Hardware and software inventory collection
 
-- 🔄 **Multicasting**: Image deployment to multiple clients simultaneously
-- 🔄 **Secure Boot**: UEFI Secure Boot support
-- 🔄 **DHCP Server**: Built-in DHCP server functionality
+#### Task Management
+[ ] **Task Scheduling**: Schedule image deployments and captures
+[ ] **Task Management**: Monitor and manage deployment tasks
+[ ] **Multicast Tasks**: Deploy to multiple clients simultaneously
+[ ] **Task History**: Track completed and failed tasks
+
+#### Snapins
+[ ] **Snapin Management**: Create and manage software packages
+[ ] **Snapin Deployment**: Deploy software to registered hosts
+[ ] **Snapin Replication**: Multi-server snapin synchronization
+[ ] **Snapin Hashing**: Verify snapin integrity
+
+#### Network Services
+[ ] **PXE Boot**: Network boot support via TFTP
+[ ] **TFTP Server**: PXE boot file serving
+[ ] **FTP Server**: Image transfer via FTP
+[ ] **HTTP Server**: Web interface and file serving
+[ ] **NFS Server**: Network file system for image storage
+[ ] **DHCP Integration**: External DHCP server configuration
+[ ] **Built-in DHCP Server**: Optional integrated DHCP server
+
+#### Boot Support
+[ ] **BIOS Boot**: Traditional BIOS PXE boot
+[ ] **UEFI Boot**: UEFI PXE boot support
+[ ] **UEFI 32-bit**: 32-bit UEFI client support
+[ ] **UEFI 64-bit**: 64-bit UEFI client support
+[ ] **ARM 32-bit**: ARM 32-bit client support
+[ ] **ARM 64-bit**: ARM 64-bit client support
+[ ] **HTTPBoot**: UEFI HTTP boot support
+[ ] **Secure Boot**: UEFI Secure Boot support
+
+#### Advanced Features
+[ ] **Wake on LAN**: Remote power management
+[ ] **Multicasting**: Simultaneous deployment to multiple clients
+[ ] **Image Encryption**: Encrypt images for security
+[ ] **User Management**: Multi-user access control
+[ ] **Plugin System**: Extend functionality with plugins
+[ ] **Reporting**: Generate deployment and inventory reports
+[ ] **Printer Management**: Network printer configuration
+
+### Docker-Specific Features
+
+#### Containerization
+[ ] **Docker Compose**: Multi-service orchestration
+[ ] **Environment Configuration**: Environment variable-based setup
+[ ] **Volume Mounts**: Persistent data storage
+[ ] **Network Configuration**: Container networking setup
+[ ] **Health Checks**: Service health monitoring
+
+#### Database Integration
+[ ] **MariaDB Integration**: Database container with automatic setup
+[ ] **Database Migration**: Import existing FOG databases
+[ ] **Schema Management**: Automatic database schema updates
+[ ] **External Database**: Support for external database servers
+
+#### Security & SSL
+[ ] **SSL/HTTPS Support**: Multiple SSL configuration options
+[ ] **Reverse Proxy Support**: Works behind reverse proxies
+[ ] **Secure Configuration**: Environment-based security settings
+[ ] **Certificate Management**: SSL certificate handling
+
+#### Development & CI/CD
+[ ] **Multi-platform Builds**: Docker image builds for different architectures
+[ ] **Automated Releases**: Automatic builds on FOG Project releases
+[ ] **Development Mode**: Build from source with version selection
+[ ] **Production Mode**: Use pre-built images from registry
 
 ## Contributing
 

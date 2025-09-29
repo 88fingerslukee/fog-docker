@@ -15,6 +15,10 @@ DB_NAME="${FOG_DB_NAME:-fog}"
 DB_USER="${FOG_DB_USER:-fogmaster}"
 DB_PASS="${FOG_DB_PASS:-fogmaster123}"
 
+# Database Migration Configuration
+FOG_DB_MIGRATION_ENABLED="${FOG_DB_MIGRATION_ENABLED:-false}"
+FOG_DB_MIGRATION_FORCE="${FOG_DB_MIGRATION_FORCE:-false}"
+
 # Network Configuration
 FOG_WEB_HOST="${FOG_WEB_HOST:-localhost}"
 FOG_WEB_ROOT="${FOG_WEB_ROOT:-/fog}"
@@ -50,9 +54,20 @@ FOG_SECURE_BOOT_MOK_IMG="${FOG_SECURE_BOOT_MOK_IMG:-/opt/fog/secure-boot/mok-cer
 
 # DHCP Configuration
 FOG_DHCP_ENABLED="${FOG_DHCP_ENABLED:-false}"
+FOG_DHCP_SUBNET="${FOG_DHCP_SUBNET:-192.168.1.0}"
+FOG_DHCP_NETMASK="${FOG_DHCP_NETMASK:-255.255.255.0}"
+FOG_DHCP_ROUTER="${FOG_DHCP_ROUTER:-192.168.1.1}"
+FOG_DHCP_DOMAIN_NAME="${FOG_DHCP_DOMAIN_NAME:-fog.local}"
+FOG_DHCP_DEFAULT_LEASE_TIME="${FOG_DHCP_DEFAULT_LEASE_TIME:-600}"
+FOG_DHCP_MAX_LEASE_TIME="${FOG_DHCP_MAX_LEASE_TIME:-7200}"
 FOG_DHCP_START_RANGE="${FOG_DHCP_START_RANGE:-192.168.1.100}"
 FOG_DHCP_END_RANGE="${FOG_DHCP_END_RANGE:-192.168.1.200}"
-FOG_DHCP_BOOTFILE="${FOG_DHCP_BOOTFILE:-undionly.kpxe}"
+FOG_DHCP_BOOTFILE_BIOS="${FOG_DHCP_BOOTFILE_BIOS:-undionly.kpxe}"
+FOG_DHCP_BOOTFILE_UEFI32="${FOG_DHCP_BOOTFILE_UEFI32:-ipxe32.efi}"
+FOG_DHCP_BOOTFILE_UEFI64="${FOG_DHCP_BOOTFILE_UEFI64:-ipxe.efi}"
+FOG_DHCP_BOOTFILE_ARM32="${FOG_DHCP_BOOTFILE_ARM32:-arm32.efi}"
+FOG_DHCP_BOOTFILE_ARM64="${FOG_DHCP_BOOTFILE_ARM64:-arm64.efi}"
+FOG_DHCP_HTTPBOOT_ENABLED="${FOG_DHCP_HTTPBOOT_ENABLED:-false}"
 FOG_DHCP_DNS="${FOG_DHCP_DNS:-8.8.8.8}"
 
 # FOG Version
@@ -126,13 +141,7 @@ setConfigurationValue() {
 
 prepareDirectories() {
     echo "Preparing directories and linking persistent data..."
-      
-    # SSL certificates (mounted to /opt/fog/snapins/ssl)
-    mkdir -p /opt/fog/snapins/ssl
-    
-    # Secure Boot files
-    mkdir -p /opt/fog/secure-boot
-    
+        
     # Set proper ownership
     chown -R www-data:www-data /var/www/html/fog
     
@@ -200,7 +209,6 @@ configureFOGConfig() {
     
     # Create FOG service config file (required by FOG services)
     echo "Creating FOG service configuration..."
-    mkdir -p /opt/fog/service/etc
     echo "<?php define('WEBROOT','/var/www/html/fog/');" > /opt/fog/service/etc/config.php
     chown -R www-data:www-data /opt/fog/service/etc
     
@@ -514,14 +522,6 @@ checkSecureBootRequirements() {
     return 0
 }
 
-databaseCheck() {
-    echo "Checking database schema status..."
-    
-    # Always check/update database schema (handles both new installs and upgrades)
-    echo "Database schema check/update will be performed after Apache starts."
-    echo "Database check completed."
-}
-
 enableFOGServices() {
     echo "Enabling FOG services after database initialization..."
     local supervisor_config="/etc/supervisor/conf.d/supervisord.conf"
@@ -632,7 +632,6 @@ bootstrappingEnvironment() {
     echo "=== Begin Bootstrap Phase ==="
     waitingForDatabase
     importDatabaseDump
-    databaseCheck
     echo "=== End Bootstrap Phase ==="
 }
 
