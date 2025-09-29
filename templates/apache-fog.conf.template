@@ -2,6 +2,12 @@
     ServerName {{FOG_WEB_HOST}}
     DocumentRoot /var/www/html/fog
     
+    # Set HTTPS server variable when FOG_HTTP_PROTOCOL=https
+    # This ensures FOG detects HTTPS correctly for boot URL generation
+    {{#FOG_HTTP_PROTOCOL_IS_HTTPS}}
+    SetEnv HTTPS on
+    {{/FOG_HTTP_PROTOCOL_IS_HTTPS}}
+    
     <Directory /var/www/html/fog>
         Options Indexes FollowSymLinks
         AllowOverride All

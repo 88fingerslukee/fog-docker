@@ -48,6 +48,18 @@ process_template() {
         sed -i '/{{#FOG_INTERNAL_HTTPS_ENABLED}}/,/{{\/FOG_INTERNAL_HTTPS_ENABLED}}/d' "$temp_file"
     fi
     
+    # Handle FOG_HTTP_PROTOCOL_IS_HTTPS conditional
+    if [[ "$FOG_HTTP_PROTOCOL" = "https" ]]; then
+        echo "  - Enabling HTTPS server variable (FOG_HTTP_PROTOCOL=https)"
+        # Remove conditional markers and keep the content
+        sed -i 's/{{#FOG_HTTP_PROTOCOL_IS_HTTPS}}//g' "$temp_file"
+        sed -i 's/{{\/FOG_HTTP_PROTOCOL_IS_HTTPS}}//g' "$temp_file"
+    else
+        echo "  - Disabling HTTPS server variable (FOG_HTTP_PROTOCOL=http)"
+        # Remove the entire conditional block
+        sed -i '/{{#FOG_HTTP_PROTOCOL_IS_HTTPS}}/,/{{\/FOG_HTTP_PROTOCOL_IS_HTTPS}}/d' "$temp_file"
+    fi
+    
     # Process all remaining placeholders
     local placeholders=(
         "FOG_DB_HOST"
