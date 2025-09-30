@@ -266,8 +266,8 @@ RUN cd /var/www/html/fog/service/ipxe && \
     (curl -L -o arm_Image https://github.com/FOGProject/fos/releases/latest/download/arm_Image || echo "arm_Image download failed") && \
     (curl -L -o arm_init.cpio.gz https://github.com/FOGProject/fos/releases/latest/download/arm_init.cpio.gz || echo "arm_init.cpio.gz download failed")
 
-# Download FOG client files to web root directory
-RUN cd /var/www/html/fog && \
+# Download FOG client files to client directory
+RUN cd /var/www/html/fog/client && \
     # Get the FOG client version from the system class
     CLIENT_VERSION=$(grep -o "define('FOG_CLIENT_VERSION', '[^']*')" /var/www/html/fog/lib/fog/system.class.php | cut -d"'" -f4) && \
     echo "Downloading FOG client version: $CLIENT_VERSION" && \
