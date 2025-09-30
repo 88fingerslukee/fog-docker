@@ -266,6 +266,21 @@ RUN cd /var/www/html/fog/service/ipxe && \
     (curl -L -o arm_Image https://github.com/FOGProject/fos/releases/latest/download/arm_Image || echo "arm_Image download failed") && \
     (curl -L -o arm_init.cpio.gz https://github.com/FOGProject/fos/releases/latest/download/arm_init.cpio.gz || echo "arm_init.cpio.gz download failed")
 
+# Download FOG client files to web root directory
+RUN cd /var/www/html/fog && \
+    # Get the FOG client version from the system class
+    CLIENT_VERSION=$(grep -o "define('FOG_CLIENT_VERSION', '[^']*')" /var/www/html/fog/lib/fog/system.class.php | cut -d"'" -f4) && \
+    echo "Downloading FOG client version: $CLIENT_VERSION" && \
+    # Download client files from FOG client releases
+    (curl -L -o FOGService.msi "https://github.com/FOGProject/fog-client/releases/download/${CLIENT_VERSION}/FOGService.msi" || echo "FOGService.msi download failed") && \
+    (curl -L -o SmartInstaller.exe "https://github.com/FOGProject/fog-client/releases/download/${CLIENT_VERSION}/SmartInstaller.exe" || echo "SmartInstaller.exe download failed") && \
+    # Also download additional client utilities if they exist
+    (curl -L -o FogPrep.zip "https://github.com/FOGProject/fog-client/releases/download/${CLIENT_VERSION}/FogPrep.zip" || echo "FogPrep.zip not available") && \
+    (curl -L -o FOGCrypt.zip "https://github.com/FOGProject/fog-client/releases/download/${CLIENT_VERSION}/FOGCrypt.zip" || echo "FOGCrypt.zip not available") && \
+    # Set proper permissions
+    chown www-data:www-data *.msi *.exe *.zip 2>/dev/null || true && \
+    chmod 644 *.msi *.exe *.zip 2>/dev/null || true
+
 # Set all permissions and ownership after all copy operations are complete
 RUN chmod +x /sbin/entrypoint.sh && \
     chmod +x /opt/fog/scripts/*.sh && \
