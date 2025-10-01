@@ -47,7 +47,7 @@ services:
       - fog-tftpboot-dev:/tftpboot
       - fog-snapins-dev:/opt/fog/snapins
       - fog-logs-dev:/opt/fog/log
-      - fog-ssl-dev:/opt/fog/ssl
+      - fog-ssl-dev:/opt/fog/snapins/ssl
       - fog-config-dev:/opt/fog/config
       - fog-secure-boot-dev:/opt/fog/secure-boot
     environment:
@@ -71,11 +71,10 @@ services:
       # SSL Configuration
       FOG_INTERNAL_HTTPS_ENABLED: "${FOG_INTERNAL_HTTPS_ENABLED:-false}"
       FOG_HTTP_PROTOCOL: "${FOG_HTTP_PROTOCOL:-https}"
-      FOG_SSL_CERT_FILE: "${FOG_SSL_CERT_FILE:-server.crt}"
-      FOG_SSL_KEY_FILE: "${FOG_SSL_KEY_FILE:-server.key}"
-      FOG_SSL_GENERATE_SELF_SIGNED: "${FOG_SSL_GENERATE_SELF_SIGNED:-true}"
-      FOG_SSL_CN: "${FOG_SSL_CN:-}"
-      FOG_SSL_SAN: "${FOG_SSL_SAN:-}"
+      FOG_APACHE_SSL_CERT_FILE: "${FOG_APACHE_SSL_CERT_FILE:-server.crt}"
+      FOG_APACHE_SSL_KEY_FILE: "${FOG_APACHE_SSL_KEY_FILE:-server.key}"
+      FOG_APACHE_SSL_CN: "${FOG_APACHE_SSL_CN:-}"
+      FOG_APACHE_SSL_SAN: "${FOG_APACHE_SSL_SAN:-}"
       
       # Network Configuration
       FOG_STORAGE_HOST: "${FOG_STORAGE_HOST:-${FOG_WEB_HOST}}"

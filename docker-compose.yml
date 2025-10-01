@@ -40,7 +40,7 @@ services:
       - fog-tftpboot:/tftpboot
       - fog-snapins:/opt/fog/snapins
       - fog-logs:/opt/fog/log
-      - fog-ssl:/opt/fog/ssl
+      - fog-ssl:/opt/fog/snapins/ssl
       - fog-config:/opt/fog/config
       - fog-secure-boot:/opt/fog/secure-boot
       # Uncomment the following lines to use host directories instead of Docker volumes:
@@ -48,7 +48,7 @@ services:
       # - /path/to/tftpboot:/tftpboot
       # - /path/to/snapins:/opt/fog/snapins
       # - /path/to/logs:/opt/fog/log
-      # - /path/to/ssl:/opt/fog/ssl
+      # - /path/to/ssl:/opt/fog/snapins/ssl
       # - /path/to/config:/opt/fog/config
       # - /path/to/secure-boot:/opt/fog/secure-boot
       # - /path/to/FOG_MIGRATION_DUMP.sql:/opt/migration/FOG_MIGRATION_DUMP.sql  # For FOG database migration
@@ -73,11 +73,10 @@ services:
       # SSL Configuration
       FOG_INTERNAL_HTTPS_ENABLED: "${FOG_INTERNAL_HTTPS_ENABLED:-false}"
       FOG_HTTP_PROTOCOL: "${FOG_HTTP_PROTOCOL:-https}"
-      FOG_SSL_CERT_FILE: "${FOG_SSL_CERT_FILE:-server.crt}"
-      FOG_SSL_KEY_FILE: "${FOG_SSL_KEY_FILE:-server.key}"
-      FOG_SSL_GENERATE_SELF_SIGNED: "${FOG_SSL_GENERATE_SELF_SIGNED:-true}"
-      FOG_SSL_CN: "${FOG_SSL_CN:-}"
-      FOG_SSL_SAN: "${FOG_SSL_SAN:-}"
+      FOG_APACHE_SSL_CERT_FILE: "${FOG_APACHE_SSL_CERT_FILE:-server.crt}"
+      FOG_APACHE_SSL_KEY_FILE: "${FOG_APACHE_SSL_KEY_FILE:-server.key}"
+      FOG_APACHE_SSL_CN: "${FOG_APACHE_SSL_CN:-}"
+      FOG_APACHE_SSL_SAN: "${FOG_APACHE_SSL_SAN:-}"
       
       # Network Configuration
       FOG_STORAGE_HOST: "${FOG_STORAGE_HOST:-${FOG_WEB_HOST}}"

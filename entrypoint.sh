@@ -40,12 +40,10 @@ FOG_FTP_PASV_MIN_PORT="${FOG_FTP_PASV_MIN_PORT:-21100}"
 FOG_FTP_PASV_MAX_PORT="${FOG_FTP_PASV_MAX_PORT:-21110}"
 
 # SSL Configuration
-FOG_SSL_PATH="${FOG_SSL_PATH:-/opt/fog/snapins/ssl}"
-FOG_SSL_CERT_FILE="${FOG_SSL_CERT_FILE:-server.crt}"
-FOG_SSL_KEY_FILE="${FOG_SSL_KEY_FILE:-server.key}"
-FOG_SSL_GENERATE_SELF_SIGNED="${FOG_SSL_GENERATE_SELF_SIGNED:-true}"
-FOG_SSL_CN="${FOG_SSL_CN:-${FOG_WEB_HOST}}"
-FOG_SSL_SAN="${FOG_SSL_SAN:-}"
+FOG_APACHE_SSL_CERT_FILE="${FOG_APACHE_SSL_CERT_FILE:-server.crt}"
+FOG_APACHE_SSL_KEY_FILE="${FOG_APACHE_SSL_KEY_FILE:-server.key}"
+FOG_APACHE_SSL_CN="${FOG_APACHE_SSL_CN:-${FOG_WEB_HOST}}"
+FOG_APACHE_SSL_SAN="${FOG_APACHE_SSL_SAN:-}"
 
 # Secure Boot Configuration
 FOG_SECURE_BOOT_ENABLED="${FOG_SECURE_BOOT_ENABLED:-false}"
@@ -277,71 +275,130 @@ configureApache() {
     echo "Apache configuration completed."
 }
 
-createFOGCA() {
-    if [ "$FOG_SSL_GENERATE_SELF_SIGNED" = "true" ]; then
-        echo "Setting up FOG CA for iPXE trust..."
-        mkdir -p "$FOG_SSL_PATH/CA"
-        
-        # Check if CA already exists from Dockerfile build
-        if [ -f "/opt/fog/snapins/ssl/CA/.fogCA.key" ] && [ -f "/opt/fog/snapins/ssl/CA/.fogCA.pem" ]; then
-            echo "Using pre-built CA certificate from Dockerfile..."
-            cp /opt/fog/snapins/ssl/CA/.fogCA.key "$FOG_SSL_PATH/CA/.fogCA.key"
-            cp /opt/fog/snapins/ssl/CA/.fogCA.pem "$FOG_SSL_PATH/CA/.fogCA.pem"
-        else
-            echo "Creating new FOG CA for iPXE trust..."
-            # Create CA key and certificate (matching FOG source exactly)
-            openssl genrsa -out "$FOG_SSL_PATH/CA/.fogCA.key" 4096
-            openssl req -x509 -new -sha512 -nodes -key "$FOG_SSL_PATH/CA/.fogCA.key" \
-                -days 3650 -out "$FOG_SSL_PATH/CA/.fogCA.pem" \
-                -subj "/C=US/ST=State/L=City/O=FOG Project/CN=FOG Server CA"
-        fi
-        
-        chown -R www-data:www-data "$FOG_SSL_PATH/CA"
-        echo "FOG CA ready for iPXE trust."
-    fi
-}
 
 ensureWebCACertificate() {
     echo "Ensuring CA certificate is available for FOG client download..."
-    mkdir -p /var/www/html/fog/management/other
+    
+    # Set variables like FOG source code does
+    local sslpath="/opt/fog/snapins/ssl/"
+    local webdirdest="/var/www/html/fog"
+    local apacheuser="www-data"
+    
+    mkdir -p "$webdirdest/management/other"
     
     # Check if CA certificate already exists in web directory
-    if [ ! -f "/var/www/html/fog/management/other/ca.cert.der" ]; then
-        echo "CA certificate not found in web directory, creating from pre-built CA..."
+    if [ ! -f "$webdirdest/management/other/ca.cert.der" ]; then
+        echo "CA certificate not found in web directory, creating from CA..."
         
-        # Use the pre-built CA from Dockerfile
-        if [ -f "/opt/fog/snapins/ssl/CA/.fogCA.pem" ]; then
-            cp /opt/fog/snapins/ssl/CA/.fogCA.pem /var/www/html/fog/management/other/ca.cert.pem
-            openssl x509 -outform der -in /var/www/html/fog/management/other/ca.cert.pem \
-                -out /var/www/html/fog/management/other/ca.cert.der
-            chown www-data:www-data /var/www/html/fog/management/other/ca.cert.*
-            echo "CA certificate created in web directory from pre-built CA."
-        else
-            echo "Warning: No pre-built CA found, FOG client may fail to download CA certificate."
+        # Ensure CA exists (from Dockerfile or create new)
+        if [ ! -f "$sslpath/CA/.fogCA.pem" ]; then
+            echo "CA not found, creating new CA..."
+            mkdir -p "$sslpath/CA"
+            openssl genrsa -out "$sslpath/CA/.fogCA.key" 4096
+            openssl req -x509 -new -sha512 -nodes -key "$sslpath/CA/.fogCA.key" \
+                -days 3650 -out "$sslpath/CA/.fogCA.pem" \
+                -subj "/C=US/ST=State/L=City/O=FOG Project/CN=FOG Server CA"
         fi
+        
+        # Create web-accessible CA files exactly like FOG source (lines 1977-1979)
+        cp "$sslpath/CA/.fogCA.pem" "$webdirdest/management/other/ca.cert.pem"
+        openssl x509 -outform der -in "$webdirdest/management/other/ca.cert.pem" \
+            -out "$webdirdest/management/other/ca.cert.der"
+        
+        chown "$apacheuser:$apacheuser" "$webdirdest/management/other/ca.cert.*"
+        echo "CA certificate created in web directory using FOG source process."
     else
         echo "CA certificate already exists in web directory."
     fi
 }
 
+ensureServerPublicCertificate() {
+    echo "Ensuring server public certificate is available for FOG client authentication..."
+    
+    # Set variables like FOG source code does
+    local sslpath="/opt/fog/snapins/ssl/"
+    local webdirdest="/var/www/html/fog"
+    local hostname="${FOG_WEB_HOST:-localhost}"
+    local apacheuser="www-data"
+    
+    # Check if server public certificate already exists
+    if [ ! -f "$webdirdest/management/other/ssl/srvpublic.crt" ]; then
+        echo "Server public certificate not found, creating using FOG source process..."
+        
+        # Ensure CA exists (from Dockerfile or create new)
+        if [ ! -f "$sslpath/CA/.fogCA.pem" ] || [ ! -f "$sslpath/CA/.fogCA.key" ]; then
+            echo "CA not found, creating new CA..."
+            mkdir -p "$sslpath/CA"
+            openssl genrsa -out "$sslpath/CA/.fogCA.key" 4096
+            openssl req -x509 -new -sha512 -nodes -key "$sslpath/CA/.fogCA.key" \
+                -days 3650 -out "$sslpath/CA/.fogCA.pem" \
+                -subj "/C=US/ST=State/L=City/O=FOG Project/CN=FOG Server CA"
+        fi
+        
+        # Create SSL Private Key exactly like FOG source (lines 1934-1963)
+        local sslprivkey="$sslpath/.srvprivate.key"
+        mkdir -p "$sslpath"
+        openssl genrsa -out "$sslprivkey" 4096
+        
+        # Create certificate signing request
+        cat > "$sslpath/req.cnf" << EOF
+[req]
+distinguished_name = req_distinguished_name
+req_extensions = v3_req
+prompt = yes
+[req_distinguished_name]
+CN = $hostname
+[v3_req]
+subjectAltName = @alt_names
+[alt_names]
+DNS.1 = $hostname
+EOF
+        
+        openssl req -new -sha512 -key "$sslprivkey" -out "$sslpath/fog.csr" -config "$sslpath/req.cnf" << EOF
+$hostname
+EOF
+        
+        # Create symlink like FOG does
+        ln -sf "$sslprivkey" "$sslpath/.srvprivate.key"
+        
+        # Create SSL Certificate exactly like FOG source (lines 1966-1975)
+        mkdir -p "$webdirdest/management/other/ssl"
+        cat > "$sslpath/ca.cnf" << EOF
+[v3_ca]
+subjectAltName = @alt_names
+[alt_names]
+DNS.1 = $hostname
+EOF
+        
+        openssl x509 -req -in "$sslpath/fog.csr" -CA "$sslpath/CA/.fogCA.pem" \
+            -CAkey "$sslpath/CA/.fogCA.key" -CAcreateserial \
+            -out "$webdirdest/management/other/ssl/srvpublic.crt" \
+            -days 3650 -extensions v3_ca -extfile "$sslpath/ca.cnf"
+        
+        # Set proper ownership
+        chown -R "$apacheuser:$apacheuser" "$webdirdest/management/other"
+        chown -R "$apacheuser:$apacheuser" "$sslpath"
+        
+        echo "Server public certificate created using FOG source process."
+    else
+        echo "Server public certificate already exists."
+    fi
+}
+
 configureSSL() {
     if [ "$FOG_INTERNAL_HTTPS_ENABLED" = "true" ]; then
-        echo "Configuring SSL certificates..."
+        echo "Configuring Apache SSL certificates..."
         
-        # Check if external certificates exist
-        if [ -f "$FOG_SSL_PATH/$FOG_SSL_CERT_FILE" ] && [ -f "$FOG_SSL_PATH/$FOG_SSL_KEY_FILE" ]; then
-            echo "Using external SSL certificates."
-            FOG_SSL_GENERATE_SELF_SIGNED="false"
-        elif [ "$FOG_SSL_GENERATE_SELF_SIGNED" = "true" ] && [ ! -f "$FOG_SSL_PATH/$FOG_SSL_CERT_FILE" ]; then
-            echo "Generating self-signed SSL certificate..."
-            mkdir -p "$FOG_SSL_PATH"
+        # Check if external Apache certificates exist
+        if [ -f "/opt/fog/snapins/ssl/$FOG_APACHE_SSL_CERT_FILE" ] && [ -f "/opt/fog/snapins/ssl/$FOG_APACHE_SSL_KEY_FILE" ]; then
+            echo "Using external Apache SSL certificates."
+        else
+            echo "Generating self-signed Apache SSL certificate..."
+            mkdir -p "/opt/fog/snapins/ssl"
             
-            # Create FOG CA first
-            createFOGCA
-            
-            if [ -n "$FOG_SSL_SAN" ]; then
+            if [ -n "$FOG_APACHE_SSL_SAN" ]; then
                 # Create OpenSSL config file for SAN support
-                cat > "$FOG_SSL_PATH/ssl.conf" << EOF
+                cat > "/opt/fog/snapins/ssl/apache-ssl.conf" << EOF
 [req]
 distinguished_name = req_distinguished_name
 req_extensions = v3_req
@@ -352,7 +409,7 @@ C = US
 ST = State
 L = City
 O = Organization
-CN = $FOG_SSL_CN
+CN = $FOG_APACHE_SSL_CN
 
 [v3_req]
 keyUsage = keyEncipherment, dataEncipherment
@@ -363,36 +420,30 @@ subjectAltName = @alt_names
 EOF
                 
                 # Add SAN entries
-                IFS=',' read -ra SAN_ARRAY <<< "$FOG_SSL_SAN"
+                IFS=',' read -ra SAN_ARRAY <<< "$FOG_APACHE_SSL_SAN"
                 for i in "${!SAN_ARRAY[@]}"; do
-                    echo "DNS.$((i+1)) = ${SAN_ARRAY[$i]}" >> "$FOG_SSL_PATH/ssl.conf"
+                    echo "DNS.$((i+1)) = ${SAN_ARRAY[$i]}" >> "/opt/fog/snapins/ssl/apache-ssl.conf"
                 done
                 
                 # Generate certificate with SAN
                 openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-                    -keyout "$FOG_SSL_PATH/$FOG_SSL_KEY_FILE" \
-                    -out "$FOG_SSL_PATH/$FOG_SSL_CERT_FILE" \
-                    -config "$FOG_SSL_PATH/ssl.conf" \
+                    -keyout "/opt/fog/snapins/ssl/$FOG_APACHE_SSL_KEY_FILE" \
+                    -out "/opt/fog/snapins/ssl/$FOG_APACHE_SSL_CERT_FILE" \
+                    -config "/opt/fog/snapins/ssl/apache-ssl.conf" \
                     -extensions v3_req
             else
                 # Generate simple certificate
                 openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-                    -keyout "$FOG_SSL_PATH/$FOG_SSL_KEY_FILE" \
-                    -out "$FOG_SSL_PATH/$FOG_SSL_CERT_FILE" \
-                    -subj "/C=US/ST=State/L=City/O=Organization/CN=$FOG_SSL_CN"
+                    -keyout "/opt/fog/snapins/ssl/$FOG_APACHE_SSL_KEY_FILE" \
+                    -out "/opt/fog/snapins/ssl/$FOG_APACHE_SSL_CERT_FILE" \
+                    -subj "/C=US/ST=State/L=City/O=Organization/CN=$FOG_APACHE_SSL_CN"
             fi
             
-            chown -R www-data:www-data "$FOG_SSL_PATH"
-            echo "Self-signed certificate generated."
-        elif [ "$FOG_SSL_GENERATE_SELF_SIGNED" = "false" ]; then
-            echo "Error: HTTPS enabled but no certificates found and generation disabled."
-            echo "Please provide external certificates or set FOG_SSL_GENERATE_SELF_SIGNED=true"
-            exit 1
-        else
-            echo "SSL certificates already exist."
+            chown -R www-data:www-data "/opt/fog/snapins/ssl"
+            echo "Self-signed Apache certificate generated."
         fi
     else
-        echo "HTTPS disabled, skipping SSL configuration."
+        echo "Apache HTTPS disabled, skipping Apache SSL configuration."
     fi
 }
 
@@ -487,7 +538,7 @@ configureiPXE() {
         echo "TFTP boot files copied successfully."
     }
     
-    if [ "$FOG_INTERNAL_HTTPS_ENABLED" = "true" ] && [ "$FOG_SSL_GENERATE_SELF_SIGNED" = "true" ]; then
+    if [ "$FOG_INTERNAL_HTTPS_ENABLED" = "true" ]; then
         echo "Recompiling iPXE with self-signed certificate trust..."
         
         # Check if we have the build script
@@ -498,7 +549,7 @@ configureiPXE() {
             chmod +x buildipxe.sh
             
             # Run the build script with the FOG CA certificate
-            ./buildipxe.sh "$FOG_SSL_PATH/CA/.fogCA.pem"
+            ./buildipxe.sh "/opt/fog/snapins/ssl/CA/.fogCA.pem"
             
             if [ $? -eq 0 ]; then
                 echo "✓ iPXE recompilation completed successfully."
@@ -655,6 +706,7 @@ staticConfiguration() {
     configureApache
     configureSSL
     ensureWebCACertificate
+    ensureServerPublicCertificate
     configureiPXE
     configureTFTP
     configureNFS

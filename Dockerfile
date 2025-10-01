@@ -181,7 +181,7 @@ RUN mkdir -p \
     /opt/fog/secure-boot/keys \
     /opt/fog/secure-boot/scripts \
     /opt/fog/secure-boot/shim \
-    /opt/fog/ssl \
+    /opt/fog/snapins/ssl \
     /opt/fog/config \
     /images \
     /opt/migration
@@ -281,23 +281,6 @@ RUN cd /var/www/html/fog/client && \
     chown www-data:www-data *.msi *.exe *.zip 2>/dev/null || true && \
     chmod 644 *.msi *.exe *.zip 2>/dev/null || true
 
-# Create CA certificate that matches FOG source exactly
-# This will be used by the entrypoint script when SSL is enabled
-RUN mkdir -p /opt/fog/snapins/ssl/CA && \
-    # Create CA key (4096-bit RSA, matching FOG source)
-    openssl genrsa -out /opt/fog/snapins/ssl/CA/.fogCA.key 4096 && \
-    # Create CA certificate (3650 days, matching FOG source)
-    openssl req -x509 -new -sha512 -nodes -key /opt/fog/snapins/ssl/CA/.fogCA.key \
-    -days 3650 -out /opt/fog/snapins/ssl/CA/.fogCA.pem \
-    -subj "/C=US/ST=State/L=City/O=FOG Project/CN=FOG Server CA" && \
-    # Create web-accessible DER format (matching FOG source process)
-    mkdir -p /var/www/html/fog/management/other && \
-    cp /opt/fog/snapins/ssl/CA/.fogCA.pem /var/www/html/fog/management/other/ca.cert.pem && \
-    openssl x509 -outform der -in /var/www/html/fog/management/other/ca.cert.pem \
-    -out /var/www/html/fog/management/other/ca.cert.der && \
-    # Set proper ownership
-    chown -R www-data:www-data /opt/fog/snapins/ssl/CA /var/www/html/fog/management/other
-
 # Set all permissions and ownership after all copy operations are complete
 RUN chmod +x /sbin/entrypoint.sh && \
     chmod +x /opt/fog/scripts/*.sh && \
@@ -307,9 +290,9 @@ RUN chmod +x /sbin/entrypoint.sh && \
         /var/www/html/fog \
         /tftpboot \
         /opt/fog/snapins \
+        /opt/fog/snapins/ssl \
         /opt/fog/service \
         /opt/fog/secure-boot \
-        /opt/fog/ssl \
         /opt/fog/config \
         /opt/migration
 
@@ -318,7 +301,7 @@ RUN userdel -r fog && \
     sed -i '/fog ALL=(ALL:ALL) NOPASSWD:ALL/d' /etc/sudoers
 
 # Create volume mount points for persistent data
-VOLUME ["/images", "/tftpboot", "/opt/fog/snapins", "/opt/fog/log", "/opt/fog/ssl", "/opt/fog/config", "/opt/fog/secure-boot"]
+VOLUME ["/images", "/tftpboot", "/opt/fog/snapins", "/opt/fog/log", "/opt/fog/config", "/opt/fog/secure-boot"]
 
 # Expose ports that are always needed and not configurable
 # Note: Apache ports (80/443) are configurable via environment variables

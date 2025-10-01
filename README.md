@@ -389,9 +389,8 @@ FOG_DHCP_BOOTFILE_ARM64=arm64.efi
 ```bash
 FOG_INTERNAL_HTTPS_ENABLED=true
 FOG_HTTP_PROTOCOL=https
-FOG_SSL_GENERATE_SELF_SIGNED=false
-FOG_SSL_CERT_FILE=fullchain.pem
-FOG_SSL_KEY_FILE=privkey.pem
+FOG_APACHE_SSL_CERT_FILE=fullchain.pem
+FOG_APACHE_SSL_KEY_FILE=privkey.pem
 ```
 
 Mount your certificates:
@@ -405,9 +404,8 @@ Mount your certificates:
 ```bash
 FOG_INTERNAL_HTTPS_ENABLED=true
 FOG_HTTP_PROTOCOL=https
-FOG_SSL_GENERATE_SELF_SIGNED=true
-FOG_SSL_CN=192.168.1.100
-FOG_SSL_SAN=alt1.domain.com,alt2.domain.com
+FOG_APACHE_SSL_CN=192.168.1.100
+FOG_APACHE_SSL_SAN=alt1.domain.com,alt2.domain.com
 ```
 
 ### Option 3: Reverse Proxy (No SSL in Container)
@@ -415,7 +413,6 @@ FOG_SSL_SAN=alt1.domain.com,alt2.domain.com
 ```bash
 FOG_INTERNAL_HTTPS_ENABLED=false
 FOG_HTTP_PROTOCOL=https
-FOG_SSL_GENERATE_SELF_SIGNED=false
 ```
 
 ### Option 4: HTTP Only (Default)
@@ -423,7 +420,6 @@ FOG_SSL_GENERATE_SELF_SIGNED=false
 ```bash
 FOG_INTERNAL_HTTPS_ENABLED=false
 FOG_HTTP_PROTOCOL=http
-FOG_SSL_GENERATE_SELF_SIGNED=false
 ```
 
 ## Ports
