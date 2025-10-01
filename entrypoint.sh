@@ -279,17 +279,48 @@ configureApache() {
 
 createFOGCA() {
     if [ "$FOG_SSL_GENERATE_SELF_SIGNED" = "true" ]; then
-        echo "Creating FOG CA for iPXE trust..."
+        echo "Setting up FOG CA for iPXE trust..."
         mkdir -p "$FOG_SSL_PATH/CA"
         
-        # Create CA key and certificate
-        openssl genrsa -out "$FOG_SSL_PATH/CA/.fogCA.key" 4096
-        openssl req -x509 -new -sha512 -nodes -key "$FOG_SSL_PATH/CA/.fogCA.key" \
-            -days 3650 -out "$FOG_SSL_PATH/CA/.fogCA.pem" \
-            -subj "/C=US/ST=State/L=City/O=FOG Project/CN=FOG CA"
+        # Check if CA already exists from Dockerfile build
+        if [ -f "/opt/fog/snapins/ssl/CA/.fogCA.key" ] && [ -f "/opt/fog/snapins/ssl/CA/.fogCA.pem" ]; then
+            echo "Using pre-built CA certificate from Dockerfile..."
+            cp /opt/fog/snapins/ssl/CA/.fogCA.key "$FOG_SSL_PATH/CA/.fogCA.key"
+            cp /opt/fog/snapins/ssl/CA/.fogCA.pem "$FOG_SSL_PATH/CA/.fogCA.pem"
+        else
+            echo "Creating new FOG CA for iPXE trust..."
+            # Create CA key and certificate (matching FOG source exactly)
+            openssl genrsa -out "$FOG_SSL_PATH/CA/.fogCA.key" 4096
+            openssl req -x509 -new -sha512 -nodes -key "$FOG_SSL_PATH/CA/.fogCA.key" \
+                -days 3650 -out "$FOG_SSL_PATH/CA/.fogCA.pem" \
+                -subj "/C=US/ST=State/L=City/O=FOG Project/CN=FOG Server CA"
+        fi
         
         chown -R www-data:www-data "$FOG_SSL_PATH/CA"
-        echo "FOG CA created for iPXE trust."
+        echo "FOG CA ready for iPXE trust."
+    fi
+}
+
+ensureWebCACertificate() {
+    echo "Ensuring CA certificate is available for FOG client download..."
+    mkdir -p /var/www/html/fog/management/other
+    
+    # Check if CA certificate already exists in web directory
+    if [ ! -f "/var/www/html/fog/management/other/ca.cert.der" ]; then
+        echo "CA certificate not found in web directory, creating from pre-built CA..."
+        
+        # Use the pre-built CA from Dockerfile
+        if [ -f "/opt/fog/snapins/ssl/CA/.fogCA.pem" ]; then
+            cp /opt/fog/snapins/ssl/CA/.fogCA.pem /var/www/html/fog/management/other/ca.cert.pem
+            openssl x509 -outform der -in /var/www/html/fog/management/other/ca.cert.pem \
+                -out /var/www/html/fog/management/other/ca.cert.der
+            chown www-data:www-data /var/www/html/fog/management/other/ca.cert.*
+            echo "CA certificate created in web directory from pre-built CA."
+        else
+            echo "Warning: No pre-built CA found, FOG client may fail to download CA certificate."
+        fi
+    else
+        echo "CA certificate already exists in web directory."
     fi
 }
 
@@ -623,6 +654,7 @@ staticConfiguration() {
     configureFOGConfig
     configureApache
     configureSSL
+    ensureWebCACertificate
     configureiPXE
     configureTFTP
     configureNFS
