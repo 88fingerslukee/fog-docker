@@ -305,7 +305,9 @@ ensureWebCACertificate() {
         openssl x509 -outform der -in "$webdirdest/management/other/ca.cert.pem" \
             -out "$webdirdest/management/other/ca.cert.der"
         
-        chown "$apacheuser:$apacheuser" "$webdirdest/management/other/ca.cert.*"
+        # Set ownership on the specific files that were just created
+        chown "$apacheuser:$apacheuser" "$webdirdest/management/other/ca.cert.pem"
+        chown "$apacheuser:$apacheuser" "$webdirdest/management/other/ca.cert.der"
         echo "CA certificate created in web directory using FOG source process."
     else
         echo "CA certificate already exists in web directory."
