@@ -360,8 +360,10 @@ EOF
 $hostname
 EOF
         
-        # Create symlink like FOG does
-        ln -sf "$sslprivkey" "$sslpath/.srvprivate.key"
+        # Create symlink like FOG does (only if target doesn't exist)
+        if [ ! -e "$sslpath/.srvprivate.key" ]; then
+            ln -sf "$sslprivkey" "$sslpath/.srvprivate.key"
+        fi
         
         # Create SSL Certificate exactly like FOG source (lines 1966-1975)
         mkdir -p "$webdirdest/management/other/ssl"
