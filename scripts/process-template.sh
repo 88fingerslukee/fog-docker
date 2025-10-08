@@ -105,12 +105,10 @@ process_template() {
         "FOG_DHCP_START_RANGE"
         "FOG_DHCP_END_RANGE"
         "FOG_DHCP_BOOTFILE_BIOS"
-        "FOG_DHCP_BOOTFILE_UEFI32"
-        "FOG_DHCP_BOOTFILE_UEFI64"
-        "FOG_DHCP_BOOTFILE_ARM32"
-        "FOG_DHCP_BOOTFILE_ARM64"
-        "FOG_DHCP_HTTPBOOT_ENABLED"
+        "FOG_DHCP_BOOTFILE_UEFI"
         "FOG_DHCP_DNS"
+        "DEBUG"
+        "FORCE_FIRST_START_INIT"
     )
     
     for placeholder in "${placeholders[@]}"; do
