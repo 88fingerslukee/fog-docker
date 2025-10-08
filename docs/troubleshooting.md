@@ -1,3 +1,11 @@
+---
+layout: default
+title: Troubleshooting
+nav_order: 11
+description: "Common issues and solutions for FOG Docker"
+permalink: /troubleshooting
+---
+
 # Troubleshooting Guide
 
 This guide covers common issues and solutions for FOG Docker.

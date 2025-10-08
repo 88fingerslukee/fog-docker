@@ -1,3 +1,11 @@
+---
+layout: default
+title: DHCP Integration
+nav_order: 9
+description: "Integrate FOG Docker with existing DHCP servers"
+permalink: /dhcp-integration
+---
+
 # DHCP Integration
 
 This guide covers integrating FOG Docker with existing DHCP servers for PXE boot configuration.

@@ -1,3 +1,11 @@
+---
+layout: default
+title: Network Boot Setup
+nav_order: 4
+description: "Set up PXE boot and HTTPBoot for FOG Docker"
+permalink: /network-boot
+---
+
 # Network Boot Guide
 
 This guide covers setting up PXE boot and HTTPBoot for FOG clients.

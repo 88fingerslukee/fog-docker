@@ -1,3 +1,11 @@
+---
+layout: default
+title: Configuration Guide
+nav_order: 3
+description: "Configure FOG Docker for your environment"
+permalink: /configuration
+---
+
 # Configuration Guide
 
 This guide covers configuring FOG Docker for your environment.

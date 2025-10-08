@@ -1,3 +1,11 @@
+---
+layout: default
+title: External Database
+nav_order: 8
+description: "Use external MySQL/MariaDB with FOG Docker"
+permalink: /external-database
+---
+
 # External Database Setup
 
 This guide covers using an external MySQL/MariaDB database with FOG Docker instead of the built-in database container.

@@ -1,3 +1,11 @@
+---
+layout: default
+title: Migration from Bare Metal
+nav_order: 7
+description: "Migrate existing FOG installations to FOG Docker"
+permalink: /migration-bare-metal
+---
+
 # Migration from Bare Metal FOG
 
 This guide covers migrating from a bare metal FOG installation to FOG Docker.

@@ -1,3 +1,11 @@
+---
+layout: default
+title: Environment Variables
+nav_order: 10
+description: "Complete reference for all FOG Docker environment variables"
+permalink: /environment-variables
+---
+
 # Environment Variables Reference
 
 Complete reference for all FOG Docker environment variables.

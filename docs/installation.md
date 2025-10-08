@@ -1,3 +1,11 @@
+---
+layout: default
+title: Installation Guide
+nav_order: 2
+description: "Get FOG Docker up and running quickly"
+permalink: /installation
+---
+
 # Installation Guide
 
 This guide will help you get FOG Docker up and running quickly.

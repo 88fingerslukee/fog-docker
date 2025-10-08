@@ -1,3 +1,11 @@
+---
+layout: default
+title: SSL/HTTPS Setup
+nav_order: 5
+description: "Configure SSL certificates and HTTPS for FOG Docker"
+permalink: /ssl-https
+---
+
 # SSL/HTTPS Configuration
 
 This guide covers configuring SSL/HTTPS for FOG Docker in various scenarios.

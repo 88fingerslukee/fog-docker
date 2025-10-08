@@ -1,0 +1,68 @@
+title: FOG Docker Documentation
+description: Complete documentation for FOG Docker - an open-source computer cloning and imaging solution
+baseurl: "/fog-docker"
+url: "https://88fingerslukee.github.io"
+
+# GitHub Pages settings
+remote_theme: just-the-docs/just-the-docs
+plugins:
+  - jekyll-feed
+  - jekyll-sitemap
+  - jekyll-seo-tag
+
+# Navigation
+navigation:
+  - title: Getting Started
+    children:
+      - title: Installation
+        url: /installation
+      - title: Configuration
+        url: /configuration
+      - title: Network Boot
+        url: /network-boot
+  - title: SSL & Security
+    children:
+      - title: SSL/HTTPS Setup
+        url: /ssl-https
+      - title: Reverse Proxy
+        url: /reverse-proxy
+  - title: Integration
+    children:
+      - title: Migration from Bare Metal
+        url: /migration-bare-metal
+      - title: External Database
+        url: /external-database
+      - title: DHCP Integration
+        url: /dhcp-integration
+  - title: Reference
+    children:
+      - title: Environment Variables
+        url: /environment-variables
+      - title: Troubleshooting
+        url: /troubleshooting
+
+# Footer
+footer_content: "FOG Docker Documentation - <a href='https://github.com/88fingerslukee/fog-docker'>GitHub Repository</a>"
+
+# Search
+search_enabled: true
+search:
+  placeholder: "Search documentation..."
+  button:
+    label: "Search"
+
+# Aux links
+aux_links:
+  "GitHub Repository":
+    - "https://github.com/88fingerslukee/fog-docker"
+  "FOG Project":
+    - "https://github.com/FOGProject/fogproject"
+
+# Color scheme
+color_scheme: light
+
+# Logo
+logo: "/fog-docker/assets/images/logo.png"
+
+# Favicon
+favicon_ico: "/fog-docker/assets/images/favicon.ico"

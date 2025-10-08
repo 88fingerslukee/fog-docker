@@ -1,3 +1,11 @@
+---
+layout: default
+title: Reverse Proxy Setup
+nav_order: 6
+description: "Deploy FOG Docker behind Traefik, Nginx, Apache, or Caddy"
+permalink: /reverse-proxy
+---
+
 # Reverse Proxy Setup
 
 This guide covers setting up FOG Docker behind various reverse proxy solutions for SSL termination and load balancing.
