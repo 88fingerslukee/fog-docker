@@ -4,10 +4,10 @@ services:
     container_name: fog-db
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: ${FOG_DB_ROOT_PASSWORD}
-      MYSQL_DATABASE: ${FOG_DB_NAME:-fog}
-      MYSQL_USER: ${FOG_DB_USER:-fogmaster}
-      MYSQL_PASSWORD: ${FOG_DB_PASS:-fogmaster123}
+      MARIADB_ROOT_PASSWORD: ${FOG_DB_ROOT_PASSWORD}
+      MARIADB_DATABASE: ${FOG_DB_NAME:-fog}
+      MARIADB_USER: ${FOG_DB_USER:-fogmaster}
+      MARIADB_PASSWORD: ${FOG_DB_PASS:-fogmaster123}
     volumes:
       - fog-db-data:/var/lib/mysql
     networks:
