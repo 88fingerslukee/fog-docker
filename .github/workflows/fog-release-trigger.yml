@@ -81,6 +81,16 @@ jobs:
           type=raw,value=fog-${{ needs.check-fog-releases.outputs.fog-version }}
           type=raw,value=latest,enable={{is_default_branch}}
 
+    - name: Set FOG version
+      id: fog-version
+      run: |
+        FOG_VERSION="${{ needs.check-fog-releases.outputs.fog-version }}"
+        if [ -z "$FOG_VERSION" ] || [ "$FOG_VERSION" = "null" ]; then
+          FOG_VERSION="stable"
+        fi
+        echo "fog-version=$FOG_VERSION" >> $GITHUB_OUTPUT
+        echo "Building with FOG version: $FOG_VERSION"
+
     - name: Build and push Docker image
       uses: docker/build-push-action@v5
       with:
@@ -90,7 +100,7 @@ jobs:
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
         build-args: |
-          FOG_GIT_REF=${{ needs.check-fog-releases.outputs.fog-version }}
+          FOG_GIT_REF=${{ steps.fog-version.outputs.fog-version }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
 

@@ -58,10 +58,15 @@ ARG FOG_GIT_URL=https://github.com/FOGProject/fogproject.git
 ARG FOG_GIT_REF=stable
 
 # Clone and checkout FOG source
-RUN git clone "$FOG_GIT_URL" fogproject && \
+# Handle null/empty FOG_GIT_REF by defaulting to stable
+RUN FOG_REF="${FOG_GIT_REF:-stable}" && \
+    if [ "$FOG_REF" = "null" ] || [ -z "$FOG_REF" ]; then \
+        FOG_REF="stable"; \
+    fi && \
+    git clone "$FOG_GIT_URL" fogproject && \
     cd fogproject && \
     git fetch --all && \
-    git checkout "$FOG_GIT_REF"
+    git checkout "$FOG_REF"
 
 WORKDIR /home/fog/fogproject
 
