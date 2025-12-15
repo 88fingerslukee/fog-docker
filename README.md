@@ -166,6 +166,20 @@ docker compose logs fog-server
 - Check FTP passive port range (21100-21110) is open
 - Verify `FOG_WEB_HOST` resolves correctly from clients
 
+**Default admin login (fog/password) doesn't work:**
+If the default credentials `fog` / `password` don't work, verify the admin user was created:
+
+```bash
+# Check if admin user exists in database
+docker exec fog-server mysql -h fog-db -u fogmaster -pfogmaster123 -e "SELECT uName FROM fog.users WHERE uName='fog';"
+
+# If the user doesn't exist, you may need to complete installation through the web interface
+# Visit: http://your-server-ip/fog/management/index.php?node=schema
+# Click "Install/Update Now" to ensure the admin user is created
+```
+
+**Note:** Future versions will automatically verify and report admin user creation status in the logs.
+
 For detailed troubleshooting, see the [Troubleshooting Guide](https://88fingerslukee.github.io/fog-docker/troubleshooting).
 
 ## Contributing

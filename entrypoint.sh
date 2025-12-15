@@ -807,15 +807,55 @@ appRun() {
     # Check and update FOG database schema (handles both new installs and upgrades)
     echo "Checking/updating FOG database schema..."
     local init_url="http://localhost:${FOG_APACHE_PORT}${FOG_WEB_ROOT}/management/index.php?node=schema"
-    local init_result=$(curl -s -f --data "confirm&fogverified" "$init_url" 2>&1)
     
-    if [ $? -eq 0 ]; then
-        echo "Database schema check/update completed successfully."
+    # Capture both HTTP response code and body
+    local http_code=$(curl -s -o /tmp/schema_response.html -w "%{http_code}" --data "confirm&fogverified" "$init_url" 2>&1)
+    local init_result=$(cat /tmp/schema_response.html 2>/dev/null || echo "")
+    local curl_exit=$?
+    
+    echo "Schema endpoint HTTP response code: $http_code"
+    
+    if [ $curl_exit -eq 0 ] && [ "$http_code" = "200" ]; then
+        # Check if the response indicates success
+        if echo "$init_result" | grep -qi "Install / Update Successful\|successful"; then
+            echo "✓ Database schema check/update completed successfully."
+            
+            # Extract and display key information from the response
+            if echo "$init_result" | grep -qi "Install"; then
+                echo "  → This appears to be a new installation"
+            elif echo "$init_result" | grep -qi "Update"; then
+                echo "  → Database schema was updated"
+            fi
+            
+            # Verify admin user was created
+            echo "Verifying admin user creation..."
+            local user_exists=$(mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" -p"$DB_PASS" --ssl=0 -e "SELECT COUNT(*) FROM ${DB_NAME}.users WHERE uName='fog';" 2>/dev/null | tail -1 | tr -d '[:space:]')
+            
+            if [ "$user_exists" = "1" ]; then
+                echo "✓ Admin user 'fog' exists in database"
+                echo "  → Default credentials: fog / password"
+                echo "  → IMPORTANT: Change this password immediately after first login!"
+            else
+                echo "⚠ WARNING: Admin user 'fog' not found in database"
+                echo "  → You may need to complete installation through the web interface"
+                echo "  → Visit: ${FOG_HTTP_PROTOCOL}://${FOG_WEB_HOST}:${FOG_APACHE_PORT}${FOG_WEB_ROOT}/management"
+            fi
+        else
+            echo "⚠ Schema endpoint returned 200 but response indicates an issue:"
+            echo "$init_result" | grep -o '<p>[^<]*</p>' | sed 's/<[^>]*>//g' | head -5
+        fi
     else
-        echo "Database schema check/update failed: $init_result"
-        echo "FOG will be initialized through the web interface."
-        echo "Please visit ${FOG_HTTP_PROTOCOL}://${FOG_WEB_HOST}:${FOG_APACHE_PORT}${FOG_WEB_ROOT}/management to complete the initial setup."
+        echo "✗ Database schema check/update failed"
+        echo "  HTTP Code: $http_code"
+        echo "  Error: $init_result"
+        echo ""
+        echo "FOG will need to be initialized through the web interface."
+        echo "Please visit: ${FOG_HTTP_PROTOCOL}://${FOG_WEB_HOST}:${FOG_APACHE_PORT}${FOG_WEB_ROOT}/management"
+        echo "to complete the initial setup."
     fi
+    
+    # Clean up temp file
+    rm -f /tmp/schema_response.html 2>/dev/null
     
     # Enable FOG services now that supervisor is running and database is initialized
     echo "Enabling FOG services after database initialization..."

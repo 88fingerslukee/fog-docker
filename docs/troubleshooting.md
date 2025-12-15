@@ -58,6 +58,77 @@ This guide covers common issues and solutions for FOG Docker.
    grep FOG_DB_ .env
    ```
 
+### Default Admin Login (fog/password) Not Working
+
+If the default credentials `fog` / `password` don't work, follow these steps to diagnose and fix the issue.
+
+#### Step 1: Verify the Admin User Exists
+
+Check if the admin user was created in the database:
+
+```bash
+docker exec fog-server mysql -h fog-db -u fogmaster -pfogmaster123 -e "SELECT uName, uId FROM fog.users WHERE uName='fog';"
+```
+
+**Expected output:** Should show a row with `uName='fog'` and a `uId` number.
+
+**If empty:** The admin user wasn't created during schema initialization.
+
+#### Step 2: Check Schema Initialization Logs
+
+Review the container logs for schema initialization:
+
+```bash
+docker compose logs fog-server | grep -i "schema\|admin\|user" | tail -20
+```
+
+Look for:
+- "Database schema check/update completed successfully"
+- Any errors during schema initialization
+
+#### Step 3: Manually Trigger Schema Initialization
+
+If the admin user doesn't exist, manually complete the installation:
+
+1. Open your browser and go to:
+   ```
+   http://your-server-ip/fog/management/index.php?node=schema
+   ```
+   (Replace `your-server-ip` with your actual server IP or FQDN)
+
+2. You should see a page titled "Database Schema Installer / Updater"
+
+3. Click the **"Install/Update Now"** button
+
+4. Wait for the success message
+
+5. Try logging in again with `fog` / `password`
+
+#### Step 4: Verify After Manual Installation
+
+After completing Step 3, verify the user exists:
+
+```bash
+docker exec fog-server mysql -h fog-db -u fogmaster -pfogmaster123 -e "SELECT uName, uId FROM fog.users WHERE uName='fog';"
+```
+
+#### Step 5: Check Database Connection
+
+If schema initialization fails, verify the database connection:
+
+```bash
+# Check if database container is running
+docker compose ps fog-db
+
+# Check database logs
+docker compose logs fog-db --tail 50
+
+# Test database connection from fog-server
+docker exec fog-server mysql -h fog-db -u fogmaster -pfogmaster123 -e "SELECT 1;"
+```
+
+**Note:** Future versions will automatically verify and report admin user creation status in the logs to make this easier to diagnose.
+
 ## Network Issues
 
 ### Storage Node Connectivity Issues
