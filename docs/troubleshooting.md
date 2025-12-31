@@ -150,7 +150,11 @@ docker exec fog-server mysql -h fog-db -u fogmaster -pfogmaster123 -e "SELECT 1;
 3. **Verify DHCP is configured** to point to the correct TFTP server
 4. **Check that DHCP option 66** (next-server) points to `FOG_TFTP_HOST`
 5. **Verify DHCP option 67** (filename) is set to the correct boot file
-6. **For UEFI clients**, ensure the boot file is configured (`FOG_DHCP_BOOTFILE_UEFI`)
+6. **For UEFI clients**, ensure the boot file is configured:
+   - UEFI 32-bit: `FOG_DHCP_BOOTFILE_UEFI32` (default: `i386-efi/snponly.efi`)
+   - UEFI 64-bit: `FOG_DHCP_BOOTFILE_UEFI64` (default: `snponly.efi`)
+   - UEFI ARM64: `FOG_DHCP_BOOTFILE_ARM64` (default: `arm64-efi/snponly.efi`)
+   - Legacy variable: `FOG_DHCP_BOOTFILE_UEFI` (maps to UEFI64 for backward compatibility)
 7. **For HTTPBoot clients**, verify that the iPXE files are accessible via HTTP (automatically available)
 
 ### HTTPBoot Issues

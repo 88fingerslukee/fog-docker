@@ -24,8 +24,10 @@ Configure your existing DHCP server with these options:
 
 **Option 66 (Next Server)**: `your-fog-server-ip`
 **Option 67 (Boot File)**:
-- **BIOS clients**: `undionly.kpxe`
-- **UEFI clients**: `ipxe.efi`
+- **BIOS clients (Arch:00000)**: `undionly.kkpxe`
+- **UEFI 32-bit clients (Arch:00002, 00006)**: `i386-efi/snponly.efi`
+- **UEFI 64-bit clients (Arch:00007, 00008, 00009)**: `snponly.efi`
+- **UEFI ARM64 clients (Arch:00011)**: `arm64-efi/snponly.efi`
 
 ### For FOG's Built-in DHCP
 
@@ -39,8 +41,10 @@ FOG_DHCP_ROUTER=192.168.1.1
 FOG_DHCP_START_RANGE=192.168.1.100
 FOG_DHCP_END_RANGE=192.168.1.200
 FOG_DHCP_DNS=8.8.8.8
-FOG_DHCP_BOOTFILE_BIOS=undionly.kpxe
-FOG_DHCP_BOOTFILE_UEFI=ipxe.efi
+FOG_DHCP_BOOTFILE_BIOS=undionly.kkpxe
+FOG_DHCP_BOOTFILE_UEFI32=i386-efi/snponly.efi
+FOG_DHCP_BOOTFILE_UEFI64=snponly.efi
+FOG_DHCP_BOOTFILE_ARM64=arm64-efi/snponly.efi
 ```
 
 ## HTTPBoot Setup
@@ -62,8 +66,8 @@ HTTPBoot URLs are automatically constructed as:
 ```
 
 **Examples:**
-- HTTP: `http://192.168.1.100/fog/service/ipxe/ipxe.efi`
-- HTTPS: `https://fog.example.com/fog/service/ipxe/ipxe.efi`
+- HTTP: `http://192.168.1.100/fog/service/ipxe/snponly.efi`
+- HTTPS: `https://fog.example.com/fog/service/ipxe/snponly.efi`
 
 ### Architecture Support
 
@@ -96,17 +100,20 @@ Client → HTTPBoot URL → iPXE Binary → default.ipxe → boot.php → FOG Bo
 ## Available Boot Files
 
 ### HTTPBoot Files (UEFI systems only)
-- `ipxe.efi` - Standard UEFI clients (x86_64, ARM64, etc.)
+- `snponly.efi` - Standard UEFI 64-bit clients (x86_64) - **Default for UEFI 64-bit**
+- `i386-efi/snponly.efi` - UEFI 32-bit clients - **Default for UEFI 32-bit**
+- `arm64-efi/snponly.efi` - ARM64 UEFI clients - **Default for UEFI ARM64**
+- `ipxe.efi` - Alternative UEFI clients (x86_64, ARM64, etc.)
 - `intel.efi` - Intel network adapter clients
 - `realtek.efi` - Realtek network adapter clients
 - `snp.efi` - Secure Network PXE clients
-- `snponly.efi` - Secure Network PXE only clients
-- `arm64-efi/ipxe.efi` - ARM64 UEFI clients
+- `arm64-efi/ipxe.efi` - ARM64 UEFI clients (alternative)
 - `arm64-efi/intel.efi` - Intel network adapter (ARM64)
 - `arm64-efi/realtek.efi` - Realtek network adapter (ARM64)
 
 ### TFTP Files (BIOS systems)
-- `undionly.kpxe` - Legacy BIOS clients
+- `undionly.kkpxe` - Legacy BIOS clients - **Default for BIOS**
+- `undionly.kpxe` - Alternative BIOS clients
 - `ipxe.kpxe` - Alternative BIOS clients
 
 ## Testing Network Boot
@@ -115,10 +122,13 @@ Client → HTTPBoot URL → iPXE Binary → default.ipxe → boot.php → FOG Bo
 
 ```bash
 # Test x86_64 UEFI iPXE file
-curl -I https://fog.progressive-sealing.com/fog/service/ipxe/ipxe.efi
+curl -I https://fog.progressive-sealing.com/fog/service/ipxe/snponly.efi
+
+# Test UEFI 32-bit iPXE file
+curl -I https://fog.progressive-sealing.com/fog/service/ipxe/i386-efi/snponly.efi
 
 # Test ARM64 UEFI iPXE file
-curl -I https://fog.progressive-sealing.com/fog/service/ipxe/arm64-efi/ipxe.efi
+curl -I https://fog.progressive-sealing.com/fog/service/ipxe/arm64-efi/snponly.efi
 
 # Test Intel network adapter iPXE files
 curl -I https://fog.progressive-sealing.com/fog/service/ipxe/intel.efi
@@ -130,7 +140,7 @@ curl -I https://fog.progressive-sealing.com/fog/service/ipxe/arm64-efi/intel.efi
 ```bash
 # Test TFTP connectivity
 tftp your-fog-server
-tftp> get undionly.kpxe
+tftp> get undionly.kkpxe
 tftp> quit
 ```
 
@@ -171,7 +181,10 @@ You can customize boot files by:
 For specific network adapters:
 - **Intel**: Use `intel.efi` or `arm64-efi/intel.efi`
 - **Realtek**: Use `realtek.efi` or `arm64-efi/realtek.efi`
-- **Generic**: Use `ipxe.efi` or `arm64-efi/ipxe.efi`
+- **Generic UEFI 64-bit**: Use `snponly.efi` (default)
+- **Generic UEFI 32-bit**: Use `i386-efi/snponly.efi` (default)
+- **Generic UEFI ARM64**: Use `arm64-efi/snponly.efi` (default)
+- **Alternative**: Use `ipxe.efi` or `arm64-efi/ipxe.efi`
 
 ## Next Steps
 

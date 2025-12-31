@@ -100,8 +100,10 @@ FOG_DHCP_END_RANGE=192.168.1.200
 
 # DNS and Boot Files
 FOG_DHCP_DNS=8.8.8.8
-FOG_DHCP_BOOTFILE_BIOS=undionly.kpxe   # Legacy BIOS clients (TFTP only)
-FOG_DHCP_BOOTFILE_UEFI=ipxe.efi       # UEFI clients (x86_64, ARM64, etc.)
+FOG_DHCP_BOOTFILE_BIOS=undionly.kkpxe              # Legacy BIOS clients (Arch:00000, TFTP only)
+FOG_DHCP_BOOTFILE_UEFI32=i386-efi/snponly.efi     # UEFI 32-bit clients (Arch:00002, 00006)
+FOG_DHCP_BOOTFILE_UEFI64=snponly.efi              # UEFI 64-bit clients (Arch:00007, 00008, 00009, plus SURFACE-PRO-4, Apple-Intel-Netboot)
+FOG_DHCP_BOOTFILE_ARM64=arm64-efi/snponly.efi     # UEFI ARM64 clients (Arch:00011)
 
 # Lease Times (in seconds)
 FOG_DHCP_DEFAULT_LEASE_TIME=600        # 10 minutes
@@ -189,7 +191,10 @@ FOG_DHCP_END_RANGE=192.168.1.200
 
 # DNS and boot files
 FOG_DHCP_DNS=8.8.8.8
-FOG_DHCP_BOOTFILE_BIOS=undionly.kpxe
+FOG_DHCP_BOOTFILE_BIOS=undionly.kkpxe
+FOG_DHCP_BOOTFILE_UEFI32=i386-efi/snponly.efi
+FOG_DHCP_BOOTFILE_UEFI64=snponly.efi
+FOG_DHCP_BOOTFILE_ARM64=arm64-efi/snponly.efi
 FOG_DHCP_BOOTFILE_UEFI=ipxe.efi
 ```
 

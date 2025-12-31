@@ -110,8 +110,11 @@ Complete reference for all FOG Docker environment variables.
 
 | Variable | Description | Example | Default |
 |----------|-------------|---------|---------|
-| `FOG_DHCP_BOOTFILE_BIOS` | BIOS boot file | `undionly.kpxe` | `undionly.kpxe` |
-| `FOG_DHCP_BOOTFILE_UEFI` | UEFI boot file | `ipxe.efi` | `ipxe.efi` |
+| `FOG_DHCP_BOOTFILE_BIOS` | BIOS boot file (Arch:00000) | `undionly.kkpxe` | `undionly.kkpxe` |
+| `FOG_DHCP_BOOTFILE_UEFI32` | UEFI 32-bit boot file (Arch:00002, 00006) | `i386-efi/snponly.efi` | `i386-efi/snponly.efi` |
+| `FOG_DHCP_BOOTFILE_UEFI64` | UEFI 64-bit boot file (Arch:00007, 00008, 00009, plus SURFACE-PRO-4, Apple-Intel-Netboot) | `snponly.efi` | `snponly.efi` |
+| `FOG_DHCP_BOOTFILE_ARM64` | UEFI ARM64 boot file (Arch:00011) | `arm64-efi/snponly.efi` | `arm64-efi/snponly.efi` |
+| `FOG_DHCP_BOOTFILE_UEFI` | Legacy variable (maps to UEFI64) | `snponly.efi` | `snponly.efi` |
 
 ### DHCP Lease Times
 
@@ -220,8 +223,11 @@ Database variables work together for connection:
 DHCP variables define PXE boot configuration:
 
 - **`FOG_TFTP_HOST`** - Used for DHCP Option 66 (Next Server)
-- **`FOG_DHCP_BOOTFILE_BIOS`** - Used for DHCP Option 67 (BIOS clients)
-- **`FOG_DHCP_BOOTFILE_UEFI`** - Used for DHCP Option 67 (UEFI clients)
+- **`FOG_DHCP_BOOTFILE_BIOS`** - Used for DHCP Option 67 (BIOS/Legacy clients, Arch:00000)
+- **`FOG_DHCP_BOOTFILE_UEFI32`** - Used for DHCP Option 67 (UEFI 32-bit clients, Arch:00002, 00006)
+- **`FOG_DHCP_BOOTFILE_UEFI64`** - Used for DHCP Option 67 (UEFI 64-bit clients, Arch:00007, 00008, 00009, plus SURFACE-PRO-4, Apple-Intel-Netboot)
+- **`FOG_DHCP_BOOTFILE_ARM64`** - Used for DHCP Option 67 (UEFI ARM64 clients, Arch:00011)
+- **`FOG_DHCP_BOOTFILE_UEFI`** - Legacy variable (maps to UEFI64 for backward compatibility)
 
 ### FTP Configuration
 FTP passive mode requires port range configuration:
@@ -317,8 +323,11 @@ FOG_DHCP_DOMAIN_NAME=fog.local
 FOG_DHCP_START_RANGE=192.168.1.100
 FOG_DHCP_END_RANGE=192.168.1.200
 FOG_DHCP_DNS=8.8.8.8
-FOG_DHCP_BOOTFILE_BIOS=undionly.kpxe
-FOG_DHCP_BOOTFILE_UEFI=ipxe.efi
+FOG_DHCP_BOOTFILE_BIOS=undionly.kkpxe
+FOG_DHCP_BOOTFILE_UEFI32=i386-efi/snponly.efi
+FOG_DHCP_BOOTFILE_UEFI64=snponly.efi
+FOG_DHCP_BOOTFILE_ARM64=arm64-efi/snponly.efi
+FOG_DHCP_BOOTFILE_UEFI=snponly.efi
 ```
 
 ### HTTPS with External Certificates

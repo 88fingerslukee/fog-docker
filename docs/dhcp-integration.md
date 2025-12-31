@@ -27,15 +27,18 @@ FOG Docker can work with any DHCP server by configuring the appropriate PXE boot
 For PXE boot to work, your DHCP server must provide:
 
 - **Option 66 (Next Server)**: IP address of your FOG server (use `FOG_TFTP_HOST` value)
-- **Option 67 (Boot File)**: Name of the boot file for the client architecture (use `FOG_DHCP_BOOTFILE_BIOS` or `FOG_DHCP_BOOTFILE_UEFI`)
+- **Option 67 (Boot File)**: Name of the boot file for the client architecture (use `FOG_DHCP_BOOTFILE_BIOS`, `FOG_DHCP_BOOTFILE_UEFI32`, `FOG_DHCP_BOOTFILE_UEFI64`, or `FOG_DHCP_BOOTFILE_ARM64`)
 
 ### Boot File Names
 
 | Client Type | Boot File | Environment Variable | Description |
 |-------------|-----------|---------------------|-------------|
-| Legacy BIOS | `undionly.kpxe` | `FOG_DHCP_BOOTFILE_BIOS` | Traditional BIOS PXE boot |
-| UEFI x86_64 | `ipxe.efi` | `FOG_DHCP_BOOTFILE_UEFI` | UEFI 64-bit clients |
-| UEFI ARM64 | `arm64-efi/ipxe.efi` | `FOG_DHCP_BOOTFILE_UEFI` | ARM64 UEFI clients |
+| Legacy BIOS (Arch:00000) | `undionly.kkpxe` | `FOG_DHCP_BOOTFILE_BIOS` | Traditional BIOS PXE boot |
+| UEFI 32-bit (Arch:00002, 00006) | `i386-efi/snponly.efi` | `FOG_DHCP_BOOTFILE_UEFI32` | UEFI 32-bit clients |
+| UEFI 64-bit (Arch:00007, 00008, 00009) | `snponly.efi` | `FOG_DHCP_BOOTFILE_UEFI64` | UEFI 64-bit clients (x86_64) |
+| UEFI ARM64 (Arch:00011) | `arm64-efi/snponly.efi` | `FOG_DHCP_BOOTFILE_ARM64` | ARM64 UEFI clients |
+| SURFACE-PRO-4 | `snponly.efi` | `FOG_DHCP_BOOTFILE_UEFI64` | Microsoft Surface Pro 4 |
+| Apple-Intel-Netboot | `snponly.efi` | `FOG_DHCP_BOOTFILE_UEFI64` | Apple Intel Macs |
 
 ## ISC DHCP Server (Linux/Unix)
 
@@ -59,17 +62,17 @@ subnet 192.168.1.0 netmask 255.255.255.0 {
     # FOG PXE Boot Configuration
     next-server 192.168.1.100;  # Your FOG server IP
     
-    # BIOS clients
+    # BIOS clients (Arch:00000)
     if substring(option vendor-class-identifier, 0, 9) = "PXEClient" {
         if substring(option vendor-class-identifier, 15, 5) = "00000" {
-            filename "undionly.kpxe";
+            filename "undionly.kkpxe";
         }
     }
     
-    # UEFI clients
+    # UEFI 64-bit clients (Arch:00007)
     if substring(option vendor-class-identifier, 0, 9) = "PXEClient" {
         if substring(option vendor-class-identifier, 15, 5) = "00007" {
-            filename "ipxe.efi";
+            filename "snponly.efi";
         }
     }
 }
@@ -95,21 +98,34 @@ subnet 192.168.1.0 netmask 255.255.255.0 {
     
     # Architecture detection and boot file selection
     if substring(option vendor-class-identifier, 0, 9) = "PXEClient" {
-        # BIOS clients
+        # BIOS clients (Arch:00000)
         if substring(option vendor-class-identifier, 15, 5) = "00000" {
-            filename "undionly.kpxe";
+            filename "undionly.kkpxe";
         }
-        # UEFI x86_64 clients
+        # UEFI 32-bit clients (Arch:00002, 00006)
+        elsif substring(option vendor-class-identifier, 15, 5) = "00002" {
+            filename "i386-efi/snponly.efi";
+        }
+        elsif substring(option vendor-class-identifier, 15, 5) = "00006" {
+            filename "i386-efi/snponly.efi";
+        }
+        # UEFI 64-bit clients (Arch:00007, 00008, 00009)
         elsif substring(option vendor-class-identifier, 15, 5) = "00007" {
-            filename "ipxe.efi";
+            filename "snponly.efi";
         }
-        # UEFI ARM64 clients
         elsif substring(option vendor-class-identifier, 15, 5) = "00008" {
-            filename "arm64-efi/ipxe.efi";
+            filename "snponly.efi";
+        }
+        elsif substring(option vendor-class-identifier, 15, 5) = "00009" {
+            filename "snponly.efi";
+        }
+        # UEFI ARM64 clients (Arch:00011)
+        elsif substring(option vendor-class-identifier, 15, 5) = "00011" {
+            filename "arm64-efi/snponly.efi";
         }
         # Default fallback
         else {
-            filename "undionly.kpxe";
+            filename "undionly.kkpxe";
         }
     }
 }
@@ -143,11 +159,11 @@ sudo dhcpd -t
 ```powershell
 # Set DHCP server options
 Set-DhcpServerv4OptionValue -ComputerName "your-dhcp-server" -OptionId 66 -Value "192.168.1.100"
-Set-DhcpServerv4OptionValue -ComputerName "your-dhcp-server" -OptionId 67 -Value "undionly.kpxe"
+Set-DhcpServerv4OptionValue -ComputerName "your-dhcp-server" -OptionId 67 -Value "undionly.kkpxe"
 
-# For UEFI clients, create a policy
+# For UEFI 64-bit clients, create a policy
 Add-DhcpServerv4Policy -Name "UEFI-Clients" -Condition OR -MacAddress "00-15-5D-*"
-Set-DhcpServerv4Policy -Name "UEFI-Clients" -OptionId 67 -Value "ipxe.efi"
+Set-DhcpServerv4Policy -Name "UEFI-Clients" -OptionId 67 -Value "snponly.efi"
 ```
 
 ### Using netsh (Command Line)
@@ -155,11 +171,11 @@ Set-DhcpServerv4Policy -Name "UEFI-Clients" -OptionId 67 -Value "ipxe.efi"
 ```cmd
 # Set global options
 netsh dhcp server scope 192.168.1.0 set optionvalue 66 IPADDRESS 192.168.1.100
-netsh dhcp server scope 192.168.1.0 set optionvalue 67 STRING "undionly.kpxe"
+netsh dhcp server scope 192.168.1.0 set optionvalue 67 STRING "undionly.kkpxe"
 
-# For UEFI clients, create a reservation or policy
+# For UEFI 64-bit clients, create a reservation or policy
 netsh dhcp server scope 192.168.1.0 add reservedip 192.168.1.150 00-15-5D-01-02-03 "UEFI-Client"
-netsh dhcp server reservedip 192.168.1.150 set optionvalue 67 STRING "ipxe.efi"
+netsh dhcp server reservedip 192.168.1.150 set optionvalue 67 STRING "snponly.efi"
 ```
 
 ## pfSense DHCP
@@ -174,7 +190,7 @@ netsh dhcp server reservedip 192.168.1.150 set optionvalue 67 STRING "ipxe.efi"
 | Number | Type | Value | Description |
 |--------|------|-------|-------------|
 | 66 | Text | `192.168.1.100` | Next Server (FOG server IP) |
-| 67 | Text | `undionly.kpxe` | Boot File Name |
+| 67 | Text | `undionly.kkpxe` | Boot File Name (BIOS) or `snponly.efi` (UEFI 64-bit) |
 
 ### Advanced Configuration
 
@@ -186,7 +202,7 @@ For different architectures, create multiple DHCP scopes or use custom options:
 option 66 "192.168.1.100";
 
 # Option 67: Boot File (BIOS)
-option 67 "undionly.kpxe";
+option 67 "undionly.kkpxe";
 
 # For UEFI clients, you may need to create separate scopes
 # or use MAC address reservations
@@ -204,17 +220,17 @@ option 67 "undionly.kpxe";
 | Name | Code | Value |
 |------|------|-------|
 | next-server | 66 | `192.168.1.100` |
-| boot-file-name | 67 | `undionly.kpxe` |
+| boot-file-name | 67 | `undionly.kkpxe` (BIOS) or `snponly.efi` (UEFI 64-bit) |
 
 ### Using Command Line
 
 ```bash
 # Set DHCP options
 /ip dhcp-server option add name="next-server" code=66 value=0xC0A80164
-/ip dhcp-server option add name="boot-file-name" code=67 value="undionly.kpxe"
+/ip dhcp-server option add name="boot-file-name" code=67 value="undionly.kkpxe"
 
 # Apply to DHCP network
-/ip dhcp-server network set [find address="192.168.1.0/24"] next-server=192.168.1.100 boot-file-name=undionly.kpxe
+/ip dhcp-server network set [find address="192.168.1.0/24"] next-server=192.168.1.100 boot-file-name=undionly.kkpxe
 ```
 
 ## Ubiquiti UniFi
@@ -230,7 +246,7 @@ option 67 "undionly.kpxe";
 | Number | Type | Value |
 |--------|------|-------|
 | 66 | String | `192.168.1.100` |
-| 67 | String | `undionly.kpxe` |
+| 67 | String | `undionly.kkpxe` (BIOS) or `snponly.efi` (UEFI 64-bit) |
 
 ### Using JSON Configuration
 
@@ -245,7 +261,7 @@ option 67 "undionly.kpxe";
     {
       "number": 67,
       "type": "string", 
-      "value": "undionly.kpxe"
+      "value": "undionly.kkpxe"
     }
   ]
 }
@@ -263,7 +279,7 @@ if substring(option vendor-class-identifier, 0, 9) = "PXEClient" {
     if substring(option vendor-class-identifier, 15, 5) = "00007" {
         # HTTPBoot URL for UEFI clients
         option vendor-class-identifier "HTTPClient:Arch:00007:UNDI:003016";
-        filename "http://192.168.1.100/fog/service/ipxe/ipxe.efi";
+        filename "http://192.168.1.100/fog/service/ipxe/snponly.efi";
     }
 }
 ```
@@ -272,7 +288,7 @@ if substring(option vendor-class-identifier, 0, 9) = "PXEClient" {
 
 ```powershell
 # Set HTTPBoot option for UEFI clients
-Set-DhcpServerv4OptionValue -ComputerName "your-dhcp-server" -OptionId 67 -Value "http://192.168.1.100/fog/service/ipxe/ipxe.efi"
+Set-DhcpServerv4OptionValue -ComputerName "your-dhcp-server" -OptionId 67 -Value "http://192.168.1.100/fog/service/ipxe/snponly.efi"
 ```
 
 ## Testing DHCP Configuration
@@ -344,7 +360,7 @@ systemctl status tftpd-hpa
 
 # Test TFTP connectivity
 tftp 192.168.1.100
-tftp> get undionly.kpxe
+tftp> get undionly.kkpxe
 tftp> quit
 ```
 
