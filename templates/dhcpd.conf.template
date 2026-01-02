@@ -23,8 +23,7 @@ subnet {{FOG_DHCP_SUBNET}} netmask {{FOG_DHCP_NETMASK}} {
     # HTTPBoot support (if enabled)
     if substring (option vendor-class-identifier, 0, 10) = "HTTPClient" {
         filename "{{FOG_HTTP_PROTOCOL}}://{{FOG_WEB_HOST}}{{FOG_WEB_ROOT}}/service/ipxe/boot.php";
-    }
-    
+    }    
 }
 
 # Architecture-specific boot file classes (matching FOG's native DHCP configuration)
