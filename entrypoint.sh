@@ -20,11 +20,21 @@ FOG_DB_MIGRATION_ENABLED="${FOG_DB_MIGRATION_ENABLED:-false}"
 FOG_DB_MIGRATION_FORCE="${FOG_DB_MIGRATION_FORCE:-false}"
 
 # Network Configuration
-FOG_WEB_HOST="${FOG_WEB_HOST:-localhost}"
+# FOG_WEB_HOST is REQUIRED - fail hard if not set
+# Can be either an IP address (e.g., 192.168.1.100) or FQDN (e.g., fog.example.com)
+if [ -z "$FOG_WEB_HOST" ]; then
+    echo "ERROR: FOG_WEB_HOST is required but not set!"
+    echo "Please set FOG_WEB_HOST in your .env file or environment variables."
+    echo "Examples:"
+    echo "  FOG_WEB_HOST=192.168.1.100          (IP address)"
+    echo "  FOG_WEB_HOST=fog.example.com        (FQDN)"
+    exit 1
+fi
+
 FOG_WEB_ROOT="${FOG_WEB_ROOT:-/fog}"
-FOG_TFTP_HOST="${FOG_TFTP_HOST:-localhost}"
-FOG_STORAGE_HOST="${FOG_STORAGE_HOST:-localhost}"
-FOG_WOL_HOST="${FOG_WOL_HOST:-localhost}"
+FOG_TFTP_HOST="${FOG_TFTP_HOST:-${FOG_WEB_HOST}}"
+FOG_STORAGE_HOST="${FOG_STORAGE_HOST:-${FOG_WEB_HOST}}"
+FOG_WOL_HOST="${FOG_WOL_HOST:-${FOG_WEB_HOST}}"
 FOG_MULTICAST_INTERFACE="${FOG_MULTICAST_INTERFACE:-eth0}"
 
 # Apache Configuration
@@ -244,6 +254,24 @@ configureFOGConfig() {
     # Start with template
     cp /opt/fog/templates/config.class.php.template "$FOG_CONFIG_FILE"
     
+    # Validate FOG_STORAGE_HOST is set (should default to FOG_WEB_HOST if not explicitly set)
+    if [ -z "$FOG_STORAGE_HOST" ]; then
+        echo "ERROR: FOG_STORAGE_HOST is not set and FOG_WEB_HOST is also not set!"
+        echo "This should not happen if FOG_WEB_HOST validation passed."
+        exit 1
+    fi
+    
+    # Clean any trailing braces that might have been introduced (defensive - shouldn't be needed)
+    # This handles edge cases where Docker Compose might pass unresolved variable substitutions
+    FOG_STORAGE_HOST_CLEAN=$(echo "$FOG_STORAGE_HOST" | sed 's/[}]*$//')
+    
+    # Validate the cleaned value doesn't look like an unresolved variable
+    if [[ "$FOG_STORAGE_HOST_CLEAN" =~ ^\$\{.*\}$ ]] || [ "$FOG_STORAGE_HOST_CLEAN" = "\${FOG_WEB_HOST}" ]; then
+        echo "ERROR: FOG_STORAGE_HOST appears to be an unresolved variable: $FOG_STORAGE_HOST"
+        echo "FOG_WEB_HOST should be set (IP address or FQDN), which would make FOG_STORAGE_HOST default to it."
+        exit 1
+    fi
+    
     # Replace placeholders with environment variables
     sed -i "s|{{FOG_DB_HOST}}|$FOG_DB_HOST|g" "$FOG_CONFIG_FILE"
     sed -i "s|{{FOG_DB_PORT}}|$FOG_DB_PORT|g" "$FOG_CONFIG_FILE"
@@ -251,7 +279,7 @@ configureFOGConfig() {
     sed -i "s|{{FOG_DB_USER}}|$FOG_DB_USER|g" "$FOG_CONFIG_FILE"
     sed -i "s|{{FOG_DB_PASS}}|$FOG_DB_PASS|g" "$FOG_CONFIG_FILE"
     sed -i "s|{{FOG_TFTP_HOST}}|$FOG_TFTP_HOST|g" "$FOG_CONFIG_FILE"
-    sed -i "s|{{FOG_STORAGE_HOST}}|$FOG_STORAGE_HOST|g" "$FOG_CONFIG_FILE"
+    sed -i "s|{{FOG_STORAGE_HOST}}|$FOG_STORAGE_HOST_CLEAN|g" "$FOG_CONFIG_FILE"
     sed -i "s|{{FOG_WOL_HOST}}|$FOG_WOL_HOST|g" "$FOG_CONFIG_FILE"
     sed -i "s|{{FOG_MULTICAST_INTERFACE}}|$FOG_MULTICAST_INTERFACE|g" "$FOG_CONFIG_FILE"
     sed -i "s|{{FOG_WEB_HOST}}|$FOG_WEB_HOST|g" "$FOG_CONFIG_FILE"
@@ -524,6 +552,11 @@ configureDHCP() {
     if [ "$FOG_DHCP_ENABLED" = "true" ]; then
         echo "Configuring DHCP server..."
         
+        # Ensure DHCP leases directory and file exist
+        mkdir -p /var/lib/dhcp
+        touch /var/lib/dhcp/dhcpd.leases
+        chown dhcp:dhcp /var/lib/dhcp/dhcpd.leases 2>/dev/null || chown root:root /var/lib/dhcp/dhcpd.leases
+        
         # Generate dhcpd.conf from template
         /opt/fog/scripts/process-template.sh /opt/fog/templates/dhcpd.conf.template "$DHCP_CONFIG_FILE"
         
@@ -543,10 +576,32 @@ configureiPXE() {
         if [ -d "/opt/fog/fogproject/packages/tftp" ]; then
             cp -r /opt/fog/fogproject/packages/tftp/ /tftpboot/ 2>/dev/null || true
 
+            # Fix: If /tftpboot/tftp subdirectory exists, move its contents to /tftpboot
+            if [ -d "/tftpboot/tftp" ]; then
+                echo "Moving files from /tftpboot/tftp to /tftpboot..."
+                mv /tftpboot/tftp/* /tftpboot/ 2>/dev/null || true
+                rmdir /tftpboot/tftp 2>/dev/null || true
+            fi
+
             echo "TFTP boot files copied from FOG source."
         else
             echo "Warning: FOG TFTP source directory not found at /opt/fog/fogproject/packages/tftp"
         fi
+        
+        # Ensure /tftpboot/dev directory exists (required for FOG)
+        mkdir -p /tftpboot/dev
+        chown -R www-data:www-data /tftpboot/dev
+        
+        # Create check files in /tftpboot and /tftpboot/dev if they don't exist
+        if [ ! -f "/tftpboot/.fogcheck" ]; then
+            touch /tftpboot/.fogcheck
+            chown www-data:www-data /tftpboot/.fogcheck
+        fi
+        if [ ! -f "/tftpboot/dev/.fogcheck" ]; then
+            touch /tftpboot/dev/.fogcheck
+            chown www-data:www-data /tftpboot/dev/.fogcheck
+        fi
+        
         chown -R www-data:www-data /tftpboot
         echo "TFTP boot files copied successfully."
     }

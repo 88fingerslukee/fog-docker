@@ -80,7 +80,7 @@ services:
       
       # Network Configuration
       FOG_STORAGE_HOST: "${FOG_STORAGE_HOST:-${FOG_WEB_HOST}}"
-      FOG_WOL_HOST: "${FOG_WOL_HOST:-localhost}"
+      FOG_WOL_HOST: "${FOG_WOL_HOST:-${FOG_WEB_HOST}}"
       FOG_MULTICAST_INTERFACE: "${FOG_MULTICAST_INTERFACE:-eth0}"
       
       # FTP Configuration

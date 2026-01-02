@@ -123,6 +123,27 @@ process_template() {
         fi
         
         local value="${!var_name}"
+        
+        # Handle FOG_STORAGE_HOST validation
+        if [[ "$placeholder" == "FOG_STORAGE_HOST" ]]; then
+            # Validate it's set (should default to FOG_WEB_HOST if not explicitly set)
+            if [[ -z "$value" ]]; then
+                echo "  - ERROR: FOG_STORAGE_HOST is empty!"
+                echo "  - This should not happen - FOG_WEB_HOST should be set and FOG_STORAGE_HOST should default to it"
+                return 1
+            fi
+            
+            # Validate it doesn't look like an unresolved variable substitution
+            if [[ "$value" =~ ^\$\{.*\}$ ]] || [[ "$value" == "\${FOG_WEB_HOST}" ]]; then
+                echo "  - ERROR: FOG_STORAGE_HOST appears to be an unresolved variable: $value"
+                echo "  - FOG_WEB_HOST must be set (IP address or FQDN) for FOG_STORAGE_HOST to default to it"
+                return 1
+            fi
+            
+            # Clean any trailing braces (defensive - shouldn't be needed)
+            value=$(echo "$value" | sed 's/[}]*$//')
+        fi
+        
         if [[ -n "$value" ]]; then
             local escaped_value=$(escape_sed "$value")
             sed -i "s#{{$placeholder}}#$escaped_value#g" "$temp_file"
