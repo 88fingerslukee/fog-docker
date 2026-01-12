@@ -199,5 +199,5 @@ This project is licensed under the GPL v3 License - see the [LICENSE](LICENSE) f
 ## Acknowledgments
 
 - [FOG Project](https://github.com/FOGProject/fogproject) - The original FOG imaging solution
-- @MonolithicRamone for testing and issue reporting
+- [@MonolithicRamone](https://github.com/MonolithicRamone) for testing and issue reporting
 - Docker community for containerization best practices
