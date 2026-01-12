@@ -170,7 +170,53 @@ prepareDirectories() {
     # Set proper permissions for FOG services to write to log directory
     chown -R www-data:www-data /opt/fog/log/
     
-    # Set proper permissions for image and snapin directories
+    # Ensure /images directory exists
+    mkdir -p /images
+    
+    # Ensure /images/dev directory exists (required for image capture)
+    mkdir -p /images/dev
+    
+    # Create .mntcheck files if they don't exist (used by FOG to verify NFS mounts)
+    if [ ! -f /images/.mntcheck ]; then
+        touch /images/.mntcheck
+        echo "Created /images/.mntcheck"
+    fi
+    
+    if [ ! -f /images/dev/.mntcheck ]; then
+        touch /images/dev/.mntcheck
+        echo "Created /images/dev/.mntcheck"
+    fi
+    
+    # Create postdownloadscripts directory and fog.postdownload file (matching FOG's configureStorage)
+    mkdir -p /images/postdownloadscripts
+    if [ ! -f /images/postdownloadscripts/fog.postdownload ]; then
+        cat > /images/postdownloadscripts/fog.postdownload << 'EOF'
+#!/bin/bash
+## This file serves as a starting point to call your custom postimaging scripts.
+## <SCRIPTNAME> should be changed to the script you're planning to use.
+## Syntax of post download scripts are
+#. ${postdownpath}<SCRIPTNAME>
+EOF
+        chmod +x /images/postdownloadscripts/fog.postdownload
+        echo "Created /images/postdownloadscripts/fog.postdownload"
+    fi
+    
+    # Create postinitscripts directory and fog.postinit file (matching FOG's configureStorage)
+    mkdir -p /images/dev/postinitscripts
+    if [ ! -f /images/dev/postinitscripts/fog.postinit ]; then
+        cat > /images/dev/postinitscripts/fog.postinit << 'EOF'
+#!/bin/bash
+## This file serves as a starting point to call your custom pre-imaging/post init loading scripts.
+## <SCRIPTNAME> should be changed to the script you're planning to use.
+## Syntax of post init scripts are
+#. ${postinitpath}<SCRIPTNAME>
+EOF
+        chmod +x /images/dev/postinitscripts/fog.postinit
+        echo "Created /images/dev/postinitscripts/fog.postinit"
+    fi
+    
+    # Set proper permissions for image and snapin directories (775 allows group write access)
+    chmod -R 775 /images
     chown -R www-data:www-data /images
     chown -R www-data:www-data /opt/fog/snapins
     
