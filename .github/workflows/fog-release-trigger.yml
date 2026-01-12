@@ -81,6 +81,19 @@ jobs:
           fi
         fi
         
+        # Validate the tag name before proceeding
+        if [ -z "$LATEST_TAG" ] || [ "$LATEST_TAG" = "null" ] || [ "$LATEST_TAG" = "null\n" ]; then
+          echo "Error: Invalid FOG version detected: '$LATEST_TAG'"
+          echo "Cannot proceed with null or empty version"
+          exit 1
+        fi
+        
+        # Additional validation: ensure tag doesn't contain invalid characters
+        if echo "$LATEST_TAG" | grep -qE '[^a-zA-Z0-9._-]'; then
+          echo "Error: FOG version contains invalid characters: '$LATEST_TAG'"
+          exit 1
+        fi
+        
         if [ -z "$EXISTING_TAGS" ]; then
           echo "New FOG release found: $LATEST_TAG"
           echo "new-release=true" >> $GITHUB_OUTPUT
@@ -113,24 +126,35 @@ jobs:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
 
+    - name: Set FOG version
+      id: fog-version
+      run: |
+        FOG_VERSION="${{ needs.check-fog-releases.outputs.fog-version }}"
+        
+        # Validate version - fail if null or empty (should have been caught earlier, but double-check)
+        if [ -z "$FOG_VERSION" ] || [ "$FOG_VERSION" = "null" ] || [ "$FOG_VERSION" = "null\n" ]; then
+          echo "Error: FOG version is null or empty. Cannot build image."
+          echo "This should not happen if the check step passed validation."
+          exit 1
+        fi
+        
+        # Validate tag name doesn't contain invalid characters
+        if echo "$FOG_VERSION" | grep -qE '[^a-zA-Z0-9._-]'; then
+          echo "Error: FOG version contains invalid characters: '$FOG_VERSION'"
+          exit 1
+        fi
+        
+        echo "fog-version=$FOG_VERSION" >> $GITHUB_OUTPUT
+        echo "Building with FOG version: $FOG_VERSION"
+
     - name: Extract metadata
       id: meta
       uses: docker/metadata-action@v5
       with:
         images: ghcr.io/88fingerslukee/fog-docker
         tags: |
-          type=raw,value=fog-${{ needs.check-fog-releases.outputs.fog-version }}
+          type=raw,value=fog-${{ steps.fog-version.outputs.fog-version }}
           type=raw,value=latest,enable={{is_default_branch}}
-
-    - name: Set FOG version
-      id: fog-version
-      run: |
-        FOG_VERSION="${{ needs.check-fog-releases.outputs.fog-version }}"
-        if [ -z "$FOG_VERSION" ] || [ "$FOG_VERSION" = "null" ]; then
-          FOG_VERSION="stable"
-        fi
-        echo "fog-version=$FOG_VERSION" >> $GITHUB_OUTPUT
-        echo "Building with FOG version: $FOG_VERSION"
 
     - name: Build and push Docker image
       uses: docker/build-push-action@v5
@@ -150,13 +174,13 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        tag_name: fog-${{ needs.check-fog-releases.outputs.fog-version }}
-        release_name: FOG Docker ${{ needs.check-fog-releases.outputs.fog-version }}
+        tag_name: fog-${{ steps.fog-version.outputs.fog-version }}
+        release_name: FOG Docker ${{ steps.fog-version.outputs.fog-version }}
         body: |
-          This release contains FOG Docker image built with FOG Project version ${{ needs.check-fog-releases.outputs.fog-version }}.
+          This release contains FOG Docker image built with FOG Project version ${{ steps.fog-version.outputs.fog-version }}.
 
           ## What's New
-          - Updated to FOG Project ${{ needs.check-fog-releases.outputs.fog-version }}
+          - Updated to FOG Project ${{ steps.fog-version.outputs.fog-version }}
           - All previous features and improvements included
           
           ## Documentation
