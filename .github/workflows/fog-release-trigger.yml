@@ -28,17 +28,58 @@ jobs:
           FOG_VERSION="stable"
         fi
         
-        # Get the latest release tag from FOG repository
+        # Get the latest release tag from FOG repository with error handling
         if [ "$FOG_VERSION" = "stable" ]; then
-          LATEST_TAG=$(curl -s https://api.github.com/repos/FOGProject/fogproject/releases/latest | jq -r '.tag_name')
+          # Fetch with retry logic and error handling
+          API_RESPONSE=$(curl -s -w "\n%{http_code}" https://api.github.com/repos/FOGProject/fogproject/releases/latest)
+          HTTP_CODE=$(echo "$API_RESPONSE" | tail -n1)
+          API_BODY=$(echo "$API_RESPONSE" | sed '$d')
+          
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "Error: GitHub API returned HTTP $HTTP_CODE"
+            echo "Response: $API_BODY"
+            exit 1
+          fi
+          
+          # Validate JSON before parsing
+          if ! echo "$API_BODY" | jq empty 2>/dev/null; then
+            echo "Error: Invalid JSON response from GitHub API"
+            echo "Response: $API_BODY"
+            exit 1
+          fi
+          
+          LATEST_TAG=$(echo "$API_BODY" | jq -r '.tag_name // empty')
+          
+          if [ -z "$LATEST_TAG" ] || [ "$LATEST_TAG" = "null" ]; then
+            echo "Error: Could not extract tag_name from API response"
+            echo "Response: $API_BODY"
+            exit 1
+          fi
         else
           LATEST_TAG="$FOG_VERSION"
         fi
         
         echo "Checking FOG version: $LATEST_TAG"
         
-        # Check if we already have this version
-        EXISTING_TAGS=$(curl -s https://api.github.com/repos/88fingerslukee/fog-docker/tags | jq -r '.[].name' | grep "fog-$LATEST_TAG" || echo "")
+        # Check if we already have this version with error handling
+        TAGS_RESPONSE=$(curl -s -w "\n%{http_code}" https://api.github.com/repos/88fingerslukee/fog-docker/tags)
+        TAGS_HTTP_CODE=$(echo "$TAGS_RESPONSE" | tail -n1)
+        TAGS_BODY=$(echo "$TAGS_RESPONSE" | sed '$d')
+        
+        if [ "$TAGS_HTTP_CODE" != "200" ]; then
+          echo "Warning: GitHub API returned HTTP $TAGS_HTTP_CODE when checking existing tags"
+          echo "Assuming new release to be safe"
+          EXISTING_TAGS=""
+        else
+          # Validate JSON before parsing
+          if echo "$TAGS_BODY" | jq empty 2>/dev/null; then
+            EXISTING_TAGS=$(echo "$TAGS_BODY" | jq -r '.[].name' | grep "fog-$LATEST_TAG" || echo "")
+          else
+            echo "Warning: Invalid JSON response when checking existing tags"
+            echo "Assuming new release to be safe"
+            EXISTING_TAGS=""
+          fi
+        fi
         
         if [ -z "$EXISTING_TAGS" ]; then
           echo "New FOG release found: $LATEST_TAG"
