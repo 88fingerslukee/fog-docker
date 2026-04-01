@@ -110,6 +110,7 @@ RUN apt-get -q update && \
         vsftpd \
         isc-dhcp-server \
         iproute2 \
+        udpcast \
         net-tools \
         # System utilities
         curl \
