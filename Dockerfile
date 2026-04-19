@@ -159,6 +159,10 @@ RUN apt-get -q update && \
         bind9-dnsutils \
         && rm -rf /var/lib/apt/lists/*
 
+# symlink udp-sender because Fog looks at the wrong/old location.
+# multicast breaks without this
+RUN ln -s /usr/bin/udp-sender /usr/local/bin/udp-sender
+
 # Install architecture-specific secure boot packages
 RUN if [ "$(dpkg --print-architecture)" = "amd64" ]; then \
         apt-get -q update && \
