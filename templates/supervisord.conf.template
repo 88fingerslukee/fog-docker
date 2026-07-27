@@ -16,7 +16,11 @@ serverurl=unix:///run/supervisor.sock
 supervisor.rpcinterface_factory = supervisor.rpcinterface:make_main_rpcinterface
 
 [program:apache2]
-command=/usr/sbin/apache2ctl -DFOREGROUND
+# Start apache2 directly instead of via apache2ctl.
+# apache2ctl can exit 0 when a stale PidFile points at another live PID
+# (e.g. vsftpd/nfs after a failed start), which makes supervisord mark
+# apache FATAL and breaks iPXE chainloading through the reverse proxy.
+command=/bin/bash -c '. /etc/apache2/envvars; rm -f "$APACHE_PID_FILE"; exec /usr/sbin/apache2 -DFOREGROUND'
 user=root
 autostart=true
 autorestart=true
