@@ -318,12 +318,25 @@ configureFOGConfig() {
         exit 1
     fi
     
+    # Per-install schema bootstrap token (FOG 1.5.10.18xx+). Prefer a stable
+    # env value when set; otherwise generate one for this container lifetime.
+    # Must match what we present to the schema endpoint for unattended upgrades.
+    if [ -z "${FOG_SCHEMA_INSTALL_TOKEN:-}" ]; then
+        FOG_SCHEMA_INSTALL_TOKEN="$(openssl rand -hex 32 2>/dev/null || tr -dc 'a-f0-9' < /dev/urandom | head -c 64)"
+    fi
+    if [ -z "$FOG_SCHEMA_INSTALL_TOKEN" ]; then
+        echo "ERROR: Failed to generate FOG_SCHEMA_INSTALL_TOKEN"
+        exit 1
+    fi
+    export FOG_SCHEMA_INSTALL_TOKEN
+
     # Replace placeholders with environment variables
     sed -i "s|{{FOG_DB_HOST}}|$FOG_DB_HOST|g" "$FOG_CONFIG_FILE"
     sed -i "s|{{FOG_DB_PORT}}|$FOG_DB_PORT|g" "$FOG_CONFIG_FILE"
     sed -i "s|{{FOG_DB_NAME}}|$FOG_DB_NAME|g" "$FOG_CONFIG_FILE"
     sed -i "s|{{FOG_DB_USER}}|$FOG_DB_USER|g" "$FOG_CONFIG_FILE"
     sed -i "s|{{FOG_DB_PASS}}|$FOG_DB_PASS|g" "$FOG_CONFIG_FILE"
+    sed -i "s|{{FOG_SCHEMA_INSTALL_TOKEN}}|$FOG_SCHEMA_INSTALL_TOKEN|g" "$FOG_CONFIG_FILE"
     sed -i "s|{{FOG_TFTP_HOST}}|$FOG_TFTP_HOST|g" "$FOG_CONFIG_FILE"
     sed -i "s|{{FOG_STORAGE_HOST}}|$FOG_STORAGE_HOST_CLEAN|g" "$FOG_CONFIG_FILE"
     sed -i "s|{{FOG_WOL_HOST}}|$FOG_WOL_HOST|g" "$FOG_CONFIG_FILE"
@@ -337,6 +350,7 @@ configureFOGConfig() {
     
     # Create FOG service config file (required by FOG services)
     echo "Creating FOG service configuration..."
+    mkdir -p /opt/fog/service/etc
     echo "<?php define('WEBROOT','/var/www/html/fog/');" > /opt/fog/service/etc/config.php
     chown -R www-data:www-data /opt/fog/service/etc
     
@@ -777,18 +791,18 @@ enableFOGServices() {
     # Enable FOG services (but not DHCP if it's disabled)
     sed -i '/\[program:fog-/s/autostart=false/autostart=true/' "$supervisor_config"
     
-    # Reload supervisor to apply changes
+    # Reload supervisor to apply changes (autostart may already spawn workers)
     supervisorctl reread
     supervisorctl update
     
-    # Start all FOG services
-    supervisorctl start fog-image-replicator
-    supervisorctl start fog-image-size
-    supervisorctl start fog-multicast-manager
-    supervisorctl start fog-ping-hosts
-    supervisorctl start fog-snapin-hash
-    supervisorctl start fog-snapin-replicator
-    supervisorctl start fog-task-scheduler
+    # Start all FOG services (ignore "already started" from update+autostart)
+    supervisorctl start fog-image-replicator || true
+    supervisorctl start fog-image-size || true
+    supervisorctl start fog-multicast-manager || true
+    supervisorctl start fog-ping-hosts || true
+    supervisorctl start fog-snapin-hash || true
+    supervisorctl start fog-snapin-replicator || true
+    supervisorctl start fog-task-scheduler || true
     
     echo "FOG services enabled and started."
 }
@@ -885,6 +899,159 @@ bootstrappingEnvironment() {
     echo "=== End Bootstrap Phase ==="
 }
 
+# Expected FOG schema version baked into this image (system.class.php).
+getExpectedFOGSchema() {
+    local system_class="/var/www/html/fog/lib/fog/system.class.php"
+    if [ ! -f "$system_class" ]; then
+        echo ""
+        return 1
+    fi
+    sed -n "s/.*define('FOG_SCHEMA', *\([0-9][0-9]*\).*/\1/p" "$system_class" | head -1
+}
+
+# Current schemaVersion in the database (0 if missing / unreachable).
+getCurrentDBSchema() {
+    local version
+    version="$(mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" -p"$DB_PASS" --ssl=0 -Nse \
+        "SELECT vValue FROM \`${DB_NAME}\`.schemaVersion LIMIT 1;" 2>/dev/null | tr -d '[:space:]' || true)"
+    if [[ "$version" =~ ^[0-9]+$ ]]; then
+        echo "$version"
+    else
+        echo "0"
+    fi
+}
+
+# Install/upgrade FOG DB schema unattended using FOG_SCHEMA_INSTALL_TOKEN.
+# Hard-fails (return 1) if the DB cannot be brought to FOG_SCHEMA.
+ensureFOGDatabaseSchema() {
+    echo "Checking/updating FOG database schema..."
+
+    if [ -z "${FOG_SCHEMA_INSTALL_TOKEN:-}" ]; then
+        echo "ERROR: FOG_SCHEMA_INSTALL_TOKEN is not set (configureFOGConfig must run first)."
+        return 1
+    fi
+
+    local expected
+    expected="$(getExpectedFOGSchema || true)"
+    if ! [[ "$expected" =~ ^[0-9]+$ ]]; then
+        echo "ERROR: Could not read FOG_SCHEMA from system.class.php"
+        return 1
+    fi
+
+    local current
+    current="$(getCurrentDBSchema)"
+    echo "  → Image expects schema version: $expected"
+    echo "  → Database schema version:     $current"
+
+    if [ "$current" -ge "$expected" ]; then
+        echo "✓ Database schema is up to date ($current >= $expected)."
+        return 0
+    fi
+
+    echo "Database schema needs install/update ($current → $expected)."
+    echo "Running unattended schema deploy with install token..."
+
+    local init_url="http://localhost:${FOG_APACHE_PORT}${FOG_WEB_ROOT}/management/index.php?node=schema"
+    local response_file="/tmp/schema_response.html"
+    local http_code curl_exit
+
+    # Match upstream FOG installer: token header + POST to schema endpoint.
+    # Do not follow redirects (-L): a 302 to login usually means auth failed.
+    set +e
+    http_code="$(curl -sS -o "$response_file" -w "%{http_code}" \
+        -H "X-Fog-Install-Token: ${FOG_SCHEMA_INSTALL_TOKEN}" \
+        --data-urlencode "fogtoken=${FOG_SCHEMA_INSTALL_TOKEN}" \
+        --data-urlencode "fogverified=1" \
+        --data-urlencode "confirm=1" \
+        --data-urlencode "schemaupdate=1" \
+        "$init_url" 2>/tmp/schema_curl.err)"
+    curl_exit=$?
+    set -e
+
+    local init_result
+    init_result="$(cat "$response_file" 2>/dev/null || true)"
+
+    echo "Schema endpoint HTTP response code: ${http_code:-unknown} (curl exit ${curl_exit})"
+
+    if [ "$curl_exit" -ne 0 ] || [ -z "$http_code" ] || [ "$http_code" = "000" ]; then
+        echo "ERROR: Failed to reach schema endpoint at $init_url"
+        if [ -s /tmp/schema_curl.err ]; then
+            echo "  curl error: $(head -c 500 /tmp/schema_curl.err)"
+        fi
+        rm -f "$response_file" /tmp/schema_curl.err
+        return 1
+    fi
+
+    case "$http_code" in
+        200)
+            if echo "$init_result" | grep -qi "Install / Update Successful"; then
+                echo "✓ Schema endpoint reported Install / Update Successful."
+            elif echo "$init_result" | grep -qi "Update not required"; then
+                echo "✓ Schema endpoint reported update not required."
+            else
+                echo "ERROR: Schema endpoint returned HTTP 200 but not a success payload."
+                echo "$init_result" | sed 's/<[^>]*>//g' | tr -s '[:space:]' ' ' | head -c 800
+                echo
+                rm -f "$response_file" /tmp/schema_curl.err
+                return 1
+            fi
+            ;;
+        401|403)
+            echo "ERROR: Schema endpoint rejected install token (HTTP $http_code)."
+            echo "  FOG now requires FOG_SCHEMA_INSTALL_TOKEN (or an admin session)."
+            echo "$init_result" | sed 's/<[^>]*>//g' | tr -s '[:space:]' ' ' | head -c 400
+            echo
+            rm -f "$response_file" /tmp/schema_curl.err
+            return 1
+            ;;
+        404)
+            # indexPost throws "Update not required!" as Exception → HTTP 404
+            if echo "$init_result" | grep -qi "Update not required"; then
+                echo "✓ Schema endpoint reported update not required."
+            else
+                echo "ERROR: Schema update failed (HTTP 404)."
+                echo "$init_result" | sed 's/<[^>]*>//g' | tr -s '[:space:]' ' ' | head -c 800
+                echo
+                rm -f "$response_file" /tmp/schema_curl.err
+                return 1
+            fi
+            ;;
+        *)
+            echo "ERROR: Unexpected schema endpoint response (HTTP $http_code)."
+            echo "$init_result" | sed 's/<[^>]*>//g' | tr -s '[:space:]' ' ' | head -c 800
+            echo
+            rm -f "$response_file" /tmp/schema_curl.err
+            return 1
+            ;;
+    esac
+
+    rm -f "$response_file" /tmp/schema_curl.err
+
+    current="$(getCurrentDBSchema)"
+    echo "  → Database schema version after update: $current"
+
+    if [ "$current" -lt "$expected" ]; then
+        echo "ERROR: Schema still outdated after update ($current < $expected)."
+        echo "Refusing to start FOG workers with a mismatched schema (CLI services exit 0 via schema redirect)."
+        return 1
+    fi
+
+    echo "✓ Database schema check/update completed successfully ($current)."
+
+    # Fresh installs should have the default admin; warn only (upgrade DBs may use another name).
+    local user_exists
+    user_exists="$(mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" -p"$DB_PASS" --ssl=0 -Nse \
+        "SELECT COUNT(*) FROM \`${DB_NAME}\`.users WHERE uName='fog';" 2>/dev/null | tr -d '[:space:]' || true)"
+    if [ "$user_exists" = "1" ]; then
+        echo "✓ Admin user 'fog' exists in database"
+        echo "  → Default credentials: fog / password (change after first login)"
+    else
+        echo "⚠ Admin user 'fog' not found (may be normal on upgraded databases)"
+    fi
+
+    return 0
+}
+
 # BEGIN app functions
 appRun() {
     staticConfiguration
@@ -905,148 +1072,34 @@ appRun() {
     
     # Wait for Apache to be ready
     echo "Waiting for Apache to be ready..."
+    local apache_ready=0
+    local i
     for i in {1..30}; do
         if curl -s -f "http://localhost:${FOG_APACHE_PORT}${FOG_WEB_ROOT}/management/" >/dev/null 2>&1; then
             echo "Apache is ready."
+            apache_ready=1
             break
         fi
         echo "Waiting for Apache... (attempt $i/30)"
         sleep 2
     done
-    
-    # Helper function to build FOG web URL
-    buildFOGURL() {
-        local protocol="${FOG_HTTP_PROTOCOL:-https}"
-        local host="${FOG_WEB_HOST}"
-        local port="${FOG_APACHE_PORT:-80}"
-        local web_root="${FOG_WEB_ROOT:-/fog}"
-        
-        # Determine the correct port based on protocol
-        if [ "$protocol" = "https" ]; then
-            # For HTTPS, use SSL port if internal HTTPS is enabled, otherwise use standard port
-            if [ "${FOG_INTERNAL_HTTPS_ENABLED:-false}" = "true" ]; then
-                port="${FOG_APACHE_SSL_PORT:-443}"
-            else
-                # If HTTPS but no internal HTTPS, assume reverse proxy (no port needed)
-                port=""
-            fi
-        else
-            # For HTTP, use Apache port
-            port="${FOG_APACHE_PORT:-80}"
-        fi
-        
-        # Build URL - only include port if it's non-standard
-        if [ -n "$port" ] && [ "$port" != "80" ] && [ "$port" != "443" ]; then
-            echo "${protocol}://${host}:${port}${web_root}"
-        else
-            # For standard ports, omit them
-            echo "${protocol}://${host}${web_root}"
-        fi
-    }
-    
-    # Check and update FOG database schema (handles both new installs and upgrades)
-    echo "Checking/updating FOG database schema..."
-    local init_url="http://localhost:${FOG_APACHE_PORT}${FOG_WEB_ROOT}/management/index.php?node=schema"
-    
-    # Follow redirects (-L) to get the final response, as FOG may redirect
-    # Capture both HTTP response code and body
-    local http_code=$(curl -s -L -o /tmp/schema_response.html -w "%{http_code}" --data "confirm&fogverified" "$init_url" 2>&1)
-    local init_result=$(cat /tmp/schema_response.html 2>/dev/null || echo "")
-    local curl_exit=$?
-    
-    echo "Schema endpoint HTTP response code: $http_code"
-    
-    # Handle different HTTP response codes
-    if [ $curl_exit -eq 0 ]; then
-        case "$http_code" in
-            200)
-                # Check if the response indicates success
-                if echo "$init_result" | grep -qi "Install / Update Successful\|successful"; then
-                    echo "✓ Database schema check/update completed successfully."
-                    
-                    # Extract and display key information from the response
-                    if echo "$init_result" | grep -qi "Install"; then
-                        echo "  → This appears to be a new installation"
-                    elif echo "$init_result" | grep -qi "Update"; then
-                        echo "  → Database schema was updated"
-                    fi
-                    
-                    # Verify admin user was created
-                    echo "Verifying admin user creation..."
-                    local user_exists=$(mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" -p"$DB_PASS" --ssl=0 -e "SELECT COUNT(*) FROM ${DB_NAME}.users WHERE uName='fog';" 2>/dev/null | tail -1 | tr -d '[:space:]')
-                    
-                    if [ "$user_exists" = "1" ]; then
-                        echo "✓ Admin user 'fog' exists in database"
-                        echo "  → Default credentials: fog / password"
-                        echo "  → IMPORTANT: Change this password immediately after first login!"
-                    else
-                        echo "⚠ WARNING: Admin user 'fog' not found in database"
-                        echo "  → You may need to complete installation through the web interface"
-                        local fog_url=$(buildFOGURL)
-                        echo "  → Visit: ${fog_url}/management"
-                    fi
-                else
-                    echo "⚠ Schema endpoint returned 200 but response indicates an issue:"
-                    echo "$init_result" | grep -o '<p>[^<]*</p>' | sed 's/<[^>]*>//g' | head -5
-                fi
-                ;;
-            302|301|303|307|308)
-                # Redirect response - schema may already be initialized or redirecting to login
-                echo "⚠ Schema endpoint returned redirect (HTTP $http_code)"
-                echo "  → This usually means the schema is already initialized or authentication is required"
-                echo "  → Checking if database schema exists..."
-                
-                # Check if schema tables exist
-                local table_count=$(mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" -p"$DB_PASS" --ssl=0 -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='${DB_NAME}';" 2>/dev/null | tail -1 | tr -d '[:space:]')
-                
-                if [ -n "$table_count" ] && [ "$table_count" -gt 0 ]; then
-                    echo "✓ Database schema appears to be initialized ($table_count tables found)"
-                    echo "  → FOG should be ready to use"
-                    local fog_url=$(buildFOGURL)
-                    echo "  → Access FOG at: ${fog_url}/management"
-                else
-                    echo "⚠ Database schema may not be fully initialized"
-                    local fog_url=$(buildFOGURL)
-                    echo "  → Please complete setup at: ${fog_url}/management"
-                fi
-                ;;
-            401|403)
-                echo "⚠ Schema endpoint returned authentication error (HTTP $http_code)"
-                echo "  → This may indicate the schema is already initialized and requires login"
-                local fog_url=$(buildFOGURL)
-                echo "  → Access FOG at: ${fog_url}/management"
-                ;;
-            *)
-                echo "✗ Database schema check/update returned unexpected response"
-                echo "  HTTP Code: $http_code"
-                if [ -n "$init_result" ] && [ ${#init_result} -lt 500 ]; then
-                    echo "  Response: $init_result"
-                fi
-                echo ""
-                local fog_url=$(buildFOGURL)
-                echo "FOG may need to be initialized through the web interface."
-                echo "Please visit: ${fog_url}/management"
-                echo "to complete the initial setup."
-                ;;
-        esac
-    else
-        echo "✗ Failed to connect to schema endpoint"
-        echo "  curl exit code: $curl_exit"
-        echo "  HTTP Code: $http_code"
-        if [ -n "$init_result" ] && [ ${#init_result} -lt 500 ]; then
-            echo "  Error: $init_result"
-        fi
-        echo ""
-        local fog_url=$(buildFOGURL)
-        echo "FOG will need to be initialized through the web interface."
-        echo "Please visit: ${fog_url}/management"
-        echo "to complete the initial setup."
+
+    if [ "$apache_ready" -ne 1 ]; then
+        echo "ERROR: Apache did not become ready; cannot run schema migration."
+        kill "$SUPERVISOR_PID" 2>/dev/null || true
+        wait "$SUPERVISOR_PID" 2>/dev/null || true
+        exit 1
+    fi
+
+    if ! ensureFOGDatabaseSchema; then
+        echo "FATAL: FOG database schema install/update failed."
+        echo "Container will exit so the failure is visible and not masked by a half-started stack."
+        kill "$SUPERVISOR_PID" 2>/dev/null || true
+        wait "$SUPERVISOR_PID" 2>/dev/null || true
+        exit 1
     fi
     
-    # Clean up temp file
-    rm -f /tmp/schema_response.html 2>/dev/null
-    
-    # Enable FOG services now that supervisor is running and database is initialized
+    # Enable FOG services only after schema is confirmed current
     echo "Enabling FOG services after database initialization..."
     enableFOGServices
     

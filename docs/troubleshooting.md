@@ -83,18 +83,20 @@ docker compose logs fog-server | grep -i "schema\|admin\|user" | tail -20
 ```
 
 Look for:
-- "Database schema check/update completed successfully"
-- Any errors during schema initialization
+- "Database schema is up to date" or "Install / Update Successful"
+- "FATAL: FOG database schema install/update failed" (container exits on purpose)
+
+On FOG 1.5.10.18xx+, schema deploy requires `FOG_SCHEMA_INSTALL_TOKEN`. The entrypoint writes this into `config.class.php` and posts it unattended. If migration fails, the container exits instead of starting workers against an outdated schema.
 
 #### Step 3: Manually Trigger Schema Initialization
 
-If the admin user doesn't exist, manually complete the installation:
+If the admin user doesn't exist and the container is not auto-migrating, complete installation manually:
 
 1. Open your browser and go to:
    ```
    http://your-server-ip/fog/management/index.php?node=schema
    ```
-   (Replace `your-server-ip` with your actual server IP or FQDN)
+   If you set a stable `FOG_SCHEMA_INSTALL_TOKEN` in `.env`, append `&fogtoken=<your-token>`.
 
 2. You should see a page titled "Database Schema Installer / Updater"
 

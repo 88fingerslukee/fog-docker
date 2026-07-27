@@ -43,6 +43,9 @@ class Config
         define('DATABASE_NAME', '{{FOG_DB_NAME}}');
         define('DATABASE_USERNAME', '{{FOG_DB_USER}}');
         define('DATABASE_PASSWORD', '{{FOG_DB_PASS}}');
+        // Per-install secret for unattended schema install/upgrade (FOG 1.5.10.18xx+).
+        // Entrypoint presents this back via X-Fog-Install-Token / fogtoken.
+        define('FOG_SCHEMA_INSTALL_TOKEN', '{{FOG_SCHEMA_INSTALL_TOKEN}}');
     }
     
     /**
