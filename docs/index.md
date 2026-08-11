@@ -34,7 +34,7 @@ Get FOG Docker up and running in minutes:
    ```
 
 4. **Access FOG:**
-   - Web Interface: `http://your-server-ip/fog`
+   - Web Interface: `https://your-server-ip/fog/management/` (accept the self-signed certificate on first visit)
    - Default login: `fog` / `password` (change immediately!)
 
 ## What is FOG Docker?
@@ -70,17 +70,17 @@ FOG Docker is a complete containerization of the FOG Project, providing:
 
 ## Common Use Cases
 
-### Single Server Setup
-Perfect for small to medium environments:
+### Single Server Setup (default)
+Perfect for small to medium environments — self-signed HTTPS, no reverse proxy:
 ```bash
 FOG_WEB_HOST=192.168.1.100
 FOG_DB_ROOT_PASSWORD=your-secure-password
-FOG_HTTP_PROTOCOL=http
-FOG_INTERNAL_HTTPS_ENABLED=false
+FOG_HTTP_PROTOCOL=https
+FOG_INTERNAL_HTTPS_ENABLED=true
 ```
 
 ### Production with Reverse Proxy
-For production environments with SSL:
+For production environments where a proxy terminates TLS (access FOG via the proxy, not direct HTTP to the container):
 ```bash
 FOG_WEB_HOST=fog.example.com
 FOG_DB_ROOT_PASSWORD=your-secure-password
@@ -88,8 +88,16 @@ FOG_HTTP_PROTOCOL=https
 FOG_INTERNAL_HTTPS_ENABLED=false
 ```
 
-### Internal HTTPS
-For secure internal networks:
+### HTTP Only (lab/testing)
+```bash
+FOG_WEB_HOST=192.168.1.100
+FOG_DB_ROOT_PASSWORD=your-secure-password
+FOG_HTTP_PROTOCOL=http
+FOG_INTERNAL_HTTPS_ENABLED=false
+```
+
+### Internal HTTPS with custom certificate
+For secure internal networks with your own cert:
 ```bash
 FOG_WEB_HOST=192.168.1.100
 FOG_DB_ROOT_PASSWORD=your-secure-password

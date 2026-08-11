@@ -131,6 +131,38 @@ docker exec fog-server mysql -h fog-db -u fogmaster -pfogmaster123 -e "SELECT 1;
 
 **Note:** Future versions will automatically verify and report admin user creation status in the logs to make this easier to diagnose.
 
+### Login Loops Back to Empty Form (No Error)
+
+If submitting `fog` / `password` returns you to blank login fields with no error message, the admin user may exist and credentials may be correct — the session cookie is not sticking.
+
+**Cause:** `FOG_HTTP_PROTOCOL` and how you open the UI in the browser do not match.
+
+| You browse | Required `.env` |
+|------------|-----------------|
+| `https://host/...` (direct or proxy) | `FOG_HTTP_PROTOCOL=https` and either `FOG_INTERNAL_HTTPS_ENABLED=true` (direct HTTPS) or reverse-proxy setup (Scenario 3) |
+| `http://host:port/...` | `FOG_HTTP_PROTOCOL=http` and `FOG_INTERNAL_HTTPS_ENABLED=false` |
+
+The previous `.env.example` default (`FOG_HTTP_PROTOCOL=https` + `FOG_INTERNAL_HTTPS_ENABLED=false`) is **reverse-proxy only**. Browsing plain HTTP to the container with those settings makes FOG set **Secure** session cookies while your connection is not HTTPS — the browser drops the cookie and login loops.
+
+**Fix for HTTP access (e.g. custom port 89):**
+```bash
+FOG_HTTP_PROTOCOL=http
+FOG_INTERNAL_HTTPS_ENABLED=false
+FOG_APACHE_EXPOSED_PORT=89
+```
+Recreate the container, then use `http://your-host:89/fog/management/`.
+
+**Fix for direct HTTPS (recommended default):**
+```bash
+FOG_HTTP_PROTOCOL=https
+FOG_INTERNAL_HTTPS_ENABLED=true
+```
+Recreate the container, then use `https://your-host/fog/management/` and accept the self-signed certificate.
+
+**Verify:** Browser devtools → Network → login POST → `Set-Cookie: PHPSESSID` with **Secure** on an `http://` URL confirms the mismatch.
+
+Also ensure `FOG_STORAGE_HOST` matches `FOG_WEB_HOST` for single-server setups (do not leave a placeholder FQDN from the example).
+
 ## Network Issues
 
 ### Storage Node Connectivity Issues

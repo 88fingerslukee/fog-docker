@@ -116,7 +116,7 @@ FOG_DHCP_MAX_LEASE_TIME=7200           # 2 hours
 
 ### Scenario 1: Single Server (Most Common)
 
-For a single FOG server handling everything:
+For a single FOG server handling everything (default: self-signed HTTPS):
 
 ```bash
 FOG_WEB_HOST=192.168.1.100
@@ -124,9 +124,13 @@ FOG_STORAGE_HOST=192.168.1.100
 FOG_TFTP_HOST=192.168.1.100
 FOG_WOL_HOST=192.168.1.100
 FOG_DHCP_ENABLED=false  # Use existing DHCP server
-FOG_INTERNAL_HTTPS_ENABLED=false
-FOG_HTTP_PROTOCOL=http
+FOG_INTERNAL_HTTPS_ENABLED=true
+FOG_HTTP_PROTOCOL=https
 ```
+
+Browse `https://192.168.1.100/fog/management/` and accept the certificate warning.
+
+For HTTP-only access instead, set `FOG_HTTP_PROTOCOL=http` and `FOG_INTERNAL_HTTPS_ENABLED=false`, then browse `http://...`. **Do not** mix `FOG_HTTP_PROTOCOL=https` with plain HTTP in the browser — see [Troubleshooting](troubleshooting.md#login-loops-back-to-empty-form-no-error).
 
 **DHCP Configuration:** Configure your existing DHCP server with:
 - Option 66 (next-server): `192.168.1.100`

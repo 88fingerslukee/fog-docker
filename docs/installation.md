@@ -42,7 +42,7 @@ This guide will help you get FOG Docker up and running quickly.
    ```
 
 4. **Access FOG:**
-   - Web Interface: `http://your-server-ip/fog`
+   - Web Interface: `https://your-server-ip/fog/management/` (accept the self-signed certificate on first visit)
    - Default login: `fog` / `password`
 
 ### Option 2: Full Repository Clone

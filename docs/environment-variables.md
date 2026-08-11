@@ -135,7 +135,7 @@ Complete reference for all FOG Docker environment variables.
 
 | Variable | Description | Example | Default |
 |----------|-------------|---------|---------|
-| `FOG_INTERNAL_HTTPS_ENABLED` | Enable internal HTTPS | `true` | `false` |
+| `FOG_INTERNAL_HTTPS_ENABLED` | Enable internal HTTPS | `true` | `true` |
 | `FOG_APACHE_SSL_CERT_FILE` | Apache SSL certificate file | `server.crt` | - |
 | `FOG_APACHE_SSL_KEY_FILE` | Apache SSL key file | `server.key` | - |
 | `FOG_APACHE_SSL_CN` | SSL certificate common name | `fog.example.com` | - |
@@ -182,7 +182,14 @@ Apache port variables control internal and external port mappings:
 ### SSL Configuration Scenarios
 Choose one of these SSL scenarios:
 
-**Scenario 1: External Certificates (Let's Encrypt, etc.)**
+**Scenario 1: Self-signed Certificates (default in `.env.example`)**
+```bash
+FOG_INTERNAL_HTTPS_ENABLED=true
+FOG_HTTP_PROTOCOL=https
+# FOG_APACHE_SSL_CN defaults to FOG_WEB_HOST
+```
+
+**Scenario 2: External Certificates (Let's Encrypt, etc.)**
 ```bash
 FOG_INTERNAL_HTTPS_ENABLED=true
 FOG_HTTP_PROTOCOL=https
@@ -190,15 +197,7 @@ FOG_APACHE_SSL_CERT_FILE=fullchain.pem
 FOG_APACHE_SSL_KEY_FILE=privkey.pem
 ```
 
-**Scenario 2: Self-signed Certificates**
-```bash
-FOG_INTERNAL_HTTPS_ENABLED=true
-FOG_HTTP_PROTOCOL=https
-FOG_APACHE_SSL_CN=192.168.1.100
-FOG_APACHE_SSL_SAN=alt1.domain.com,alt2.domain.com
-```
-
-**Scenario 3: Reverse Proxy (No Apache SSL)**
+**Scenario 3: Reverse Proxy (No Apache SSL — access via proxy only)**
 ```bash
 FOG_INTERNAL_HTTPS_ENABLED=false
 FOG_HTTP_PROTOCOL=https
@@ -250,9 +249,9 @@ FOG_STORAGE_HOST=192.168.1.100
 FOG_TFTP_HOST=192.168.1.100
 FOG_WOL_HOST=192.168.1.100
 
-# Protocol
-FOG_HTTP_PROTOCOL=http
-FOG_INTERNAL_HTTPS_ENABLED=false
+# Protocol (default: self-signed HTTPS)
+FOG_HTTP_PROTOCOL=https
+FOG_INTERNAL_HTTPS_ENABLED=true
 
 # DHCP (use existing)
 FOG_DHCP_ENABLED=false

@@ -31,23 +31,27 @@ Mount your certificates:
 - /path/to/certs:/opt/fog/snapins/ssl:ro
 ```
 
-### Option 2: Self-signed Certificates
+### Option 2: Self-signed Certificates (default for new installs)
 
 ```bash
 FOG_INTERNAL_HTTPS_ENABLED=true
 FOG_HTTP_PROTOCOL=https
-FOG_APACHE_SSL_CN=192.168.1.100
+# FOG_APACHE_SSL_CN defaults to FOG_WEB_HOST if unset
 FOG_APACHE_SSL_SAN=alt1.domain.com,alt2.domain.com
 ```
 
+Browse `https://your-host/fog/management/` and accept the browser certificate warning.
+
 ### Option 3: Reverse Proxy (No SSL in Container)
+
+**Use only when all web access goes through a reverse proxy that terminates TLS.** Do not browse `http://container-ip:80` directly with this configuration — login will loop. See [Troubleshooting](troubleshooting.md#login-loops-back-to-empty-form-no-error).
 
 ```bash
 FOG_INTERNAL_HTTPS_ENABLED=false
 FOG_HTTP_PROTOCOL=https
 ```
 
-### Option 4: HTTP Only (Default)
+### Option 4: HTTP Only
 
 ```bash
 FOG_INTERNAL_HTTPS_ENABLED=false

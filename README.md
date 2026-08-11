@@ -29,7 +29,7 @@ A Docker containerization of the FOG Project - an open-source computer cloning a
    ```
 
 4. **Access FOG:**
-   - Web Interface: `http://your-server-ip/fog`
+   - Web Interface: `https://your-server-ip/fog/management/` (accept the self-signed certificate warning on first visit)
    - Default login: `fog` / `password` (change immediately!)
 
 ### Development Setup
@@ -66,9 +66,9 @@ FOG_STORAGE_HOST=192.168.1.100
 FOG_TFTP_HOST=192.168.1.100
 FOG_WOL_HOST=192.168.1.100
 
-# Protocol configuration
+# Protocol configuration (default: self-signed HTTPS — see .env.example scenarios)
 FOG_HTTP_PROTOCOL=https
-FOG_INTERNAL_HTTPS_ENABLED=false  # Set to true for internal SSL
+FOG_INTERNAL_HTTPS_ENABLED=true
 
 # FTP passive mode (default: 21100-21110)
 FOG_FTP_PASV_MIN_PORT=21100
@@ -118,15 +118,25 @@ Our comprehensive documentation covers:
 
 ## Common Use Cases
 
-### Single Server Setup
+### Single Server Setup (default — self-signed HTTPS)
+```bash
+FOG_WEB_HOST=192.168.1.100
+FOG_DB_ROOT_PASSWORD=your-secure-password
+FOG_HTTP_PROTOCOL=https
+FOG_INTERNAL_HTTPS_ENABLED=true
+# Browse https://192.168.1.100/fog/management/
+```
+
+### HTTP Only (lab/testing)
 ```bash
 FOG_WEB_HOST=192.168.1.100
 FOG_DB_ROOT_PASSWORD=your-secure-password
 FOG_HTTP_PROTOCOL=http
 FOG_INTERNAL_HTTPS_ENABLED=false
+# Browse http://192.168.1.100/fog/management/
 ```
 
-### Reverse Proxy with HTTPS
+### Reverse Proxy with HTTPS (Traefik, Nginx, Caddy — access via proxy only)
 ```bash
 FOG_WEB_HOST=fog.example.com
 FOG_DB_ROOT_PASSWORD=your-secure-password
@@ -134,7 +144,7 @@ FOG_HTTP_PROTOCOL=https
 FOG_INTERNAL_HTTPS_ENABLED=false
 ```
 
-### Internal HTTPS
+### Internal HTTPS with custom certificate
 ```bash
 FOG_WEB_HOST=192.168.1.100
 FOG_DB_ROOT_PASSWORD=your-secure-password
@@ -165,6 +175,9 @@ docker compose logs fog-server
 **FTP image upload fails:**
 - Check FTP passive port range (21100-21110) is open
 - Verify `FOG_WEB_HOST` resolves correctly from clients
+
+**Default admin login (fog/password) loops back to empty form:**
+This usually means the URL in your browser does not match `FOG_HTTP_PROTOCOL` / `FOG_INTERNAL_HTTPS_ENABLED`. See the [Troubleshooting Guide](https://88fingerslukee.github.io/fog-docker/troubleshooting#login-loops-back-to-empty-form-no-error).
 
 **Default admin login (fog/password) doesn't work:**
 If the default credentials `fog` / `password` don't work, verify the admin user was created:
