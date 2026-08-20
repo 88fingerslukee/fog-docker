@@ -191,6 +191,45 @@ Also ensure `FOG_STORAGE_HOST` matches `FOG_WEB_HOST` for single-server setups (
    - Legacy variable: `FOG_DHCP_BOOTFILE_UEFI` (maps to UEFI64 for backward compatibility)
 7. **For HTTPBoot clients**, verify that the iPXE files are accessible via HTTP (automatically available)
 
+### TFTP Boot Files Missing (only `default.ipxe` in `/tftpboot`)
+
+**Symptom:** Host bind mount or browsed `/tftpboot` directory contains only `default.ipxe`, not `undionly.kkpxe`, `ipxe.efi`, etc. TFTP may connect but clients fail with "file not found".
+
+**Cause:** A host bind mount replaces the image's baked-in `/tftpboot` at container start. On older images, the entrypoint copied boot files into a nested `/tftpboot/tftp/` subdirectory; if flattening failed (permissions on NFS/host mounts), only `default.ipxe` (written separately) remains visible at the top level.
+
+**Fix:**
+
+1. Ensure the host tftpboot directory is **writable** by the container (e.g. `chmod 775` or matching UID).
+2. **Empty** the host tftpboot directory (keep a backup if needed) and restart the container — the entrypoint repopulates all boot files on start.
+3. Verify inside the container:
+   ```bash
+   docker exec fog-server ls -la /tftpboot/ | head -20
+   tftp -m binary YOUR_HOST -c get undionly.kkpxe /tmp/test.kpxe
+   ```
+4. Check for a legacy nested directory: `docker exec fog-server ls /tftpboot/tftp/` — if files are there, upgrade to the latest image and restart.
+
+### Atheros / Legacy NIC: "No configuration method succeeded"
+
+**Symptom:** iPXE loads but DHCP fails with [err:040ee1](https://ipxe.org/err/040ee1) on certain Atheros or older NICs. Other `.kpxe` files may fail earlier with TFTP "file not found" if boot files are missing (see above).
+
+**Upstream fix:** FOG upstream recommends updating to **dev-branch** for this class of hardware ([forum thread](https://forums.fogproject.org/topic/18221/atheros-ipxe-woes-no-configuration-method-succeeded)). Stable images update when upstream cuts a stable release.
+
+**Options without breaking a working deployment:**
+
+1. **Wait for stable** — pre-built images rebuild when upstream stable is updated (`ghcr.io/88fingerslukee/fog-docker:latest`).
+2. **Dev-branch image** — use `ghcr.io/88fingerslukee/fog-docker:fog-dev-branch` or build locally:
+   ```bash
+   # In .env
+   FOG_VERSION=dev-branch
+   docker compose -f docker-compose-dev.yml up -d --build
+   ```
+3. **Try vendor-specific boot files** (if TFTP files are present) — set in `.env`:
+   ```bash
+   FOG_DHCP_BOOTFILE_BIOS=realtek.kkpxe   # some Atheros/Realtek legacy NICs
+   ```
+   Restart the container so DHCP config is regenerated.
+4. **Spanning tree** — enable PortFast/edge on the switch port if DHCP timeouts occur ([forum reference](https://forums.fogproject.org/topic/16631/no-configuration-methods-succeeded)).
+
 ### HTTPBoot Issues
 
 1. **Verify iPXE files are accessible** via HTTP/HTTPS

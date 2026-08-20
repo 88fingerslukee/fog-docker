@@ -235,6 +235,11 @@ checkMountTransitions() {
     
     if [ ! -d "/tftpboot" ] || [ -z "$(ls -A /tftpboot 2>/dev/null)" ]; then
         empty_dirs+=("tftpboot")
+    elif [ -f "/tftpboot/default.ipxe" ] && [ ! -f "/tftpboot/undionly.kkpxe" ] && [ ! -f "/tftpboot/undionly.kpxe" ]; then
+        echo "⚠️  WARNING: /tftpboot appears incomplete (default.ipxe only, missing iPXE boot binaries)."
+        echo "   This often happens when a host bind mount hides image files and the copy step failed."
+        echo "   Fix: ensure the host directory is writable, clear it, and restart the container."
+        echo "   Or check /tftpboot/tftp/ for files that were not flattened (older images)."
     fi
     
     if [ ! -d "/opt/fog/snapins" ] || [ -z "$(ls -A /opt/fog/snapins 2>/dev/null)" ]; then
@@ -629,40 +634,95 @@ configureDHCP() {
 configureiPXE() {
     echo "Configuring iPXE and TFTP boot files..."
     
+    verifyTFTBootFiles() {
+        local missing=()
+        local required_files=(
+            "undionly.kkpxe"
+            "undionly.kpxe"
+            "ipxe.efi"
+            "snponly.efi"
+            "memdisk"
+        )
+
+        for boot_file in "${required_files[@]}"; do
+            if [ ! -f "/tftpboot/${boot_file}" ]; then
+                missing+=("$boot_file")
+            fi
+        done
+
+        if [ ${#missing[@]} -gt 0 ]; then
+            echo "ERROR: TFTP boot directory is missing required files:"
+            for boot_file in "${missing[@]}"; do
+                echo "   - ${boot_file}"
+            done
+            echo ""
+            echo "If /tftpboot is bind-mounted from the host, ensure the directory is writable"
+            echo "by the container, then restart. You can also empty the host tftpboot directory"
+            echo "and restart to repopulate from the image."
+            return 1
+        fi
+
+        echo "✓ TFTP boot files verified."
+        return 0
+    }
+
+    flattenLegacyTftpSubdir() {
+        if [ ! -d "/tftpboot/tftp" ]; then
+            return 0
+        fi
+
+        echo "Flattening legacy /tftpboot/tftp subdirectory..."
+        cp -a /tftpboot/tftp/. /tftpboot/ 2>/dev/null || mv /tftpboot/tftp/* /tftpboot/ 2>/dev/null || true
+        rm -rf /tftpboot/tftp 2>/dev/null || true
+    }
+
     # Function to copy TFTP files
     copyTFTPFiles() {
+        local tftp_src=""
+
         echo "Copying TFTP boot files to /tftpboot..."
-        # Copy from the FOG source directory (where files are during build)
-        if [ -d "/opt/fog/fogproject/packages/tftp" ]; then
-            cp -r /opt/fog/fogproject/packages/tftp/ /tftpboot/ 2>/dev/null || true
+        mkdir -p /tftpboot
 
-            # Fix: If /tftpboot/tftp subdirectory exists, move its contents to /tftpboot
-            if [ -d "/tftpboot/tftp" ]; then
-                echo "Moving files from /tftpboot/tftp to /tftpboot..."
-                mv /tftpboot/tftp/* /tftpboot/ 2>/dev/null || true
-                rmdir /tftpboot/tftp 2>/dev/null || true
-            fi
-
-            echo "TFTP boot files copied from FOG source."
-        else
-            echo "Warning: FOG TFTP source directory not found at /opt/fog/fogproject/packages/tftp"
+        if [ -d "/opt/fog/fogproject/packages/tftp" ] && [ -n "$(ls -A /opt/fog/fogproject/packages/tftp 2>/dev/null)" ]; then
+            tftp_src="/opt/fog/fogproject/packages/tftp"
+        elif [ -d "/opt/fog/bundled-tftpboot" ] && [ -n "$(ls -A /opt/fog/bundled-tftpboot 2>/dev/null)" ]; then
+            echo "Using bundled TFTP boot files from image..."
+            tftp_src="/opt/fog/bundled-tftpboot"
         fi
-        
+
+        if [ -z "$tftp_src" ]; then
+            echo "ERROR: No TFTP boot file source found in the image."
+            return 1
+        fi
+
+        # Copy contents directly (matches Dockerfile build step; avoids nested /tftpboot/tftp/)
+        if ! cp -a "${tftp_src}/." /tftpboot/; then
+            echo "ERROR: Failed to copy TFTP boot files from ${tftp_src} to /tftpboot."
+            echo "       Check host mount permissions if /tftpboot is bind-mounted."
+            return 1
+        fi
+
+        flattenLegacyTftpSubdir
+
+        if ! verifyTFTBootFiles; then
+            return 1
+        fi
+
+        echo "TFTP boot files copied from ${tftp_src}."
+
         # Ensure /tftpboot/dev directory exists (required for FOG)
         mkdir -p /tftpboot/dev
-        chown -R www-data:www-data /tftpboot/dev
-        
+
         # Create check files in /tftpboot and /tftpboot/dev if they don't exist
         if [ ! -f "/tftpboot/.fogcheck" ]; then
             touch /tftpboot/.fogcheck
-            chown www-data:www-data /tftpboot/.fogcheck
         fi
         if [ ! -f "/tftpboot/dev/.fogcheck" ]; then
             touch /tftpboot/dev/.fogcheck
-            chown www-data:www-data /tftpboot/dev/.fogcheck
         fi
-        
-        chown -R www-data:www-data /tftpboot
+
+        chown -R www-data:www-data /tftpboot 2>/dev/null || \
+            echo "Warning: Could not change ownership of /tftpboot (common with NFS/host bind mounts)."
         echo "TFTP boot files copied successfully."
     }
     
@@ -681,21 +741,21 @@ configureiPXE() {
             
             if [ $? -eq 0 ]; then
                 echo "✓ iPXE recompilation completed successfully."
-                copyTFTPFiles
+                copyTFTPFiles || exit 1
             else
                 echo "Warning: iPXE recompilation failed, using pre-built binaries."
                 echo "This may cause SSL certificate trust issues with self-signed certificates."
-                copyTFTPFiles
+                copyTFTPFiles || exit 1
             fi
         else
             echo "Warning: iPXE build script not found, using pre-built binaries."
             echo "This may cause SSL certificate trust issues with self-signed certificates."
-            copyTFTPFiles
+            copyTFTPFiles || exit 1
         fi
     else
         echo "iPXE recompilation not needed (HTTP or external certificates)."
         # Always copy TFTP files to handle volume mount overwrites
-        copyTFTPFiles
+        copyTFTPFiles || exit 1
     fi
     
     echo "iPXE and TFTP configuration completed."

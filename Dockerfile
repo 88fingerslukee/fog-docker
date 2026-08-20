@@ -224,10 +224,14 @@ RUN if [ -d "/opt/fog/fogproject/packages/web" ]; then \
 
 # Copy TFTP files
 RUN if [ -d "/opt/fog/fogproject/packages/tftp" ]; then \
-        cp -r /opt/fog/fogproject/packages/tftp/* /tftpboot/; \
+        cp -a /opt/fog/fogproject/packages/tftp/. /tftpboot/; \
     else \
         echo "Warning: FOG TFTP directory not found"; \
     fi
+
+# Keep a bundled copy for entrypoint to repopulate host-mounted /tftpboot volumes
+RUN mkdir -p /opt/fog/bundled-tftpboot && \
+    cp -a /tftpboot/. /opt/fog/bundled-tftpboot/
 
 # Copy snapins
 RUN if [ -d "/opt/fog/fogproject/packages/snapins" ]; then \

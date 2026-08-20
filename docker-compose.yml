@@ -45,7 +45,7 @@ services:
       - fog-secure-boot:/opt/fog/secure-boot
       # Uncomment the following lines to use host directories instead of Docker volumes:
       # - /path/to/images:/images
-      # - /path/to/tftpboot:/tftpboot
+      # - /path/to/tftpboot:/tftpboot          # must be writable; entrypoint repopulates boot files on start
       # - /path/to/snapins:/opt/fog/snapins
       # - /path/to/logs:/opt/fog/log
       # - /path/to/ssl:/opt/fog/snapins/ssl
