@@ -14,12 +14,16 @@ on:
 jobs:
   check-fog-releases:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     outputs:
       new-release: ${{ steps.check.outputs.new-release }}
       fog-version: ${{ steps.check.outputs.fog-version }}
     steps:
     - name: Check for new FOG releases
       id: check
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         # Get the latest FOG release
         if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
@@ -61,24 +65,21 @@ jobs:
         
         echo "Checking FOG version: $LATEST_TAG"
         
-        # Check if we already have this version with error handling
-        TAGS_RESPONSE=$(curl -s -w "\n%{http_code}" https://api.github.com/repos/88fingerslukee/fog-docker/tags)
-        TAGS_HTTP_CODE=$(echo "$TAGS_RESPONSE" | tail -n1)
-        TAGS_BODY=$(echo "$TAGS_RESPONSE" | sed '$d')
-        
-        if [ "$TAGS_HTTP_CODE" != "200" ]; then
-          echo "Warning: GitHub API returned HTTP $TAGS_HTTP_CODE when checking existing tags"
-          echo "Assuming new release to be safe"
+        # Check if we already have this version (lookup exact tag — paginated tag lists miss older entries)
+        FOG_DOCKER_TAG="fog-${LATEST_TAG}"
+        TAG_REF_RESPONSE=$(curl -s -w "\n%{http_code}" \
+          -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+          "https://api.github.com/repos/88fingerslukee/fog-docker/git/ref/tags/${FOG_DOCKER_TAG}")
+        TAG_REF_HTTP_CODE=$(echo "$TAG_REF_RESPONSE" | tail -n1)
+
+        if [ "$TAG_REF_HTTP_CODE" = "200" ]; then
+          EXISTING_TAGS="$FOG_DOCKER_TAG"
+        elif [ "$TAG_REF_HTTP_CODE" = "404" ]; then
           EXISTING_TAGS=""
         else
-          # Validate JSON before parsing
-          if echo "$TAGS_BODY" | jq empty 2>/dev/null; then
-            EXISTING_TAGS=$(echo "$TAGS_BODY" | jq -r '.[].name' | grep "fog-$LATEST_TAG" || echo "")
-          else
-            echo "Warning: Invalid JSON response when checking existing tags"
-            echo "Assuming new release to be safe"
-            EXISTING_TAGS=""
-          fi
+          echo "Warning: GitHub API returned HTTP $TAG_REF_HTTP_CODE when checking tag ${FOG_DOCKER_TAG}"
+          echo "Assuming release does not exist"
+          EXISTING_TAGS=""
         fi
         
         # Validate the tag name before proceeding
@@ -169,26 +170,40 @@ jobs:
         cache-from: type=gha
         cache-to: type=gha,mode=max
 
-    - name: Create GitHub Release
-      uses: actions/create-release@v1
+    - name: Check if GitHub release already exists
+      id: release-exists
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        TAG="fog-${{ steps.fog-version.outputs.fog-version }}"
+        HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+          -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+          "https://api.github.com/repos/${{ github.repository }}/releases/tags/${TAG}")
+        if [ "$HTTP_CODE" = "200" ]; then
+          echo "Release ${TAG} already exists; skipping create."
+          echo "exists=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "exists=false" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Create GitHub Release
+      if: steps.release-exists.outputs.exists != 'true'
+      uses: softprops/action-gh-release@v2
       with:
         tag_name: fog-${{ steps.fog-version.outputs.fog-version }}
-        release_name: FOG Docker ${{ steps.fog-version.outputs.fog-version }}
+        name: FOG Docker ${{ steps.fog-version.outputs.fog-version }}
         body: |
           This release contains FOG Docker image built with FOG Project version ${{ steps.fog-version.outputs.fog-version }}.
 
           ## What's New
           - Updated to FOG Project ${{ steps.fog-version.outputs.fog-version }}
           - All previous features and improvements included
-          
+
           ## Documentation
           - [Full README](https://github.com/88fingerslukee/fog-docker/blob/main/README.md)
           - [Configuration Guide](https://github.com/88fingerslukee/fog-docker/blob/main/.env.example)
           - [FOG Project Documentation](https://wiki.fogproject.org/)
-          
+
           ## Full Changelog
           See the [FOG Project releases](https://github.com/FOGProject/fogproject/releases) for detailed changelog.
-        draft: false
-        prerelease: false
+        generate_release_notes: false
