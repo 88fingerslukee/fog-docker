@@ -116,6 +116,35 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v6
+      with:
+        fetch-depth: 0
+
+    - name: Generate fog-docker changelog
+      id: changelog
+      run: |
+        PREV_TAG=$(git tag -l 'fog-*' --sort=-version:refname | grep -vxF 'fog-null' | head -1 || true)
+        if [ -n "$PREV_TAG" ]; then
+          NOTES=$(git log "${PREV_TAG}..HEAD" --pretty=format:'- %s (%h)' --no-merges || true)
+        fi
+        if [ -z "$NOTES" ]; then
+          if [ -n "$PREV_TAG" ]; then
+            NOTES="- No fog-docker commits since ${PREV_TAG}"
+          else
+            NOTES="- Initial tracked release for this versioning scheme"
+          fi
+        fi
+        if [ -n "$PREV_TAG" ]; then
+          echo "Changelog since ${PREV_TAG}:"
+          echo "$NOTES"
+        fi
+        {
+          echo 'notes<<EOF'
+          echo "$NOTES"
+          echo 'EOF'
+        } >> "$GITHUB_OUTPUT"
+        if [ -n "$PREV_TAG" ]; then
+          echo "since-tag=${PREV_TAG}" >> "$GITHUB_OUTPUT"
+        fi
 
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v4
@@ -193,17 +222,19 @@ jobs:
         tag_name: fog-${{ steps.fog-version.outputs.fog-version }}
         name: FOG Docker ${{ steps.fog-version.outputs.fog-version }}
         body: |
-          This release contains FOG Docker image built with FOG Project version ${{ steps.fog-version.outputs.fog-version }}.
+          Built with FOG Project **${{ steps.fog-version.outputs.fog-version }}**.
 
-          ## What's New
-          - Updated to FOG Project ${{ steps.fog-version.outputs.fog-version }}
-          - All previous features and improvements included
+          **Image:** `ghcr.io/88fingerslukee/fog-docker:fog-${{ steps.fog-version.outputs.fog-version }}` (also tagged `:latest`)
+
+          ## fog-docker changes${{ steps.changelog.outputs.since-tag && format(' (since {0})', steps.changelog.outputs.since-tag) || '' }}
+          ${{ steps.changelog.outputs.notes }}
+
+          ## Upstream changelog
+          See the [FOG Project release](https://github.com/FOGProject/fogproject/releases/tag/${{ steps.fog-version.outputs.fog-version }}) for application-level changes.
 
           ## Documentation
           - [Full README](https://github.com/88fingerslukee/fog-docker/blob/main/README.md)
           - [Configuration Guide](https://github.com/88fingerslukee/fog-docker/blob/main/.env.example)
+          - [Troubleshooting](https://88fingerslukee.github.io/fog-docker/troubleshooting)
           - [FOG Project Documentation](https://wiki.fogproject.org/)
-
-          ## Full Changelog
-          See the [FOG Project releases](https://github.com/FOGProject/fogproject/releases) for detailed changelog.
         generate_release_notes: false
