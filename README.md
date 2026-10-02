@@ -214,4 +214,9 @@ This project is licensed under the GPL v3 License - see the [LICENSE](LICENSE) f
 - [FOG Project](https://github.com/FOGProject/fogproject) - The original FOG imaging solution
 - [@MonolithicRamone](https://github.com/MonolithicRamone) for testing and issue reporting
 - [@LuukBlankenstijn](https://github.com/LuukBlankenstijn) for UDP Casting testing and fix
+- [@IMazarithI](https://github.com/IMazarithI) for iPXE boot file and storage node testing
+- [@derricklee88](https://github.com/derricklee88) for tftpboot testing
+- [@craiggc-hub](https://github.com/craiggc-hub) for boot file and login testing
+- [@Toratoru](https://github.com/Toratoru) for login testing
+- [@BennettPaul](https://github.com/BennettPaul) for Compose database configuration testing
 - Docker community for containerization best practices
