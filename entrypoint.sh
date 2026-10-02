@@ -36,6 +36,14 @@ FOG_TFTP_HOST="${FOG_TFTP_HOST:-${FOG_WEB_HOST}}"
 FOG_STORAGE_HOST="${FOG_STORAGE_HOST:-${FOG_WEB_HOST}}"
 FOG_WOL_HOST="${FOG_WOL_HOST:-${FOG_WEB_HOST}}"
 FOG_MULTICAST_INTERFACE="${FOG_MULTICAST_INTERFACE:-eth0}"
+FOG_NFS_MODE="${FOG_NFS_MODE:-kernel}"
+case "$FOG_NFS_MODE" in
+    kernel|unfs3) ;;
+    *)
+        echo "ERROR: FOG_NFS_MODE must be 'kernel' or 'unfs3' (got '${FOG_NFS_MODE}')."
+        exit 1
+        ;;
+esac
 
 # Apache Configuration
 FOG_APACHE_PORT="${FOG_APACHE_PORT:-80}"
@@ -566,11 +574,19 @@ configureTFTP() {
 }
 
 configureNFS() {
-    echo "Configuring NFS exports..."
+    echo "Configuring NFS exports (${FOG_NFS_MODE})..."
     
     # Ensure the directory exists
     mkdir -p "$(dirname "$NFS_CONFIG_FILE")"
     
+    if [ "$FOG_NFS_MODE" = "unfs3" ]; then
+        # UNFS3 rejects wildcard hostnames such as "*".
+        /opt/fog/scripts/process-template.sh /opt/fog/templates/exports-unfs3.template "$NFS_CONFIG_FILE"
+        echo "Userland NFS selected; skipping kernel nfsd mounts."
+        echo "NFS configuration completed."
+        return 0
+    fi
+
     # Generate exports from template
     /opt/fog/scripts/process-template.sh /opt/fog/templates/exports.template "$NFS_CONFIG_FILE"
     
@@ -874,6 +890,15 @@ configureSupervisor() {
     local supervisor_config="/etc/supervisor/conf.d/supervisord.conf"
     /opt/fog/scripts/process-template.sh /opt/fog/templates/supervisord.conf.template "$supervisor_config"
     
+    if [ "$FOG_NFS_MODE" = "unfs3" ]; then
+        echo "Enabling userland NFS and disabling kernel NFS..."
+        sed -i '/\[program:nfs-kernel-server\]/,/^$/d' "$supervisor_config"
+        sed -i '/\[program:rpc-statd\]/,/^$/d' "$supervisor_config"
+    else
+        echo "Enabling kernel NFS..."
+        sed -i '/\[program:unfsd\]/,/^$/d' "$supervisor_config"
+    fi
+
     # If DHCP is disabled, remove the DHCP service from supervisord config
     if [ "$FOG_DHCP_ENABLED" != "true" ]; then
         echo "Disabling DHCP service in supervisor configuration..."

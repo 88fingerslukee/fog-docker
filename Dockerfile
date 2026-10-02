@@ -134,6 +134,7 @@ RUN apt-get -q update && \
         tftpd-hpa \
         tftp-hpa \
         nfs-kernel-server \
+        libtirpc-dev \
         vsftpd \
         isc-dhcp-server \
         iproute2 \
@@ -185,6 +186,19 @@ RUN apt-get -q update && \
         cron \
         bind9-dnsutils \
         && rm -rf /var/lib/apt/lists/*
+
+# Optional userland NFSv3 server. Kernel NFS remains the default.
+ARG UNFS3_VERSION=0.11.0
+ARG UNFS3_SHA256=42ef63cd949b65a4ead30bee269703059a8c4269bef6aa1533215ad1c2a26d6f
+RUN curl -fL -o /tmp/unfs3.tar.gz "https://github.com/unfs3/unfs3/releases/download/unfs3-${UNFS3_VERSION}/unfs3-${UNFS3_VERSION}.tar.gz" && \
+    echo "${UNFS3_SHA256}  /tmp/unfs3.tar.gz" | sha256sum -c - && \
+    tar -xzf /tmp/unfs3.tar.gz -C /tmp && \
+    cd "/tmp/unfs3-${UNFS3_VERSION}" && \
+    ./configure && \
+    make && \
+    make install && \
+    test -x /usr/local/sbin/unfsd && \
+    rm -rf /tmp/unfs3.tar.gz "/tmp/unfs3-${UNFS3_VERSION}"
 
 # symlink udp-sender because Fog looks at the wrong/old location.
 # multicast breaks without this

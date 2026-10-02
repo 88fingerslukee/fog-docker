@@ -125,6 +125,8 @@ If you encounter issues during installation:
 
 ## Security Notes
 
+Kernel NFS requires `privileged: true`. To run without privileged mode, set `FOG_NFS_MODE=unfs3` and `FOG_PRIVILEGED=false`. See the [configuration guide](configuration.md#nfs-server).
+
 **Important**: Change the default FOG web UI admin password immediately after first login:
 
 - **Default Username**: `fog`

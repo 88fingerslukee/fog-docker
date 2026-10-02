@@ -85,8 +85,19 @@ FOG Docker exposes the following ports:
 - **21100-21110**: FTP passive mode port range (configurable)
 - **2049**: NFS server
 - **111**: NFS RPC portmapper
-- **32765**: NFS RPC statd
+- **32765**: NFS RPC statd (kernel NFS only)
 - **32767**: NFS RPC mountd
+
+## Userland NFS (optional)
+
+Kernel NFS is the default and needs privileged mode. To use the userland NFSv3 server instead:
+
+```bash
+FOG_NFS_MODE=unfs3
+FOG_PRIVILEGED=false
+```
+
+Ports 111, 2049, and 32767 are still required. Port 32765 is used only by kernel NFS.
 
 ## Available Image Tags
 
@@ -212,6 +223,7 @@ This project is licensed under the GPL v3 License - see the [LICENSE](LICENSE) f
 ## Acknowledgments
 
 - [FOG Project](https://github.com/FOGProject/fogproject) - The original FOG imaging solution
+- [@Cpasjuste](https://github.com/Cpasjuste) for the userland NFS approach in [docker-fog](https://github.com/Cpasjuste/docker-fog)
 - [@MonolithicRamone](https://github.com/MonolithicRamone) for testing and issue reporting
 - [@LuukBlankenstijn](https://github.com/LuukBlankenstijn) for UDP Casting testing and fix
 - [@IMazarithI](https://github.com/IMazarithI) for iPXE boot file and storage node testing

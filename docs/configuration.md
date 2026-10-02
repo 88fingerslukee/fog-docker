@@ -39,6 +39,12 @@ FOG_WOL_HOST=192.168.1.100
 
 **For single-server setups:** Set all host variables to the same IP/FQDN as `FOG_WEB_HOST`.
 
+### NFS server
+
+`FOG_NFS_MODE=kernel` is the default. It uses the kernel NFS server and requires `FOG_PRIVILEGED=true`.
+
+`FOG_NFS_MODE=unfs3` uses [UNFS3](https://github.com/unfs3/unfs3), a userland NFSv3 server, and can run with `FOG_PRIVILEGED=false`. Clients still need ports 111, 2049, and 32767. This follows the approach used by [Cpasjuste/docker-fog](https://github.com/Cpasjuste/docker-fog).
+
 ## FOG User Configuration
 
 The FOG user account is used for various FOG operations:
@@ -212,6 +218,8 @@ FOG_DHCP_BOOTFILE_UEFI=ipxe.efi
 - `FOG_TFTP_HOST` - Server IP/FQDN for TFTP access
 - `FOG_WOL_HOST` - Server IP/FQDN for Wake-on-LAN
 - `FOG_HTTP_PROTOCOL` - Protocol (http/https)
+- `FOG_NFS_MODE` - `kernel` (default) or `unfs3`
+- `FOG_PRIVILEGED` - Compose privileged mode (`true` by default; `false` with `unfs3`)
 
 ### Database Configuration
 - `FOG_DB_ROOT_PASSWORD` - MySQL root password

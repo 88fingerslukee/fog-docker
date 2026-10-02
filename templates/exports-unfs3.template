@@ -1,0 +1,6 @@
+# FOG NFS exports for UNFS3
+# UNFS3 does not accept wildcard hostnames. An empty client list means all hosts.
+# Unsupported kernel-NFS options are omitted.
+
+/images (rw,root_squash,anonuid=999,anongid=33)
+/opt/fog/snapins (rw,root_squash,anonuid=999,anongid=33)

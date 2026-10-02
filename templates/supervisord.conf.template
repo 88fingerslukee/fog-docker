@@ -91,6 +91,21 @@ stderr_logfile_maxbytes=10MB
 stderr_logfile_backups=5
 environment=TZ="{{TZ}}"
 
+[program:unfsd]
+command=/bin/bash -c 'sleep 1 && exec /usr/local/sbin/unfsd -d -t -n 2049 -m 32767'
+user=root
+autostart=true
+autorestart=true
+priority=320
+startsecs=5
+stdout_logfile=/opt/fog/log/unfsd.log
+stdout_logfile_maxbytes=10MB
+stdout_logfile_backups=5
+stderr_logfile=/opt/fog/log/unfsd_error.log
+stderr_logfile_maxbytes=10MB
+stderr_logfile_backups=5
+environment=TZ="{{TZ}}"
+
 [program:vsftpd]
 command=/usr/sbin/vsftpd /etc/vsftpd.conf
 user=root

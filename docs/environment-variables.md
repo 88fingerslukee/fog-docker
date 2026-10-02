@@ -45,6 +45,8 @@ Complete reference for all FOG Docker environment variables.
 | `FOG_WOL_HOST` | Server IP/FQDN for Wake-on-LAN | `192.168.1.100` | `FOG_WEB_HOST` |
 | `FOG_HTTP_PROTOCOL` | Protocol (http/https) | `https` | `http` |
 | `FOG_MULTICAST_INTERFACE` | Network interface for multicast | `eth0` | `eth0` |
+| `FOG_NFS_MODE` | NFS server: `kernel` or userland `unfs3` | `unfs3` | `kernel` |
+| `FOG_PRIVILEGED` | Compose privileged mode. Set `false` when using `unfs3` | `false` | `true` |
 
 ## Database Configuration
 

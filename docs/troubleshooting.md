@@ -296,8 +296,9 @@ Usually indicates passive mode configuration issues:
 
 3. **Verify NFS server is running:**
    ```bash
-   docker exec fog-server systemctl status nfs-kernel-server
+   docker exec fog-server supervisorctl status nfs-kernel-server unfsd
    ```
+   Kernel mode runs `nfs-kernel-server`. `FOG_NFS_MODE=unfs3` runs `unfsd` instead and does not use port 32765.
 
 ### Image Capture Issues
 
