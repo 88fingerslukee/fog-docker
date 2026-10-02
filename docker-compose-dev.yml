@@ -35,12 +35,14 @@ services:
     ports:
       - "${FOG_APACHE_EXPOSED_PORT:-8080}:${FOG_APACHE_PORT:-80}"
       - "${FOG_APACHE_EXPOSED_SSL_PORT:-8443}:${FOG_APACHE_SSL_PORT:-443}"
-      - "6969:69/udp"
+      # Keep TFTP and FTP on their standard ports. FOG checks the storage node
+      # on port 21 of FOG_STORAGE_HOST, and PXE clients request port 69.
+      - "69:69/udp"
       - "2049:2049"
       - "111:111"
       - "32765:32765"
       - "32767:32767"
-      - "2121:21"
+      - "21:21"
       - "${FOG_FTP_PASV_MIN_PORT:-21100}-${FOG_FTP_PASV_MAX_PORT:-21110}:${FOG_FTP_PASV_MIN_PORT:-21100}-${FOG_FTP_PASV_MAX_PORT:-21110}"
     volumes:
       - fog-images-dev:/images

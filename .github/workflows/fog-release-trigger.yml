@@ -32,10 +32,13 @@ jobs:
           FOG_VERSION="stable"
         fi
         
-        # Get the latest release tag from FOG repository with error handling
+        # Get the latest final release tag from FOG repository with error handling.
+        # Current release candidates such as 1.6.0-RC-3 are published as normal
+        # GitHub releases, so the tag name has to be checked as well.
         if [ "$FOG_VERSION" = "stable" ]; then
           # Fetch with retry logic and error handling
-          API_RESPONSE=$(curl -s -w "\n%{http_code}" https://api.github.com/repos/FOGProject/fogproject/releases/latest)
+          API_RESPONSE=$(curl -s -w "\n%{http_code}" \
+            "https://api.github.com/repos/FOGProject/fogproject/releases?per_page=100")
           HTTP_CODE=$(echo "$API_RESPONSE" | tail -n1)
           API_BODY=$(echo "$API_RESPONSE" | sed '$d')
           
@@ -52,10 +55,17 @@ jobs:
             exit 1
           fi
           
-          LATEST_TAG=$(echo "$API_BODY" | jq -r '.tag_name // empty')
+          LATEST_TAG=$(echo "$API_BODY" | jq -r '
+            [
+              .[]
+              | select(.draft == false and .prerelease == false)
+              | .tag_name
+              | select(test("(?i)(rc|alpha|beta|preview)") | not)
+            ][0] // empty
+          ')
           
           if [ -z "$LATEST_TAG" ] || [ "$LATEST_TAG" = "null" ]; then
-            echo "Error: Could not extract tag_name from API response"
+            echo "Error: Could not find a final FOG release tag"
             echo "Response: $API_BODY"
             exit 1
           fi

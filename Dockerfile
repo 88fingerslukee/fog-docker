@@ -70,6 +70,33 @@ RUN FOG_REF="${FOG_GIT_REF:-stable}" && \
 
 WORKDIR /home/fog/fogproject
 
+# Newer FOG trees no longer commit iPXE binaries. Download the release pinned by
+# FOG_IPXE_VERSION so /tftpboot is not left with only default.ipxe.
+RUN if [ ! -f packages/tftp/undionly.kkpxe ]; then \
+        IPXE_VER=$(grep -o "define('FOG_IPXE_VERSION', '[^']*')" packages/web/lib/fog/system.class.php | cut -d"'" -f4) && \
+        if [ -z "$IPXE_VER" ]; then \
+            echo "ERROR: iPXE binaries are missing and FOG_IPXE_VERSION is unset"; \
+            exit 1; \
+        fi && \
+        echo "Downloading iPXE binaries ${IPXE_VER}" && \
+        mkdir -p packages/tftp && \
+        tmpdir=$(mktemp -d) && \
+        base="https://github.com/FOGProject/fog-ipxe/releases/download/${IPXE_VER}" && \
+        curl -fL -o "${tmpdir}/fog-ipxe-${IPXE_VER}.tar.gz" "${base}/fog-ipxe-${IPXE_VER}.tar.gz" && \
+        curl -fL -o "${tmpdir}/fog-ipxe-${IPXE_VER}.tar.gz.sha256" "${base}/fog-ipxe-${IPXE_VER}.tar.gz.sha256" && \
+        (cd "$tmpdir" && sha256sum -c "fog-ipxe-${IPXE_VER}.tar.gz.sha256") && \
+        tar -xzf "${tmpdir}/fog-ipxe-${IPXE_VER}.tar.gz" -C packages/tftp && \
+        if curl -fL -o "${tmpdir}/fog-ipxe-secureboot-${IPXE_VER}.tar.gz" "${base}/fog-ipxe-secureboot-${IPXE_VER}.tar.gz" && \
+           curl -fL -o "${tmpdir}/fog-ipxe-secureboot-${IPXE_VER}.tar.gz.sha256" "${base}/fog-ipxe-secureboot-${IPXE_VER}.tar.gz.sha256" && \
+           (cd "$tmpdir" && sha256sum -c "fog-ipxe-secureboot-${IPXE_VER}.tar.gz.sha256"); then \
+            tar -xzf "${tmpdir}/fog-ipxe-secureboot-${IPXE_VER}.tar.gz" -C packages/tftp; \
+        else \
+            echo "Warning: Secure Boot iPXE asset unavailable for ${IPXE_VER}"; \
+        fi && \
+        rm -rf "$tmpdir" && \
+        test -f packages/tftp/undionly.kkpxe; \
+    fi
+
 # Create FOG installation tarball
 RUN cd /home/fog && \
     tar -czf /tmp/fog-installation.tar.gz fogproject/ && \

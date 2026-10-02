@@ -32,6 +32,41 @@ jobs:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
 
+    - name: Resolve latest final FOG release
+      id: fog-version
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        API_RESPONSE=$(curl -sS -w "\n%{http_code}" \
+          -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+          "https://api.github.com/repos/FOGProject/fogproject/releases?per_page=100")
+        HTTP_CODE=$(echo "$API_RESPONSE" | tail -n1)
+        API_BODY=$(echo "$API_RESPONSE" | sed '$d')
+
+        if [ "$HTTP_CODE" != "200" ]; then
+          echo "Error: GitHub API returned HTTP $HTTP_CODE"
+          exit 1
+        fi
+
+        # Release candidates such as 1.6.0-RC-3 are not always flagged
+        # as prereleases, so exclude them by tag name too.
+        FOG_VERSION=$(echo "$API_BODY" | jq -r '
+          [
+            .[]
+            | select(.draft == false and .prerelease == false)
+            | .tag_name
+            | select(test("(?i)(rc|alpha|beta|preview)") | not)
+          ][0] // empty
+        ')
+
+        if [ -z "$FOG_VERSION" ]; then
+          echo "Error: Could not find a final FOG release tag"
+          exit 1
+        fi
+
+        echo "fog-version=$FOG_VERSION" >> "$GITHUB_OUTPUT"
+        echo "Building final FOG release: $FOG_VERSION"
+
     - name: Extract metadata
       id: meta
       uses: docker/metadata-action@v6
@@ -57,4 +92,4 @@ jobs:
         cache-from: type=gha
         cache-to: type=gha,mode=max
         build-args: |
-          FOG_GIT_REF=stable
+          FOG_GIT_REF=${{ steps.fog-version.outputs.fog-version }}
