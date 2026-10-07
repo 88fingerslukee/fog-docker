@@ -657,7 +657,6 @@ configureiPXE() {
             "undionly.kpxe"
             "ipxe.efi"
             "snponly.efi"
-            "memdisk"
         )
 
         for boot_file in "${required_files[@]}"; do
