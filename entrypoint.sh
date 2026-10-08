@@ -1137,54 +1137,23 @@ ensureFOGDatabaseSchema() {
         return 1
     fi
 
-    # FOG 1.5 HTML: "Install / Update Successful"
-    # FOG 1.6 JSON: {"msg":"Schema updated successfully!","title":"Schema Update Success"}
-    schema_response_ok() {
-        echo "$1" | grep -qiE \
-            'Install / Update Successful|Schema updated successfully|Schema Update Success|Update not required|already up to date'
-    }
-
+    # Auth failures mean the deploy never ran — fail before trusting the DB read.
     case "$http_code" in
-        200)
-            if schema_response_ok "$init_result"; then
-                echo "✓ Schema endpoint reported success."
-            else
-                echo "ERROR: Schema endpoint returned HTTP 200 but not a success payload."
-                echo "$init_result" | sed 's/<[^>]*>//g' | tr -s '[:space:]' ' ' | head -c 800
-                echo
-                rm -f "$response_file" /tmp/schema_curl.err
-                return 1
-            fi
-            ;;
         401|403)
             echo "ERROR: Schema endpoint rejected install token (HTTP $http_code)."
-            echo "  FOG now requires FOG_SCHEMA_INSTALL_TOKEN (or an admin session)."
+            echo "  FOG requires FOG_SCHEMA_INSTALL_TOKEN (or an admin session)."
             echo "$init_result" | sed 's/<[^>]*>//g' | tr -s '[:space:]' ' ' | head -c 400
-            echo
-            rm -f "$response_file" /tmp/schema_curl.err
-            return 1
-            ;;
-        404)
-            # indexPost throws "Update not required!" as Exception → HTTP 404
-            if schema_response_ok "$init_result"; then
-                echo "✓ Schema endpoint reported update not required."
-            else
-                echo "ERROR: Schema update failed (HTTP 404)."
-                echo "$init_result" | sed 's/<[^>]*>//g' | tr -s '[:space:]' ' ' | head -c 800
-                echo
-                rm -f "$response_file" /tmp/schema_curl.err
-                return 1
-            fi
-            ;;
-        *)
-            echo "ERROR: Unexpected schema endpoint response (HTTP $http_code)."
-            echo "$init_result" | sed 's/<[^>]*>//g' | tr -s '[:space:]' ' ' | head -c 800
             echo
             rm -f "$response_file" /tmp/schema_curl.err
             return 1
             ;;
     esac
 
+    # Success is defined by schemaVersion in the database, not by scraping
+    # FOG 1.5 HTML or 1.6 JSON response text (those strings change across releases).
+    if [ -n "$init_result" ]; then
+        echo "  → Endpoint response (diagnostic): $(echo "$init_result" | sed 's/<[^>]*>//g' | tr -s '[:space:]' ' ' | head -c 240)"
+    fi
     rm -f "$response_file" /tmp/schema_curl.err
 
     current="$(getCurrentDBSchema)"
