@@ -107,6 +107,8 @@ TZ="${TZ:-UTC}"
 FORCE_FIRST_START_INIT="${FORCE_FIRST_START_INIT:-false}"
 
 # Configuration file paths (FOG_CONFIG_FILE / FOG_SYSTEM_FILE resolved by resolveFOGLayout)
+FOG_SRC_DIR="/opt/fog/src"
+FOG_LAYOUT_FILE="/opt/fog/config/fog-layout"
 FOG_CONFIG_FILE="/var/www/html/fog/lib/fog/config.class.php"
 FOG_SYSTEM_FILE="/var/www/html/fog/lib/fog/system.class.php"
 FOG_LAYOUT="1.5"
@@ -116,17 +118,85 @@ NFS_CONFIG_FILE="/etc/exports"
 FTP_CONFIG_FILE="/etc/vsftpd.conf"
 DHCP_CONFIG_FILE="/etc/dhcp/dhcpd.conf"
 
-# FOG 1.5 keeps config/system under lib/fog/; 1.6+ uses commons/ + src/Base/System.php.
+applyFOGLayout() {
+    case "$1" in
+        1.6)
+            FOG_LAYOUT="1.6"
+            FOG_CONFIG_FILE="/var/www/html/fog/commons/config.class.php"
+            FOG_SYSTEM_FILE="/var/www/html/fog/src/Base/System.php"
+            ;;
+        1.5)
+            FOG_LAYOUT="1.5"
+            FOG_CONFIG_FILE="/var/www/html/fog/lib/fog/config.class.php"
+            FOG_SYSTEM_FILE="/var/www/html/fog/lib/fog/system.class.php"
+            ;;
+        *)
+            echo "ERROR: Unsupported FOG layout: $1"
+            return 1
+            ;;
+    esac
+    return 0
+}
+
+# Prefer the layout baked into the image; fall back to config-path detection
+# (System.php alone is not enough — 1.6 also needs commons/).
 resolveFOGLayout() {
-    if [ -f "/var/www/html/fog/src/Base/System.php" ]; then
-        FOG_LAYOUT="1.6"
-        FOG_CONFIG_FILE="/var/www/html/fog/commons/config.class.php"
-        FOG_SYSTEM_FILE="/var/www/html/fog/src/Base/System.php"
-    else
-        FOG_LAYOUT="1.5"
-        FOG_CONFIG_FILE="/var/www/html/fog/lib/fog/config.class.php"
-        FOG_SYSTEM_FILE="/var/www/html/fog/lib/fog/system.class.php"
+    local baked=""
+    if [ -f "$FOG_LAYOUT_FILE" ]; then
+        baked="$(tr -d '[:space:]' < "$FOG_LAYOUT_FILE")"
     fi
+
+    if [ "$baked" = "1.6" ] && \
+       [ -f "/var/www/html/fog/src/Base/System.php" ] && \
+       [ -d "/var/www/html/fog/commons" ]; then
+        applyFOGLayout "1.6"
+        return 0
+    fi
+
+    if [ "$baked" = "1.5" ] && \
+       [ -f "/var/www/html/fog/lib/fog/system.class.php" ]; then
+        applyFOGLayout "1.5"
+        return 0
+    fi
+
+    if [ -f "/var/www/html/fog/src/Base/System.php" ] && \
+       [ -d "/var/www/html/fog/commons" ]; then
+        applyFOGLayout "1.6"
+        return 0
+    fi
+
+    if [ -f "/var/www/html/fog/lib/fog/system.class.php" ]; then
+        applyFOGLayout "1.5"
+        return 0
+    fi
+
+    echo "ERROR: Unable to resolve FOG layout (missing System.php/commons or system.class.php)"
+    return 1
+}
+
+# Prefer a memtest binary that actually exists on disk.
+resolveMemtestKernel() {
+    local candidates=()
+    local search_dirs=("/tftpboot" "/var/www/html/fog/service/ipxe" "${FOG_SRC_DIR}/packages/tftp")
+    local name dir
+
+    if [ "$FOG_LAYOUT" = "1.6" ]; then
+        candidates=("mt86plus_x86_64" "mt86plus_i586" "memtest.bin")
+    else
+        candidates=("memtest.bin" "mt86plus_x86_64" "mt86plus_i586")
+    fi
+
+    for name in "${candidates[@]}"; do
+        for dir in "${search_dirs[@]}"; do
+            if [ -f "${dir}/${name}" ]; then
+                echo "$name"
+                return 0
+            fi
+        done
+    done
+
+    # Fall back to the layout-preferred name (FOG may fetch it later).
+    echo "${candidates[0]}"
 }
 
 # BEGIN Configuration Functions
@@ -315,16 +385,18 @@ configureFOGConfig() {
     # Ensure FOG web files are available
     if [ ! -d "/var/www/html/fog" ] || [ ! -f "/var/www/html/fog/index.php" ]; then
         echo "FOG web files not found, copying from source..."
-        if [ -d "/opt/fog/fogproject/packages/web" ]; then
-            cp -r /opt/fog/fogproject/packages/web/* /var/www/html/fog/
+        if [ -d "${FOG_SRC_DIR}/packages/web" ]; then
+            cp -r "${FOG_SRC_DIR}/packages/web/"* /var/www/html/fog/
             chown -R www-data:www-data /var/www/html/fog
         else
-            echo "Error: FOG web source not found at /opt/fog/fogproject/packages/web"
+            echo "Error: FOG web source not found at ${FOG_SRC_DIR}/packages/web"
             exit 1
         fi
     fi
 
-    resolveFOGLayout
+    if ! resolveFOGLayout; then
+        exit 1
+    fi
     echo "Detected FOG layout: ${FOG_LAYOUT} (config → ${FOG_CONFIG_FILE})"
     
     # Ensure the directory exists
@@ -363,13 +435,13 @@ configureFOGConfig() {
     fi
     export FOG_SCHEMA_INSTALL_TOKEN
 
+    FOG_MEMTEST_KERNEL="$(resolveMemtestKernel)"
     if [ "$FOG_LAYOUT" = "1.6" ]; then
-        FOG_MEMTEST_KERNEL="mt86plus_x86_64"
         FOG_UDPSENDER_PATH="/usr/local/sbin/udp-sender"
     else
-        FOG_MEMTEST_KERNEL="memtest.bin"
         FOG_UDPSENDER_PATH="/usr/local/bin/udp-sender"
     fi
+    echo "Using memtest kernel name: ${FOG_MEMTEST_KERNEL}"
 
     # Replace placeholders with environment variables
     sed -i "s|{{FOG_DB_HOST}}|$FOG_DB_HOST|g" "$FOG_CONFIG_FILE"
@@ -698,24 +770,40 @@ configureiPXE() {
     echo "Configuring iPXE and TFTP boot files..."
     
     verifyTFTBootFiles() {
-        local missing=()
-        local required_files=(
-            "undionly.kkpxe"
-            "undionly.kpxe"
-            "ipxe.efi"
-            "snponly.efi"
-        )
+        local found=""
+        local candidate
+        local missing_groups=()
 
-        for boot_file in "${required_files[@]}"; do
-            if [ ! -f "/tftpboot/${boot_file}" ]; then
-                missing+=("$boot_file")
+        found=""
+        for candidate in undionly.kkpxe undionly.kpxe; do
+            if [ -f "/tftpboot/${candidate}" ]; then
+                found="$candidate"
+                break
             fi
         done
+        if [ -z "$found" ]; then
+            missing_groups+=("BIOS iPXE (undionly.kkpxe or undionly.kpxe)")
+        else
+            echo "✓ BIOS iPXE: ${found}"
+        fi
 
-        if [ ${#missing[@]} -gt 0 ]; then
-            echo "ERROR: TFTP boot directory is missing required files:"
-            for boot_file in "${missing[@]}"; do
-                echo "   - ${boot_file}"
+        found=""
+        for candidate in ipxe.efi snponly.efi; do
+            if [ -f "/tftpboot/${candidate}" ]; then
+                found="$candidate"
+                break
+            fi
+        done
+        if [ -z "$found" ]; then
+            missing_groups+=("UEFI iPXE (ipxe.efi or snponly.efi)")
+        else
+            echo "✓ UEFI iPXE: ${found}"
+        fi
+
+        if [ ${#missing_groups[@]} -gt 0 ]; then
+            echo "ERROR: TFTP boot directory is missing required boot capability:"
+            for candidate in "${missing_groups[@]}"; do
+                echo "   - ${candidate}"
             done
             echo ""
             echo "If /tftpboot is bind-mounted from the host, ensure the directory is writable"
@@ -745,8 +833,8 @@ configureiPXE() {
         echo "Copying TFTP boot files to /tftpboot..."
         mkdir -p /tftpboot
 
-        if [ -d "/opt/fog/fogproject/packages/tftp" ] && [ -n "$(ls -A /opt/fog/fogproject/packages/tftp 2>/dev/null)" ]; then
-            tftp_src="/opt/fog/fogproject/packages/tftp"
+        if [ -d "${FOG_SRC_DIR}/packages/tftp" ] && [ -n "$(ls -A "${FOG_SRC_DIR}/packages/tftp" 2>/dev/null)" ]; then
+            tftp_src="${FOG_SRC_DIR}/packages/tftp"
         elif [ -d "/opt/fog/bundled-tftpboot" ] && [ -n "$(ls -A /opt/fog/bundled-tftpboot 2>/dev/null)" ]; then
             echo "Using bundled TFTP boot files from image..."
             tftp_src="/opt/fog/bundled-tftpboot"
@@ -792,8 +880,13 @@ configureiPXE() {
         echo "Recompiling iPXE with self-signed certificate trust..."
         
         # Check if we have the build script
-        if [ -f "/opt/fog/utils/FOGiPXE/buildipxe.sh" ]; then
-            cd /opt/fog/utils/FOGiPXE
+        if [ -f "/opt/fog/utils/FOGiPXE/buildipxe.sh" ] || \
+           [ -f "${FOG_SRC_DIR}/utils/FOGiPXE/buildipxe.sh" ]; then
+            if [ -f "/opt/fog/utils/FOGiPXE/buildipxe.sh" ]; then
+                cd /opt/fog/utils/FOGiPXE
+            else
+                cd "${FOG_SRC_DIR}/utils/FOGiPXE"
+            fi
             
             # Make sure the script is executable
             chmod +x buildipxe.sh
@@ -1054,6 +1147,46 @@ bootstrappingEnvironment() {
     echo "=== End Bootstrap Phase ==="
 }
 
+# Apache readiness without depending on FOG's PHP management UI.
+waitForApacheReady() {
+    local health_url="http://127.0.0.1:${FOG_APACHE_PORT}${FOG_WEB_ROOT}/docker-health.txt"
+    local i http_code
+
+    echo "Waiting for Apache to be ready..."
+
+    if ! apache2ctl configtest >/tmp/apache-configtest.out 2>&1; then
+        echo "ERROR: apache2ctl configtest failed:"
+        cat /tmp/apache-configtest.out
+        return 1
+    fi
+
+    if [ ! -f /var/www/html/fog/docker-health.txt ]; then
+        echo "ok" > /var/www/html/fog/docker-health.txt
+        chown www-data:www-data /var/www/html/fog/docker-health.txt 2>/dev/null || true
+    fi
+
+    for i in {1..30}; do
+        if ! (echo >"/dev/tcp/127.0.0.1/${FOG_APACHE_PORT}") 2>/dev/null; then
+            echo "Waiting for Apache listen on :${FOG_APACHE_PORT}... (attempt $i/30)"
+            sleep 2
+            continue
+        fi
+
+        http_code="$(curl -sS -o /tmp/fog-docker-health.body -w "%{http_code}" "$health_url" 2>/dev/null || echo "000")"
+        if [ "$http_code" = "200" ] && grep -qx "ok" /tmp/fog-docker-health.body 2>/dev/null; then
+            echo "Apache is ready (configtest + :${FOG_APACHE_PORT} + ${health_url})."
+            rm -f /tmp/fog-docker-health.body /tmp/apache-configtest.out
+            return 0
+        fi
+
+        echo "Waiting for Apache health file... HTTP ${http_code} (attempt $i/30)"
+        sleep 2
+    done
+
+    rm -f /tmp/fog-docker-health.body /tmp/apache-configtest.out
+    return 1
+}
+
 # Expected FOG schema version baked into this image (1.5 system.class.php or 1.6 System.php).
 getExpectedFOGSchema() {
     resolveFOGLayout
@@ -1112,7 +1245,10 @@ ensureFOGDatabaseSchema() {
     local response_file="/tmp/schema_response.html"
     local http_code curl_exit
 
-    # Match upstream FOG installer: token header + POST to schema endpoint.
+    # Trigger: FOG still only exposes schema install via this web form.
+    # There is no supported CLI/API alternative today — field names
+    # (fogverified/schemaupdate/confirm) are upstream contract.
+    # Proof of success is schemaVersion in the DB below, not the HTTP body.
     # Do not follow redirects (-L): a 302 to login usually means auth failed.
     set +e
     http_code="$(curl -sS -o "$response_file" -w "%{http_code}" \
@@ -1164,6 +1300,7 @@ ensureFOGDatabaseSchema() {
     if [ "$current" -lt "$expected" ]; then
         echo "ERROR: Schema still outdated after update ($current < $expected)."
         echo "Refusing to start FOG workers with a mismatched schema (CLI services exit 0 via schema redirect)."
+        echo "If FOG renamed the schema form fields, the POST above may have been ignored — check upstream installer."
         return 1
     fi
 
@@ -1201,21 +1338,9 @@ appRun() {
     # Wait a moment for supervisor to start
     sleep 5
     
-    # Wait for Apache to be ready
-    echo "Waiting for Apache to be ready..."
-    local apache_ready=0
-    local i
-    for i in {1..30}; do
-        if curl -s -f "http://localhost:${FOG_APACHE_PORT}${FOG_WEB_ROOT}/management/" >/dev/null 2>&1; then
-            echo "Apache is ready."
-            apache_ready=1
-            break
-        fi
-        echo "Waiting for Apache... (attempt $i/30)"
-        sleep 2
-    done
-
-    if [ "$apache_ready" -ne 1 ]; then
+    # Wait for Apache using configtest + local TCP + a static health file we control
+    # (not the PHP management UI, which can redirect or 500 before schema is ready).
+    if ! waitForApacheReady; then
         echo "ERROR: Apache did not become ready; cannot run schema migration."
         kill "$SUPERVISOR_PID" 2>/dev/null || true
         wait "$SUPERVISOR_PID" 2>/dev/null || true

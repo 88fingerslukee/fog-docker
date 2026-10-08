@@ -274,12 +274,18 @@ RUN mkdir -p \
 RUN echo "rpc_pipefs  /var/lib/nfs/rpc_pipefs  rpc_pipefs  defaults  0  0" >> /etc/fstab && \
     echo "nfsd        /proc/fs/nfsd            nfsd        defaults  0  0" >> /etc/fstab
 
-# Copy FOG installation from builder stage
+# Install FOG source at an intentional path (/opt/fog/src). Do not mv into the
+# pre-created /opt/fog directory (that accidentally nested as /opt/fog/fogproject).
 COPY --from=fog-builder /tmp/fog-installation.tar.gz /tmp/
-RUN cd /opt && \
-    tar -xzf /tmp/fog-installation.tar.gz && \
+RUN set -eu; \
+    tar -xzf /tmp/fog-installation.tar.gz -C /tmp && \
     rm -f /tmp/fog-installation.tar.gz && \
-    mv fogproject fog
+    rm -rf /opt/fog/src && \
+    mv /tmp/fogproject /opt/fog/src && \
+    if [ -d /opt/fog/src/utils ]; then \
+        ln -sfn /opt/fog/src/utils /opt/fog/utils; \
+    fi && \
+    test -d /opt/fog/src/packages/web
 
 # Copy shim and MOK manager from Debian packages (if available)
 RUN if [ -f "/usr/lib/shim/shimx64.efi" ]; then \
@@ -292,11 +298,23 @@ RUN if [ -f "/usr/lib/shim/shimx64.efi" ]; then \
 # Copy FOG web / TFTP / service trees and require key artifacts on disk.
 # Soft "Warning: not found" used to let incomplete images ship successfully.
 RUN set -eu; \
-    if [ ! -d "/opt/fog/fogproject/packages/web" ]; then \
-        echo "ERROR: FOG web directory not found at /opt/fog/fogproject/packages/web"; \
+    FOG_SRC="/opt/fog/src"; \
+    require_any() { \
+        label="$1"; shift; \
+        for candidate in "$@"; do \
+            if [ -f "/tftpboot/${candidate}" ]; then \
+                echo "✓ ${label}: ${candidate}"; \
+                return 0; \
+            fi; \
+        done; \
+        echo "ERROR: missing ${label} boot file (tried: $*)"; \
+        exit 1; \
+    }; \
+    if [ ! -d "${FOG_SRC}/packages/web" ]; then \
+        echo "ERROR: FOG web directory not found at ${FOG_SRC}/packages/web"; \
         exit 1; \
     fi && \
-    cp -r /opt/fog/fogproject/packages/web/* /var/www/html/fog/ && \
+    cp -r "${FOG_SRC}/packages/web/"* /var/www/html/fog/ && \
     if [ ! -f /var/www/html/fog/index.php ]; then \
         echo "ERROR: /var/www/html/fog/index.php missing after web copy"; \
         exit 1; \
@@ -306,36 +324,42 @@ RUN set -eu; \
         echo "ERROR: FOG system file missing after web copy (System.php or system.class.php)"; \
         exit 1; \
     fi && \
-    if [ ! -d "/opt/fog/fogproject/packages/tftp" ]; then \
-        echo "ERROR: FOG TFTP directory not found at /opt/fog/fogproject/packages/tftp"; \
+    if [ ! -d "${FOG_SRC}/packages/tftp" ]; then \
+        echo "ERROR: FOG TFTP directory not found at ${FOG_SRC}/packages/tftp"; \
         exit 1; \
     fi && \
-    cp -a /opt/fog/fogproject/packages/tftp/. /tftpboot/ && \
-    for boot_file in undionly.kkpxe undionly.kpxe ipxe.efi snponly.efi; do \
-        if [ ! -f "/tftpboot/${boot_file}" ]; then \
-            echo "ERROR: required TFTP boot file missing after copy: ${boot_file}"; \
-            exit 1; \
-        fi; \
-    done && \
+    cp -a "${FOG_SRC}/packages/tftp/." /tftpboot/ && \
+    require_any bios-ipxe undionly.kkpxe undionly.kpxe && \
+    require_any uefi-ipxe ipxe.efi snponly.efi && \
     mkdir -p /opt/fog/bundled-tftpboot && \
     cp -a /tftpboot/. /opt/fog/bundled-tftpboot/ && \
-    if [ -d "/opt/fog/fogproject/packages/snapins" ]; then \
-        cp -r /opt/fog/fogproject/packages/snapins/* /opt/fog/snapins/; \
+    if [ -d "${FOG_SRC}/packages/snapins" ]; then \
+        cp -r "${FOG_SRC}/packages/snapins/"* /opt/fog/snapins/; \
     else \
         echo "Note: FOG snapins directory not present in this FOG tree"; \
     fi && \
-    if [ ! -d "/opt/fog/fogproject/packages/service" ]; then \
-        echo "ERROR: FOG service directory not found at /opt/fog/fogproject/packages/service"; \
+    if [ ! -d "${FOG_SRC}/packages/service" ]; then \
+        echo "ERROR: FOG service directory not found at ${FOG_SRC}/packages/service"; \
         exit 1; \
     fi && \
-    cp -r /opt/fog/fogproject/packages/service/* /opt/fog/service/ && \
+    cp -r "${FOG_SRC}/packages/service/"* /opt/fog/service/ && \
     for svc in FOGMulticastManager FOGImageReplicator FOGTaskScheduler; do \
         if [ ! -d "/opt/fog/service/${svc}" ]; then \
             echo "ERROR: required FOG service missing after copy: ${svc}"; \
             exit 1; \
         fi; \
     done && \
-    echo "FOG web / TFTP / service artifacts verified"
+    # Bake layout for runtime (prefer this over re-guessing from a single filename).
+    if [ -f /var/www/html/fog/src/Base/System.php ] && [ -d /var/www/html/fog/commons ]; then \
+        echo "1.6" > /opt/fog/config/fog-layout; \
+    elif [ -f /var/www/html/fog/lib/fog/system.class.php ]; then \
+        echo "1.5" > /opt/fog/config/fog-layout; \
+    else \
+        echo "ERROR: unable to determine FOG layout after web copy"; \
+        exit 1; \
+    fi && \
+    echo "ok" > /var/www/html/fog/docker-health.txt && \
+    echo "FOG web / TFTP / service artifacts verified (layout=$(cat /opt/fog/config/fog-layout))"
 
 
 # Set up Apache modules
@@ -433,10 +457,12 @@ RUN set -eu; \
     done && \
     echo "✓ FOGService.msi (${size_msi} bytes) SmartInstaller.exe (${size_smart} bytes)"
 
-# Set all permissions and ownership after all copy operations are complete
+# Set all permissions and ownership after all copy operations are complete.
+# Service workers are PHP CLI entrypoints without a fixed depth — find them
+# instead of chmod /opt/fog/service/*/* (breaks if nesting changes).
 RUN chmod +x /sbin/entrypoint.sh && \
     chmod +x /opt/fog/scripts/*.sh && \
-    chmod +x /opt/fog/service/*/* && \
+    find /opt/fog/service -mindepth 2 -type f ! -name '*.php' -exec chmod a+x {} + && \
     chmod -R 755 /var/www/html/fog /tftpboot /opt/fog/snapins && \
     chown -R www-data:www-data \
         /var/www/html/fog \
@@ -447,7 +473,6 @@ RUN chmod +x /sbin/entrypoint.sh && \
         /opt/fog/secure-boot \
         /opt/fog/config \
         /opt/migration
-
 # Clean up temporary fog user used for building
 RUN userdel -r fog && \
     sed -i '/fog ALL=(ALL:ALL) NOPASSWD:ALL/d' /etc/sudoers

@@ -83,10 +83,12 @@ docker compose logs fog-server | grep -i "schema\|admin\|user" | tail -20
 ```
 
 Look for:
-- "Database schema is up to date" or "Install / Update Successful"
+- "Database schema is up to date" or "Database schema check/update completed successfully"
 - "FATAL: FOG database schema install/update failed" (container exits on purpose)
 
-On FOG 1.5.10.18xx+, schema deploy requires `FOG_SCHEMA_INSTALL_TOKEN`. The entrypoint writes this into `config.class.php` and posts it unattended. If migration fails, the container exits instead of starting workers against an outdated schema.
+On FOG 1.5.10.18xx+, schema deploy requires `FOG_SCHEMA_INSTALL_TOKEN`. The entrypoint writes this into `config.class.php` and posts it unattended. Success is judged by the `schemaVersion` row in the database (not by scraping FOG's HTML/JSON response). FOG still has no CLI schema installer — if upstream renames the web form fields, the POST may be ignored and the DB check will fail loudly.
+
+If migration fails, the container exits instead of starting workers against an outdated schema.
 
 #### Step 3: Manually Trigger Schema Initialization
 
