@@ -1135,12 +1135,17 @@ ensureFOGDatabaseSchema() {
         return 1
     fi
 
+    # FOG 1.5 HTML: "Install / Update Successful"
+    # FOG 1.6 JSON: {"msg":"Schema updated successfully!","title":"Schema Update Success"}
+    schema_response_ok() {
+        echo "$1" | grep -qiE \
+            'Install / Update Successful|Schema updated successfully|Schema Update Success|Update not required|already up to date'
+    }
+
     case "$http_code" in
         200)
-            if echo "$init_result" | grep -qi "Install / Update Successful"; then
-                echo "✓ Schema endpoint reported Install / Update Successful."
-            elif echo "$init_result" | grep -qi "Update not required"; then
-                echo "✓ Schema endpoint reported update not required."
+            if schema_response_ok "$init_result"; then
+                echo "✓ Schema endpoint reported success."
             else
                 echo "ERROR: Schema endpoint returned HTTP 200 but not a success payload."
                 echo "$init_result" | sed 's/<[^>]*>//g' | tr -s '[:space:]' ' ' | head -c 800
@@ -1159,7 +1164,7 @@ ensureFOGDatabaseSchema() {
             ;;
         404)
             # indexPost throws "Update not required!" as Exception → HTTP 404
-            if echo "$init_result" | grep -qi "Update not required"; then
+            if schema_response_ok "$init_result"; then
                 echo "✓ Schema endpoint reported update not required."
             else
                 echo "ERROR: Schema update failed (HTTP 404)."
