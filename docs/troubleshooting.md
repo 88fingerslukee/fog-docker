@@ -217,10 +217,10 @@ Also ensure `FOG_STORAGE_HOST` matches `FOG_WEB_HOST` for single-server setups (
 **Options without breaking a working deployment:**
 
 1. **Wait for stable** — pre-built images rebuild when upstream stable is updated (`ghcr.io/88fingerslukee/fog-docker:latest`).
-2. **Dev-branch image** — use `ghcr.io/88fingerslukee/fog-docker:fog-dev-branch` or build locally:
+2. **Dev / custom FOG ref** — use a published tag, or build locally from any FOG git ref (including `working-1.6` or an RC):
    ```bash
    # In .env
-   FOG_VERSION=dev-branch
+   FOG_VERSION=working-1.6
    docker compose -f docker-compose-dev.yml up -d --build
    ```
 3. **Try vendor-specific boot files** (if TFTP files are present) — set in `.env`:

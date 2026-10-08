@@ -23,7 +23,7 @@ Complete reference for all FOG Docker environment variables.
 
 | Variable | Description | Example | Default |
 |----------|-------------|---------|---------|
-| `FOG_VERSION` | FOG version to install (dev only) | `stable`, `dev-branch` | `stable` |
+| `FOG_VERSION` | FOG git ref to build (dev compose only) | `stable`, `dev-branch`, `working-1.6`, `1.6.0-RC-6` | `stable` |
 | `FOG_GIT_URL` | Custom FOG repository URL (dev only) | `https://github.com/FOGProject/fogproject.git` | `https://github.com/FOGProject/fogproject.git` |
 
 ## Web Configuration

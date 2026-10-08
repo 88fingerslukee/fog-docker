@@ -70,12 +70,22 @@ RUN FOG_REF="${FOG_GIT_REF:-stable}" && \
 
 WORKDIR /home/fog/fogproject
 
+# Locate FOG version pins: 1.5 uses lib/fog/system.class.php, 1.6+ uses src/Base/System.php.
 # Newer FOG trees no longer commit iPXE binaries. Download the release pinned by
 # FOG_IPXE_VERSION so /tftpboot is not left with only default.ipxe.
-RUN if [ ! -f packages/tftp/undionly.kkpxe ]; then \
-        IPXE_VER=$(grep -o "define('FOG_IPXE_VERSION', '[^']*')" packages/web/lib/fog/system.class.php | cut -d"'" -f4) && \
+RUN SYSTEM_FILE="" && \
+    for f in packages/web/src/Base/System.php packages/web/lib/fog/system.class.php; do \
+        if [ -f "$f" ]; then SYSTEM_FILE="$f"; break; fi; \
+    done && \
+    if [ -z "$SYSTEM_FILE" ]; then \
+        echo "ERROR: FOG system file not found (expected System.php or system.class.php)"; \
+        exit 1; \
+    fi && \
+    echo "Using FOG system file: $SYSTEM_FILE" && \
+    if [ ! -f packages/tftp/undionly.kkpxe ]; then \
+        IPXE_VER=$(grep -o "define('FOG_IPXE_VERSION', '[^']*')" "$SYSTEM_FILE" | cut -d"'" -f4) && \
         if [ -z "$IPXE_VER" ]; then \
-            echo "ERROR: iPXE binaries are missing and FOG_IPXE_VERSION is unset"; \
+            echo "ERROR: iPXE binaries are missing and FOG_IPXE_VERSION is unset in $SYSTEM_FILE"; \
             exit 1; \
         fi && \
         echo "Downloading iPXE binaries ${IPXE_VER}" && \
@@ -95,6 +105,23 @@ RUN if [ ! -f packages/tftp/undionly.kkpxe ]; then \
         fi && \
         rm -rf "$tmpdir" && \
         test -f packages/tftp/undionly.kkpxe; \
+    fi && \
+    # FOG 1.6+ ships plugins from FOGProject/fog-plugins (ADR 0009), not in-tree.
+    PLUGINS_VER=$(grep -o "define('FOG_PLUGINS_VERSION', '[^']*')" "$SYSTEM_FILE" | cut -d"'" -f4 || true) && \
+    if [ -n "$PLUGINS_VER" ]; then \
+        echo "Downloading FOG plugins ${PLUGINS_VER}" && \
+        tmpdir=$(mktemp -d) && \
+        base="https://github.com/FOGProject/fog-plugins/releases/download/${PLUGINS_VER}" && \
+        curl -fL -o "${tmpdir}/fog-plugins-${PLUGINS_VER}.tar.gz" "${base}/fog-plugins-${PLUGINS_VER}.tar.gz" && \
+        curl -fL -o "${tmpdir}/fog-plugins-${PLUGINS_VER}.tar.gz.sha256" "${base}/fog-plugins-${PLUGINS_VER}.tar.gz.sha256" && \
+        (cd "$tmpdir" && sha256sum -c "fog-plugins-${PLUGINS_VER}.tar.gz.sha256") && \
+        rm -rf packages/web/lib/plugins && \
+        mkdir -p packages/web/lib/plugins && \
+        tar -xzf "${tmpdir}/fog-plugins-${PLUGINS_VER}.tar.gz" -C packages/web/lib/plugins && \
+        echo "$PLUGINS_VER" > packages/web/lib/plugins/.fog-plugins-version && \
+        rm -rf "$tmpdir"; \
+    else \
+        echo "No FOG_PLUGINS_VERSION pin; skipping plugin download"; \
     fi
 
 # Create FOG installation tarball
@@ -200,9 +227,9 @@ RUN curl -fL -o /tmp/unfs3.tar.gz "https://github.com/unfs3/unfs3/releases/downl
     test -x /usr/local/sbin/unfsd && \
     rm -rf /tmp/unfs3.tar.gz "/tmp/unfs3-${UNFS3_VERSION}"
 
-# symlink udp-sender because Fog looks at the wrong/old location.
-# multicast breaks without this
-RUN ln -s /usr/bin/udp-sender /usr/local/bin/udp-sender
+# FOG expects udp-sender under /usr/local (1.5: bin, 1.6: sbin). Debian puts it in /usr/bin.
+RUN ln -sf /usr/bin/udp-sender /usr/local/bin/udp-sender && \
+    ln -sf /usr/bin/udp-sender /usr/local/sbin/udp-sender
 
 # Install architecture-specific secure boot packages
 RUN if [ "$(dpkg --print-architecture)" = "amd64" ]; then \
@@ -307,6 +334,8 @@ COPY scripts/ /opt/fog/scripts/
 RUN rm -f /etc/apache2/sites-available/*.conf \
           /etc/apache2/sites-enabled/*.conf \
           /var/www/html/fog/lib/fog/config.class.php \
+          /var/www/html/fog/commons/config.class.php \
+          /var/www/html/fog/commons/fogpaths.php \
           /etc/tftpd-hpa/tftpd-hpa.conf \
           /etc/exports \
           /etc/dhcp/dhcpd.conf
@@ -322,17 +351,25 @@ RUN cd /var/www/html/fog/service/ipxe && \
     (curl -L -o arm_init.cpio.gz https://github.com/FOGProject/fos/releases/latest/download/arm_init.cpio.gz || echo "arm_init.cpio.gz download failed")
 
 # Download FOG client files to client directory
-RUN cd /var/www/html/fog/client && \
-    # Get the FOG client version from the system class
-    CLIENT_VERSION=$(grep -o "define('FOG_CLIENT_VERSION', '[^']*')" /var/www/html/fog/lib/fog/system.class.php | cut -d"'" -f4) && \
+RUN SYSTEM_FILE="" && \
+    for f in /var/www/html/fog/src/Base/System.php /var/www/html/fog/lib/fog/system.class.php; do \
+        if [ -f "$f" ]; then SYSTEM_FILE="$f"; break; fi; \
+    done && \
+    if [ -z "$SYSTEM_FILE" ]; then \
+        echo "ERROR: FOG system file not found for client version pin"; \
+        exit 1; \
+    fi && \
+    cd /var/www/html/fog/client && \
+    CLIENT_VERSION=$(grep -o "define('FOG_CLIENT_VERSION', '[^']*')" "$SYSTEM_FILE" | cut -d"'" -f4) && \
+    if [ -z "$CLIENT_VERSION" ]; then \
+        echo "ERROR: FOG_CLIENT_VERSION unset in $SYSTEM_FILE"; \
+        exit 1; \
+    fi && \
     echo "Downloading FOG client version: $CLIENT_VERSION" && \
-    # Download client files from FOG client releases
-    (curl -L -o FOGService.msi "https://github.com/FOGProject/fog-client/releases/download/${CLIENT_VERSION}/FOGService.msi" || echo "FOGService.msi download failed") && \
-    (curl -L -o SmartInstaller.exe "https://github.com/FOGProject/fog-client/releases/download/${CLIENT_VERSION}/SmartInstaller.exe" || echo "SmartInstaller.exe download failed") && \
-    # Also download additional client utilities if they exist
-    (curl -L -o FogPrep.zip "https://github.com/FOGProject/fog-client/releases/download/${CLIENT_VERSION}/FogPrep.zip" || echo "FogPrep.zip not available") && \
-    (curl -L -o FOGCrypt.zip "https://github.com/FOGProject/fog-client/releases/download/${CLIENT_VERSION}/FOGCrypt.zip" || echo "FOGCrypt.zip not available") && \
-    # Set proper permissions
+    (curl -fL -o FOGService.msi "https://github.com/FOGProject/fog-client/releases/download/${CLIENT_VERSION}/FOGService.msi" || echo "FOGService.msi download failed") && \
+    (curl -fL -o SmartInstaller.exe "https://github.com/FOGProject/fog-client/releases/download/${CLIENT_VERSION}/SmartInstaller.exe" || echo "SmartInstaller.exe download failed") && \
+    (curl -fL -o FogPrep.zip "https://github.com/FOGProject/fog-client/releases/download/${CLIENT_VERSION}/FogPrep.zip" || echo "FogPrep.zip not available") && \
+    (curl -fL -o FOGCrypt.zip "https://github.com/FOGProject/fog-client/releases/download/${CLIENT_VERSION}/FOGCrypt.zip" || echo "FOGCrypt.zip not available") && \
     chown www-data:www-data *.msi *.exe *.zip 2>/dev/null || true && \
     chmod 644 *.msi *.exe *.zip 2>/dev/null || true
 

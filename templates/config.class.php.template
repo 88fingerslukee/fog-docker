@@ -8,6 +8,10 @@
  * This template is processed by entrypoint.sh to replace placeholders
  * with environment variables.
  *
+ * Compatible with FOG 1.5 (lib/fog/config.class.php) and FOG 1.6+
+ * (commons/config.class.php). Layout-specific values such as UDPSENDERPATH
+ * and MEMTEST_KERNEL are substituted at container start.
+ *
  * @category Config
  * @package  FOG-Docker  
  * @author   Lucas Burdick
@@ -55,7 +59,7 @@ class Config
      */
     private static function _svcSetting()
     {
-        define('UDPSENDERPATH', '/usr/local/bin/udp-sender');
+        define('UDPSENDERPATH', '{{FOG_UDPSENDER_PATH}}');
         define('MULTICASTINTERFACE', '{{FOG_MULTICAST_INTERFACE}}');
         define('UDPSENDER_MAXWAIT', null);
     }
@@ -78,10 +82,11 @@ class Config
         define('TFTP_FTP_USERNAME', '{{FOG_USER}}');
         define('TFTP_FTP_PASSWORD', '{{FOG_PASS}}');
         define('TFTP_PXE_KERNEL_DIR', '/var/www/html/fog/service/ipxe/');
+        define('TFTP_ROOT_DIR', '/tftpboot');
         define('PXE_KERNEL', 'bzImage');
         define('PXE_KERNEL_RAMDISK', 275000);
         define('USE_SLOPPY_NAME_LOOKUPS', true);
-        define('MEMTEST_KERNEL', 'memtest.bin');
+        define('MEMTEST_KERNEL', '{{FOG_MEMTEST_KERNEL}}');
         define('PXE_IMAGE', 'init.xz');
         define('STORAGE_HOST', '{{FOG_STORAGE_HOST}}');
         define('STORAGE_FTP_USERNAME', '{{FOG_USER}}');
@@ -90,8 +95,10 @@ class Config
         define('STORAGE_DATADIR_CAPTURE', '/images/dev');
         define('STORAGE_BANDWIDTHPATH', '{{FOG_WEB_ROOT}}/status/bandwidth.php');
         define('STORAGE_INTERFACE', '{{FOG_MULTICAST_INTERFACE}}');
+        define('STORAGE_DEFAULT_CIDR', '');
         define('CAPTURERESIZEPCT', 7);
         define('WEB_HOST', '{{FOG_WEB_HOST}}');
+        define('WEB_ROOT', '{{FOG_WEB_ROOT}}');
         define('WOL_HOST', '{{FOG_WOL_HOST}}');
         define('WOL_PATH', '{{FOG_WEB_ROOT}}/wol/wol.php');
         define('WOL_INTERFACE', '{{FOG_MULTICAST_INTERFACE}}');

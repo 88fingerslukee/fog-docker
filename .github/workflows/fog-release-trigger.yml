@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       fog_version:
-        description: 'FOG version to build (e.g., stable, dev-branch, or specific version)'
+        description: 'FOG version to build (stable = latest final + latest RC, or a specific tag/branch)'
         required: false
         default: 'stable'
 
@@ -17,111 +17,159 @@ jobs:
     permissions:
       contents: read
     outputs:
-      new-release: ${{ steps.check.outputs.new-release }}
-      fog-version: ${{ steps.check.outputs.fog-version }}
+      matrix: ${{ steps.check.outputs.matrix }}
+      has-builds: ${{ steps.check.outputs.has-builds }}
     steps:
     - name: Check for new FOG releases
       id: check
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        # Get the latest FOG release
+        set -euo pipefail
+
         if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
           FOG_VERSION="${{ github.event.inputs.fog_version }}"
         else
           FOG_VERSION="stable"
         fi
-        
-        # Get the latest final release tag from FOG repository with error handling.
-        # Current release candidates such as 1.6.0-RC-3 are published as normal
-        # GitHub releases, so the tag name has to be checked as well.
+
+        # Returns 0 if fog-<tag> already exists on this repo.
+        tag_exists() {
+          local version="$1"
+          local fog_docker_tag="fog-${version}"
+          local http_code
+          http_code=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            "https://api.github.com/repos/88fingerslukee/fog-docker/git/ref/tags/${fog_docker_tag}")
+          if [ "$http_code" = "200" ]; then
+            return 0
+          elif [ "$http_code" = "404" ]; then
+            return 1
+          else
+            echo "Warning: GitHub API returned HTTP $http_code when checking tag ${fog_docker_tag}; treating as missing"
+            return 1
+          fi
+        }
+
+        is_rc_version() {
+          echo "$1" | grep -qiE '(^|[^a-z])rc([^a-z]|$)|-rc-|RC-'
+        }
+
+        validate_version() {
+          local version="$1"
+          if [ -z "$version" ] || [ "$version" = "null" ]; then
+            echo "Error: Invalid FOG version: '$version'"
+            exit 1
+          fi
+          if echo "$version" | grep -qE '[^a-zA-Z0-9._-]'; then
+            echo "Error: FOG version contains invalid characters: '$version'"
+            exit 1
+          fi
+        }
+
+        # Append {"fog-version":"...","is-rc":"..."} candidates that are not built yet.
+        CANDIDATES='[]'
+        add_candidate() {
+          local version="$1"
+          local is_rc="$2"
+          validate_version "$version"
+          if tag_exists "$version"; then
+            echo "Already built: fog-${version}"
+            return 0
+          fi
+          echo "Queued build: fog-${version} (is-rc=${is_rc})"
+          CANDIDATES=$(echo "$CANDIDATES" | jq -c \
+            --arg v "$version" --arg rc "$is_rc" \
+            '. + [{"fog-version": $v, "is-rc": $rc}]')
+        }
+
         if [ "$FOG_VERSION" = "stable" ]; then
-          # Fetch with retry logic and error handling
           API_RESPONSE=$(curl -s -w "\n%{http_code}" \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
             "https://api.github.com/repos/FOGProject/fogproject/releases?per_page=100")
           HTTP_CODE=$(echo "$API_RESPONSE" | tail -n1)
           API_BODY=$(echo "$API_RESPONSE" | sed '$d')
-          
+
           if [ "$HTTP_CODE" != "200" ]; then
             echo "Error: GitHub API returned HTTP $HTTP_CODE"
             echo "Response: $API_BODY"
             exit 1
           fi
-          
-          # Validate JSON before parsing
+
           if ! echo "$API_BODY" | jq empty 2>/dev/null; then
             echo "Error: Invalid JSON response from GitHub API"
             echo "Response: $API_BODY"
             exit 1
           fi
-          
-          LATEST_TAG=$(echo "$API_BODY" | jq -r '
+
+          # Final releases only (exclude RC/alpha/beta/preview by tag name too —
+          # FOG currently publishes RCs as normal GitHub releases).
+          FINAL_TAG=$(echo "$API_BODY" | jq -r '
             [
               .[]
-              | select(.draft == false and .prerelease == false)
+              | select(.draft == false)
               | .tag_name
               | select(test("(?i)(rc|alpha|beta|preview)") | not)
             ][0] // empty
           ')
-          
-          if [ -z "$LATEST_TAG" ] || [ "$LATEST_TAG" = "null" ]; then
+
+          # Newest RC only — not alpha/beta/preview.
+          RC_TAG=$(echo "$API_BODY" | jq -r '
+            [
+              .[]
+              | select(.draft == false)
+              | .tag_name
+              | select(test("(?i)rc"))
+              | select(test("(?i)(alpha|beta|preview)") | not)
+            ][0] // empty
+          ')
+
+          if [ -z "$FINAL_TAG" ]; then
             echo "Error: Could not find a final FOG release tag"
-            echo "Response: $API_BODY"
             exit 1
           fi
-        else
-          LATEST_TAG="$FOG_VERSION"
-        fi
-        
-        echo "Checking FOG version: $LATEST_TAG"
-        
-        # Check if we already have this version (lookup exact tag — paginated tag lists miss older entries)
-        FOG_DOCKER_TAG="fog-${LATEST_TAG}"
-        TAG_REF_RESPONSE=$(curl -s -w "\n%{http_code}" \
-          -H "Authorization: Bearer ${GITHUB_TOKEN}" \
-          "https://api.github.com/repos/88fingerslukee/fog-docker/git/ref/tags/${FOG_DOCKER_TAG}")
-        TAG_REF_HTTP_CODE=$(echo "$TAG_REF_RESPONSE" | tail -n1)
 
-        if [ "$TAG_REF_HTTP_CODE" = "200" ]; then
-          EXISTING_TAGS="$FOG_DOCKER_TAG"
-        elif [ "$TAG_REF_HTTP_CODE" = "404" ]; then
-          EXISTING_TAGS=""
+          echo "Latest final FOG release: $FINAL_TAG"
+          add_candidate "$FINAL_TAG" "false"
+
+          if [ -n "$RC_TAG" ]; then
+            echo "Latest FOG RC: $RC_TAG"
+            add_candidate "$RC_TAG" "true"
+          else
+            echo "No FOG RC release found"
+          fi
         else
-          echo "Warning: GitHub API returned HTTP $TAG_REF_HTTP_CODE when checking tag ${FOG_DOCKER_TAG}"
-          echo "Assuming release does not exist"
-          EXISTING_TAGS=""
+          # Manual specific ref/tag/branch.
+          IS_RC="false"
+          if is_rc_version "$FOG_VERSION"; then
+            IS_RC="true"
+          fi
+          add_candidate "$FOG_VERSION" "$IS_RC"
         fi
-        
-        # Validate the tag name before proceeding
-        if [ -z "$LATEST_TAG" ] || [ "$LATEST_TAG" = "null" ] || [ "$LATEST_TAG" = "null\n" ]; then
-          echo "Error: Invalid FOG version detected: '$LATEST_TAG'"
-          echo "Cannot proceed with null or empty version"
-          exit 1
-        fi
-        
-        # Additional validation: ensure tag doesn't contain invalid characters
-        if echo "$LATEST_TAG" | grep -qE '[^a-zA-Z0-9._-]'; then
-          echo "Error: FOG version contains invalid characters: '$LATEST_TAG'"
-          exit 1
-        fi
-        
-        if [ -z "$EXISTING_TAGS" ]; then
-          echo "New FOG release found: $LATEST_TAG"
-          echo "new-release=true" >> $GITHUB_OUTPUT
-          echo "fog-version=$LATEST_TAG" >> $GITHUB_OUTPUT
+
+        # Deduplicate if final and RC somehow collide.
+        CANDIDATES=$(echo "$CANDIDATES" | jq -c 'unique_by(."fog-version")')
+
+        echo "Build matrix: $CANDIDATES"
+        echo "matrix=$CANDIDATES" >> "$GITHUB_OUTPUT"
+
+        if [ "$(echo "$CANDIDATES" | jq 'length')" -gt 0 ]; then
+          echo "has-builds=true" >> "$GITHUB_OUTPUT"
         else
-          echo "FOG version $LATEST_TAG already exists"
-          echo "new-release=false" >> $GITHUB_OUTPUT
-          echo "fog-version=$LATEST_TAG" >> $GITHUB_OUTPUT
+          echo "has-builds=false" >> "$GITHUB_OUTPUT"
         fi
 
   build-and-push:
     needs: check-fog-releases
-    if: needs.check-fog-releases.outputs.new-release == 'true'
+    if: needs.check-fog-releases.outputs.has-builds == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write
       packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.check-fog-releases.outputs.matrix) }}
 
     steps:
     - name: Checkout repository
@@ -169,23 +217,22 @@ jobs:
     - name: Set FOG version
       id: fog-version
       run: |
-        FOG_VERSION="${{ needs.check-fog-releases.outputs.fog-version }}"
-        
-        # Validate version - fail if null or empty (should have been caught earlier, but double-check)
-        if [ -z "$FOG_VERSION" ] || [ "$FOG_VERSION" = "null" ] || [ "$FOG_VERSION" = "null\n" ]; then
+        FOG_VERSION="${{ matrix.fog-version }}"
+        IS_RC="${{ matrix.is-rc }}"
+
+        if [ -z "$FOG_VERSION" ] || [ "$FOG_VERSION" = "null" ]; then
           echo "Error: FOG version is null or empty. Cannot build image."
-          echo "This should not happen if the check step passed validation."
           exit 1
         fi
-        
-        # Validate tag name doesn't contain invalid characters
+
         if echo "$FOG_VERSION" | grep -qE '[^a-zA-Z0-9._-]'; then
           echo "Error: FOG version contains invalid characters: '$FOG_VERSION'"
           exit 1
         fi
-        
-        echo "fog-version=$FOG_VERSION" >> $GITHUB_OUTPUT
-        echo "Building with FOG version: $FOG_VERSION"
+
+        echo "fog-version=$FOG_VERSION" >> "$GITHUB_OUTPUT"
+        echo "is-rc=$IS_RC" >> "$GITHUB_OUTPUT"
+        echo "Building FOG version: $FOG_VERSION (is-rc=$IS_RC)"
 
     - name: Extract metadata
       id: meta
@@ -194,7 +241,7 @@ jobs:
         images: ghcr.io/88fingerslukee/fog-docker
         tags: |
           type=raw,value=fog-${{ steps.fog-version.outputs.fog-version }}
-          type=raw,value=latest,enable={{is_default_branch}}
+          type=raw,value=latest,enable=${{ steps.fog-version.outputs.is-rc != 'true' }}
 
     - name: Build and push Docker image
       uses: docker/build-push-action@v7
@@ -225,16 +272,44 @@ jobs:
           echo "exists=false" >> "$GITHUB_OUTPUT"
         fi
 
-    - name: Create GitHub Release
-      if: steps.release-exists.outputs.exists != 'true'
+    - name: Create GitHub Release (final)
+      if: steps.release-exists.outputs.exists != 'true' && steps.fog-version.outputs.is-rc != 'true'
       uses: softprops/action-gh-release@v2
       with:
         tag_name: fog-${{ steps.fog-version.outputs.fog-version }}
         name: FOG Docker ${{ steps.fog-version.outputs.fog-version }}
+        prerelease: false
         body: |
           Built with FOG Project **${{ steps.fog-version.outputs.fog-version }}**.
 
           **Image:** `ghcr.io/88fingerslukee/fog-docker:fog-${{ steps.fog-version.outputs.fog-version }}` (also tagged `:latest`)
+
+          ## fog-docker changes${{ steps.changelog.outputs.since-tag && format(' (since {0})', steps.changelog.outputs.since-tag) || '' }}
+          ${{ steps.changelog.outputs.notes }}
+
+          ## Upstream changelog
+          See the [FOG Project release](https://github.com/FOGProject/fogproject/releases/tag/${{ steps.fog-version.outputs.fog-version }}) for application-level changes.
+
+          ## Documentation
+          - [Full README](https://github.com/88fingerslukee/fog-docker/blob/main/README.md)
+          - [Configuration Guide](https://github.com/88fingerslukee/fog-docker/blob/main/.env.example)
+          - [Troubleshooting](https://88fingerslukee.github.io/fog-docker/troubleshooting)
+          - [FOG Project Documentation](https://wiki.fogproject.org/)
+        generate_release_notes: false
+
+    - name: Create GitHub Release (RC)
+      if: steps.release-exists.outputs.exists != 'true' && steps.fog-version.outputs.is-rc == 'true'
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: fog-${{ steps.fog-version.outputs.fog-version }}
+        name: FOG Docker ${{ steps.fog-version.outputs.fog-version }} (Release Candidate)
+        prerelease: true
+        body: |
+          Built with FOG Project **${{ steps.fog-version.outputs.fog-version }}** (release candidate).
+
+          **Image:** `ghcr.io/88fingerslukee/fog-docker:fog-${{ steps.fog-version.outputs.fog-version }}`
+
+          This is a **pre-release**. It is **not** tagged as `:latest`. Use the versioned tag above if you want to try this RC.
 
           ## fog-docker changes${{ steps.changelog.outputs.since-tag && format(' (since {0})', steps.changelog.outputs.since-tag) || '' }}
           ${{ steps.changelog.outputs.notes }}

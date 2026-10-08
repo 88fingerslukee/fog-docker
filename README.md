@@ -101,8 +101,9 @@ Ports 111, 2049, and 32767 are still required. Port 32765 is used only by kernel
 
 ## Available Image Tags
 
-- `ghcr.io/88fingerslukee/fog-docker:latest` - Latest stable FOG version
-- `ghcr.io/88fingerslukee/fog-docker:fog-1.5.10` - Specific FOG version
+- `ghcr.io/88fingerslukee/fog-docker:latest` - Latest **final** FOG release
+- `ghcr.io/88fingerslukee/fog-docker:fog-1.5.10.2482` - Specific FOG version
+- `ghcr.io/88fingerslukee/fog-docker:fog-1.6.0-RC-6` - Release candidate (also listed as a GitHub pre-release; **not** tagged `:latest`)
 - `ghcr.io/88fingerslukee/fog-docker:fog-dev-branch` - Development branch
 
 ## Documentation

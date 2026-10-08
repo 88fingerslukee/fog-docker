@@ -218,6 +218,62 @@ stderr_logfile_maxbytes=10MB
 stderr_logfile_backups=5
 environment=TZ="{{TZ}}"
 
+[program:fog-agent-release-sync]
+command=/bin/bash -c 'cd /opt/fog/service/FOGAgentReleaseSync && php FOGAgentReleaseSync'
+user=www-data
+autostart=false
+autorestart=true
+priority=400
+stdout_logfile=/opt/fog/log/fogagentreleasesync.log
+stdout_logfile_maxbytes=10MB
+stdout_logfile_backups=5
+stderr_logfile=/opt/fog/log/fogagentreleasesync_error.log
+stderr_logfile_maxbytes=10MB
+stderr_logfile_backups=5
+environment=TZ="{{TZ}}"
+
+[program:fog-file-deleter]
+command=/bin/bash -c 'cd /opt/fog/service/FOGFileDeleter && php FOGFileDeleter'
+user=www-data
+autostart=false
+autorestart=true
+priority=400
+stdout_logfile=/opt/fog/log/fogfiledeleter.log
+stdout_logfile_maxbytes=10MB
+stdout_logfile_backups=5
+stderr_logfile=/opt/fog/log/fogfiledeleter_error.log
+stderr_logfile_maxbytes=10MB
+stderr_logfile_backups=5
+environment=TZ="{{TZ}}"
+
+[program:fog-plugin-runner]
+command=/bin/bash -c 'cd /opt/fog/service/FOGPluginRunner && php FOGPluginRunner'
+user=www-data
+autostart=false
+autorestart=true
+priority=400
+stdout_logfile=/opt/fog/log/fogpluginrunner.log
+stdout_logfile_maxbytes=10MB
+stdout_logfile_backups=5
+stderr_logfile=/opt/fog/log/fogpluginrunner_error.log
+stderr_logfile_maxbytes=10MB
+stderr_logfile_backups=5
+environment=TZ="{{TZ}}"
+
+[program:fog-retention-runner]
+command=/bin/bash -c 'cd /opt/fog/service/FOGRetentionRunner && php FOGRetentionRunner'
+user=www-data
+autostart=false
+autorestart=true
+priority=400
+stdout_logfile=/opt/fog/log/fogretentionrunner.log
+stdout_logfile_maxbytes=10MB
+stdout_logfile_backups=5
+stderr_logfile=/opt/fog/log/fogretentionrunner_error.log
+stderr_logfile_maxbytes=10MB
+stderr_logfile_backups=5
+environment=TZ="{{TZ}}"
+
 [program:isc-dhcp-server]
 command=/usr/sbin/dhcpd -f -d -cf /etc/dhcp/dhcpd.conf
 user=root
