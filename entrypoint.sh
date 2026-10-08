@@ -190,8 +190,10 @@ prepareDirectories() {
     # Set proper ownership
     chown -R www-data:www-data /var/www/html/fog
     
-    # Set proper permissions for FOG services to write to log directory
-    chown -R www-data:www-data /opt/fog/log/
+    # FOG 1.6 runtime dirs under FOG_BASE_DIR (/opt/fog): sessions, cache, external plugins.
+    mkdir -p /opt/fog/sessions /opt/fog/cache /opt/fog/plugins /opt/fog/log
+    chown -R www-data:www-data /opt/fog/sessions /opt/fog/cache /opt/fog/plugins /opt/fog/log
+    chmod 775 /opt/fog/sessions /opt/fog/cache /opt/fog/plugins /opt/fog/log
     
     # Ensure /images directory exists
     mkdir -p /images

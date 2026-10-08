@@ -253,6 +253,9 @@ RUN mkdir -p \
     /opt/fog/snapins \
     /opt/fog/snapins/ssl \
     /opt/fog/log \
+    /opt/fog/sessions \
+    /opt/fog/cache \
+    /opt/fog/plugins \
     /opt/fog/service \
     /opt/fog/service/etc \
     /opt/fog/secure-boot \
