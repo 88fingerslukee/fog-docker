@@ -50,6 +50,9 @@ RUN apt-get -q update && \
 RUN useradd -d /home/fog -m fog -u 1000 && \
     echo 'fog ALL=(ALL:ALL) NOPASSWD:ALL' >> /etc/sudoers
 
+# Shared helper: extract FOG define() pins without brittle single-quote grep.
+COPY scripts/extract-fog-define.py /usr/local/bin/extract-fog-define.py
+
 USER fog
 WORKDIR /home/fog
 
@@ -83,7 +86,7 @@ RUN SYSTEM_FILE="" && \
     fi && \
     echo "Using FOG system file: $SYSTEM_FILE" && \
     if [ ! -f packages/tftp/undionly.kkpxe ]; then \
-        IPXE_VER=$(grep -o "define('FOG_IPXE_VERSION', '[^']*')" "$SYSTEM_FILE" | cut -d"'" -f4) && \
+        IPXE_VER=$(python3 /usr/local/bin/extract-fog-define.py "$SYSTEM_FILE" FOG_IPXE_VERSION) && \
         if [ -z "$IPXE_VER" ]; then \
             echo "ERROR: iPXE binaries are missing and FOG_IPXE_VERSION is unset in $SYSTEM_FILE"; \
             exit 1; \
@@ -107,7 +110,7 @@ RUN SYSTEM_FILE="" && \
         test -f packages/tftp/undionly.kkpxe; \
     fi && \
     # FOG 1.6+ ships plugins from FOGProject/fog-plugins (ADR 0009), not in-tree.
-    PLUGINS_VER=$(grep -o "define('FOG_PLUGINS_VERSION', '[^']*')" "$SYSTEM_FILE" | cut -d"'" -f4 || true) && \
+    PLUGINS_VER=$(python3 /usr/local/bin/extract-fog-define.py "$SYSTEM_FILE" FOG_PLUGINS_VERSION || true) && \
     if [ -n "$PLUGINS_VER" ]; then \
         echo "Downloading FOG plugins ${PLUGINS_VER}" && \
         tmpdir=$(mktemp -d) && \
@@ -286,37 +289,53 @@ RUN if [ -f "/usr/lib/shim/shimx64.efi" ]; then \
         cp /usr/lib/shim/mmx64.efi /opt/fog/secure-boot/shim/mmx64.efi; \
     fi
 
-# Copy FOG web files
-RUN if [ -d "/opt/fog/fogproject/packages/web" ]; then \
-        cp -r /opt/fog/fogproject/packages/web/* /var/www/html/fog/; \
-    else \
-        echo "Warning: FOG web directory not found"; \
-    fi
-
-# Copy TFTP files
-RUN if [ -d "/opt/fog/fogproject/packages/tftp" ]; then \
-        cp -a /opt/fog/fogproject/packages/tftp/. /tftpboot/; \
-    else \
-        echo "Warning: FOG TFTP directory not found"; \
-    fi
-
-# Keep a bundled copy for entrypoint to repopulate host-mounted /tftpboot volumes
-RUN mkdir -p /opt/fog/bundled-tftpboot && \
-    cp -a /tftpboot/. /opt/fog/bundled-tftpboot/
-
-# Copy snapins
-RUN if [ -d "/opt/fog/fogproject/packages/snapins" ]; then \
+# Copy FOG web / TFTP / service trees and require key artifacts on disk.
+# Soft "Warning: not found" used to let incomplete images ship successfully.
+RUN set -eu; \
+    if [ ! -d "/opt/fog/fogproject/packages/web" ]; then \
+        echo "ERROR: FOG web directory not found at /opt/fog/fogproject/packages/web"; \
+        exit 1; \
+    fi && \
+    cp -r /opt/fog/fogproject/packages/web/* /var/www/html/fog/ && \
+    if [ ! -f /var/www/html/fog/index.php ]; then \
+        echo "ERROR: /var/www/html/fog/index.php missing after web copy"; \
+        exit 1; \
+    fi && \
+    if [ ! -f /var/www/html/fog/src/Base/System.php ] && \
+       [ ! -f /var/www/html/fog/lib/fog/system.class.php ]; then \
+        echo "ERROR: FOG system file missing after web copy (System.php or system.class.php)"; \
+        exit 1; \
+    fi && \
+    if [ ! -d "/opt/fog/fogproject/packages/tftp" ]; then \
+        echo "ERROR: FOG TFTP directory not found at /opt/fog/fogproject/packages/tftp"; \
+        exit 1; \
+    fi && \
+    cp -a /opt/fog/fogproject/packages/tftp/. /tftpboot/ && \
+    for boot_file in undionly.kkpxe undionly.kpxe ipxe.efi snponly.efi; do \
+        if [ ! -f "/tftpboot/${boot_file}" ]; then \
+            echo "ERROR: required TFTP boot file missing after copy: ${boot_file}"; \
+            exit 1; \
+        fi; \
+    done && \
+    mkdir -p /opt/fog/bundled-tftpboot && \
+    cp -a /tftpboot/. /opt/fog/bundled-tftpboot/ && \
+    if [ -d "/opt/fog/fogproject/packages/snapins" ]; then \
         cp -r /opt/fog/fogproject/packages/snapins/* /opt/fog/snapins/; \
     else \
-        echo "Warning: FOG snapins directory not found"; \
-    fi
-
-# Copy FOG service files to expected location
-RUN if [ -d "/opt/fog/fogproject/packages/service" ]; then \
-        cp -r /opt/fog/fogproject/packages/service/* /opt/fog/service/; \
-    else \
-        echo "Warning: FOG service directory not found"; \
-    fi
+        echo "Note: FOG snapins directory not present in this FOG tree"; \
+    fi && \
+    if [ ! -d "/opt/fog/fogproject/packages/service" ]; then \
+        echo "ERROR: FOG service directory not found at /opt/fog/fogproject/packages/service"; \
+        exit 1; \
+    fi && \
+    cp -r /opt/fog/fogproject/packages/service/* /opt/fog/service/ && \
+    for svc in FOGMulticastManager FOGImageReplicator FOGTaskScheduler; do \
+        if [ ! -d "/opt/fog/service/${svc}" ]; then \
+            echo "ERROR: required FOG service missing after copy: ${svc}"; \
+            exit 1; \
+        fi; \
+    done && \
+    echo "FOG web / TFTP / service artifacts verified"
 
 
 # Set up Apache modules
@@ -332,6 +351,8 @@ COPY templates/ /opt/fog/templates/
 # Copy entrypoint and scripts
 COPY entrypoint.sh /sbin/entrypoint.sh
 COPY scripts/ /opt/fog/scripts/
+COPY scripts/extract-fog-define.py /usr/local/bin/extract-fog-define.py
+
 
 # Remove configuration files that will be generated at runtime
 RUN rm -f /etc/apache2/sites-available/*.conf \
@@ -343,18 +364,30 @@ RUN rm -f /etc/apache2/sites-available/*.conf \
           /etc/exports \
           /etc/dhcp/dhcpd.conf
 
-# Download FOG kernel files directly to iPXE directory
-RUN cd /var/www/html/fog/service/ipxe && \
-    # Download kernel files from FOG releases (with error handling)
-    (curl -L -o bzImage https://github.com/FOGProject/fos/releases/latest/download/bzImage || echo "bzImage download failed") && \
-    (curl -L -o bzImage32 https://github.com/FOGProject/fos/releases/latest/download/bzImage32 || echo "bzImage32 download failed") && \
-    (curl -L -o init.xz https://github.com/FOGProject/fos/releases/latest/download/init.xz || echo "init.xz download failed") && \
-    (curl -L -o init_32.xz https://github.com/FOGProject/fos/releases/latest/download/init_32.xz || echo "init_32.xz download failed") && \
-    (curl -L -o arm_Image https://github.com/FOGProject/fos/releases/latest/download/arm_Image || echo "arm_Image download failed") && \
-    (curl -L -o arm_init.cpio.gz https://github.com/FOGProject/fos/releases/latest/download/arm_init.cpio.gz || echo "arm_init.cpio.gz download failed")
+# Download FOG OS kernels. Fail the build if any required artifact is missing/empty.
+RUN set -eu; \
+    cd /var/www/html/fog/service/ipxe && \
+    base="https://github.com/FOGProject/fos/releases/latest/download" && \
+    require_file() { \
+        name="$1"; min_bytes="$2"; \
+        curl -fL -o "$name" "${base}/${name}"; \
+        size=$(wc -c < "$name"); \
+        if [ "$size" -lt "$min_bytes" ]; then \
+            echo "ERROR: ${name} is too small (${size} bytes; expected >= ${min_bytes})"; \
+            exit 1; \
+        fi; \
+        echo "✓ ${name} (${size} bytes)"; \
+    } && \
+    require_file bzImage 100000 && \
+    require_file bzImage32 100000 && \
+    require_file init.xz 100000 && \
+    require_file init_32.xz 100000 && \
+    require_file arm_Image 100000 && \
+    require_file arm_init.cpio.gz 10000
 
-# Download FOG client files to client directory
-RUN SYSTEM_FILE="" && \
+# Download FOG client files. MSI + SmartInstaller are required; FogPrep/FOGCrypt optional.
+RUN set -eu; \
+    SYSTEM_FILE="" && \
     for f in /var/www/html/fog/src/Base/System.php /var/www/html/fog/lib/fog/system.class.php; do \
         if [ -f "$f" ]; then SYSTEM_FILE="$f"; break; fi; \
     done && \
@@ -362,19 +395,43 @@ RUN SYSTEM_FILE="" && \
         echo "ERROR: FOG system file not found for client version pin"; \
         exit 1; \
     fi && \
-    cd /var/www/html/fog/client && \
-    CLIENT_VERSION=$(grep -o "define('FOG_CLIENT_VERSION', '[^']*')" "$SYSTEM_FILE" | cut -d"'" -f4) && \
+    CLIENT_VERSION=$(python3 /usr/local/bin/extract-fog-define.py "$SYSTEM_FILE" FOG_CLIENT_VERSION) && \
     if [ -z "$CLIENT_VERSION" ]; then \
         echo "ERROR: FOG_CLIENT_VERSION unset in $SYSTEM_FILE"; \
         exit 1; \
     fi && \
     echo "Downloading FOG client version: $CLIENT_VERSION" && \
-    (curl -fL -o FOGService.msi "https://github.com/FOGProject/fog-client/releases/download/${CLIENT_VERSION}/FOGService.msi" || echo "FOGService.msi download failed") && \
-    (curl -fL -o SmartInstaller.exe "https://github.com/FOGProject/fog-client/releases/download/${CLIENT_VERSION}/SmartInstaller.exe" || echo "SmartInstaller.exe download failed") && \
-    (curl -fL -o FogPrep.zip "https://github.com/FOGProject/fog-client/releases/download/${CLIENT_VERSION}/FogPrep.zip" || echo "FogPrep.zip not available") && \
-    (curl -fL -o FOGCrypt.zip "https://github.com/FOGProject/fog-client/releases/download/${CLIENT_VERSION}/FOGCrypt.zip" || echo "FOGCrypt.zip not available") && \
-    chown www-data:www-data *.msi *.exe *.zip 2>/dev/null || true && \
-    chmod 644 *.msi *.exe *.zip 2>/dev/null || true
+    cd /var/www/html/fog/client && \
+    base="https://github.com/FOGProject/fog-client/releases/download/${CLIENT_VERSION}" && \
+    curl -fL -o FOGService.msi "${base}/FOGService.msi" && \
+    curl -fL -o SmartInstaller.exe "${base}/SmartInstaller.exe" && \
+    size_msi=$(wc -c < FOGService.msi) && \
+    size_smart=$(wc -c < SmartInstaller.exe) && \
+    if [ "$size_msi" -lt 100000 ] || [ "$size_smart" -lt 10000 ]; then \
+        echo "ERROR: FOG client artifacts too small (msi=${size_msi}, smart=${size_smart})"; \
+        exit 1; \
+    fi && \
+    if curl -fL -o FogPrep.zip "${base}/FogPrep.zip"; then \
+        echo "✓ FogPrep.zip"; \
+    else \
+        echo "Note: FogPrep.zip not available for ${CLIENT_VERSION}"; \
+        rm -f FogPrep.zip; \
+    fi && \
+    if curl -fL -o FOGCrypt.zip "${base}/FOGCrypt.zip"; then \
+        echo "✓ FOGCrypt.zip"; \
+    else \
+        echo "Note: FOGCrypt.zip not available for ${CLIENT_VERSION}"; \
+        rm -f FOGCrypt.zip; \
+    fi && \
+    chown www-data:www-data FOGService.msi SmartInstaller.exe && \
+    chmod 644 FOGService.msi SmartInstaller.exe && \
+    for optional in FogPrep.zip FOGCrypt.zip; do \
+        if [ -f "$optional" ]; then \
+            chown www-data:www-data "$optional"; \
+            chmod 644 "$optional"; \
+        fi; \
+    done && \
+    echo "✓ FOGService.msi (${size_msi} bytes) SmartInstaller.exe (${size_smart} bytes)"
 
 # Set all permissions and ownership after all copy operations are complete
 RUN chmod +x /sbin/entrypoint.sh && \

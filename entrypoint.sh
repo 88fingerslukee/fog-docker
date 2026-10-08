@@ -1061,7 +1061,9 @@ getExpectedFOGSchema() {
         echo ""
         return 1
     fi
-    sed -n "s/.*define('FOG_SCHEMA', *\([0-9][0-9]*\).*/\1/p" "$FOG_SYSTEM_FILE" | head -1
+    python3 /usr/local/bin/extract-fog-define.py "$FOG_SYSTEM_FILE" FOG_SCHEMA 2>/dev/null || \
+        python3 /opt/fog/scripts/extract-fog-define.py "$FOG_SYSTEM_FILE" FOG_SCHEMA 2>/dev/null || \
+        true
 }
 
 # Current schemaVersion in the database (0 if missing / unreachable).
