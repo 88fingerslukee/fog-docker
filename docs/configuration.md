@@ -210,6 +210,8 @@ FOG_DHCP_BOOTFILE_UEFI=ipxe.efi
 
 **Note:** This scenario is less common and requires careful network configuration to avoid conflicts with existing DHCP servers.
 
+**Docker:** Default bridge networking does not deliver LAN DHCP broadcasts to the container. For internal DHCP, follow **[Internal DHCP in Docker](internal-dhcp-docker.md)** and uncomment the marked sections in `docker-compose.yml`.
+
 ## Environment Variables Reference
 
 ### Core Configuration

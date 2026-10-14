@@ -34,6 +34,8 @@ navigation:
         url: /external-database
       - title: DHCP Integration
         url: /dhcp-integration
+      - title: Internal DHCP in Docker
+        url: /internal-dhcp-docker
   - title: Reference
     children:
       - title: Environment Variables

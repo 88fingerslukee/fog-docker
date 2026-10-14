@@ -31,6 +31,8 @@ Configure your existing DHCP server with these options:
 
 ### For FOG's Built-in DHCP
 
+**Docker users:** see **[Internal DHCP in Docker](internal-dhcp-docker.md)** before enabling this. Default Compose bridge mode will not answer LAN DHCP requests without host networking (or macvlan).
+
 Enable FOG's DHCP server in your `.env` file:
 
 ```bash

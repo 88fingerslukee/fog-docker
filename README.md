@@ -122,6 +122,7 @@ Our comprehensive documentation covers:
 - **[Reverse Proxy Setup](https://88fingerslukee.github.io/fog-docker/reverse-proxy)** - Deploy behind Traefik, Nginx, Apache, or Caddy
 - **[Network Boot Setup](https://88fingerslukee.github.io/fog-docker/network-boot)** - PXE and HTTPBoot configuration
 - **[DHCP Integration](https://88fingerslukee.github.io/fog-docker/dhcp-integration)** - Integrate with existing DHCP servers
+- **[Internal DHCP in Docker](https://88fingerslukee.github.io/fog-docker/internal-dhcp-docker)** - Built-in DHCP with Docker (standalone PXE)
 
 ### Migration & Integration
 - **[Migration from Bare Metal](https://88fingerslukee.github.io/fog-docker/migration-bare-metal)** - Migrate existing FOG installations
