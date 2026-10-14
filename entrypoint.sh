@@ -264,6 +264,16 @@ prepareDirectories() {
     mkdir -p /opt/fog/sessions /opt/fog/cache /opt/fog/plugins /opt/fog/log
     chown -R www-data:www-data /opt/fog/sessions /opt/fog/cache /opt/fog/plugins /opt/fog/log
     chmod 775 /opt/fog/sessions /opt/fog/cache /opt/fog/plugins /opt/fog/log
+
+    # FOG 1.6 Log Viewer lists files under /var/log/fog (FOGLogPaths::directories).
+    # Upstream symlinks that path to the service log dir; we keep writes on the
+    # /opt/fog/log volume and expose the same layout here.
+    mkdir -p /var/log
+    if [ -e /var/log/fog ] && [ ! -L /var/log/fog ]; then
+        echo "⚠️  WARNING: /var/log/fog exists and is not a symlink; Log Viewer may not show /opt/fog/log"
+    else
+        ln -sfn /opt/fog/log /var/log/fog
+    fi
     
     # Ensure /images directory exists
     mkdir -p /images
