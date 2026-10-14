@@ -943,15 +943,14 @@ configureSecureBoot() {
             echo "✓ Secure Boot keys already exist"
         fi
         
-        # Run Secure Boot setup
         echo "Running Secure Boot setup..."
         if ! /opt/fog/scripts/setup-secure-boot.sh; then
             echo "⚠️  WARNING: Secure Boot setup failed, continuing without Secure Boot"
-            echo "   This may be due to missing dependencies or permission issues"
+            echo "   This may be due to missing fog-ipxe-secureboot assets, kernel signing, or kit publish"
             echo "   Clients will need to disable Secure Boot or use legacy boot mode"
             return 0
         fi
-        
+
         echo "✓ Secure Boot configuration completed successfully"
     else
         echo "Secure Boot disabled, skipping configuration."
@@ -962,7 +961,7 @@ checkSecureBootRequirements() {
     echo "Checking Secure Boot requirements..."
     
     # Check required tools
-    local required_tools=("openssl" "sbsign" "mkfs.fat" "dd")
+    local required_tools=("openssl" "sbsign" "sbverify")
     local missing_tools=()
     
     for tool in "${required_tools[@]}"; do
@@ -976,10 +975,13 @@ checkSecureBootRequirements() {
         return 1
     fi
     
-    # Check shim binaries
-    if [ ! -f "/opt/fog/secure-boot/shim/shimx64.efi" ] || [ ! -f "/opt/fog/secure-boot/shim/mmx64.efi" ]; then
-        echo "   ❌ Shim binaries not found"
+    # Signed PXE chain (build-time fog-ipxe-secureboot) or Debian MokManager fallback
+    if [ ! -f "/tftpboot/secureboot/mmx64.efi" ] && [ ! -f "/opt/fog/secure-boot/shim/mmx64.efi" ]; then
+        echo "   ❌ Secure Boot MokManager (mmx64.efi) not found under /tftpboot/secureboot or shim dir"
         return 1
+    fi
+    if [ ! -f "/tftpboot/secureboot/snponly-shimx64.efi" ]; then
+        echo "   ⚠️  /tftpboot/secureboot/snponly-shimx64.efi missing (Secure Boot PXE chain incomplete)"
     fi
     
     # Check entropy availability

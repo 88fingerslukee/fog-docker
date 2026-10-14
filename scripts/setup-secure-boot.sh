@@ -1,179 +1,175 @@
 #!/bin/bash
-
-# FOG Docker Secure Boot Setup Script
 #
-# This script sets up Secure Boot functionality for FOG Docker containers.
-# It handles iPXE signing, MOK Manager setup, and provides graceful degradation
-# if Secure Boot components are not available or fail to initialize.
+# FOG 1.6 Secure Boot setup for fog-docker (single entrypoint):
+#   1. Verify signed PXE chain on TFTP
+#   2. Sign FOS kernels / Memtest (flat PKI — same cert as MOK.der)
+#   3. Publish enrollment kit under /fog/service/secureboot/
 #
-# Features:
-# - Signs iPXE binaries with MOK certificates
-# - Sets up MOK Manager for key enrollment
-# - Provides graceful degradation on failure
-# - Comprehensive error handling and logging
-# - USB-based MOK enrollment instructions
-#
-# Environment Variables:
-# - FOG_SECURE_BOOT_ENABLED: Enable/disable Secure Boot (default: false)
-# - FOG_SECURE_BOOT_KEYS_DIR: Directory for private keys (default: /opt/fog/secure-boot/keys)
-# - FOG_SECURE_BOOT_CERT_DIR: Directory for certificates (default: /opt/fog/secure-boot/certs)
-#
-# Usage: setup-secure-boot.sh
-#
-# Author: FOG Docker Project
-# License: GPL v3
-# Based on: FOG Project (https://github.com/FOGProject/fogproject)
+# Key generation is separate: generate-keys.sh (run once when keys are absent).
 
-set -e
+set -euo pipefail
 
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
-
-# Logging functions
-log_info() {
-    echo -e "${GREEN}[INFO]${NC} $1"
-}
-
-log_warn() {
-    echo -e "${YELLOW}[WARN]${NC} $1"
-}
-
-log_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
-}
-
-# Use environment variables or defaults
 KEYS_DIR="${FOG_SECURE_BOOT_KEYS_DIR:-/opt/fog/secure-boot/keys}"
 CERT_DIR="${FOG_SECURE_BOOT_CERT_DIR:-/opt/fog/secure-boot/certs}"
 SHIM_DIR="${FOG_SECURE_BOOT_SHIM_DIR:-/opt/fog/secure-boot/shim}"
 TFTP_DIR="${FOG_TFTP_DIR:-/tftpboot}"
+FOG_SRC_DIR="${FOG_SRC_DIR:-/opt/fog/src}"
+IPXE_DIR="${FOG_IPXE_SERVICE_DIR:-/var/www/html/fog/service/ipxe}"
+WEB_FOG="${FOG_WEB_DOCROOT:-/var/www/html/fog}"
+SB_DIR="${TFTP_DIR}/secureboot"
+KITDIR="${WEB_FOG}/service/secureboot"
 
-log_info "Setting up Secure Boot..."
+log_info() { echo "[INFO] $*"; }
+log_warn() { echo "[WARN] $*"; }
+log_error() { echo "[ERROR] $*" >&2; }
 
-# Copy shim and MOK manager to TFTP directory
-log_info "Copying shim and MOK manager..."
-if [ ! -f "$SHIM_DIR/shimx64.efi" ]; then
-    log_error "Shim binary not found: $SHIM_DIR/shimx64.efi"
-    exit 1
-fi
-if [ ! -f "$SHIM_DIR/mmx64.efi" ]; then
-    log_error "MOK manager binary not found: $SHIM_DIR/mmx64.efi"
-    exit 1
-fi
-
-cp "$SHIM_DIR/shimx64.efi" "$TFTP_DIR/BOOTX64.efi"
-cp "$SHIM_DIR/mmx64.efi" "$TFTP_DIR/mmx64.efi"
-log_info "✓ Shim and MOK manager copied successfully"
-
-# Sign all EFI binaries in TFTP directory
-log_info "Signing EFI binaries..."
-if [ ! -f "$KEYS_DIR/fog.key" ]; then
-    log_error "Private key not found: $KEYS_DIR/fog.key"
-    exit 1
-fi
-if [ ! -f "$CERT_DIR/fog.crt" ]; then
-    log_error "Certificate not found: $CERT_DIR/fog.crt"
-    exit 1
-fi
-
-for efi_file in "$TFTP_DIR"/*.efi; do
-    if [ -f "$efi_file" ]; then
-        log_info "Signing: $(basename "$efi_file")"
-        if ! sbsign --key "$KEYS_DIR/fog.key" --cert "$CERT_DIR/fog.crt" --output "$efi_file.signed" "$efi_file"; then
-            log_error "Failed to sign: $(basename "$efi_file")"
-            exit 1
-        fi
-        mv "$efi_file.signed" "$efi_file"
+check_pxe_chain() {
+    log_info "Checking Secure Boot PXE chain..."
+    if [[ ! -d "$SB_DIR" ]]; then
+        mkdir -p "$SB_DIR"
     fi
-done
-log_info "✓ All EFI binaries signed successfully"
+    if [[ ! -f "${SB_DIR}/mmx64.efi" && -f "${SHIM_DIR}/mmx64.efi" ]]; then
+        log_warn "Copying MokManager into ${SB_DIR} from ${SHIM_DIR}"
+        cp -f "${SHIM_DIR}/mmx64.efi" "${SB_DIR}/"
+    fi
+    if [[ ! -f "${SB_DIR}/snponly-shimx64.efi" ]]; then
+        log_warn "Missing ${SB_DIR}/snponly-shimx64.efi — image build may not have fetched fog-ipxe-secureboot assets."
+        log_warn "UEFI Secure Boot clients need DHCP option 67 pointing at secureboot/snponly-shimx64.efi"
+    else
+        log_info "Signed PXE chain present (secureboot/snponly-shimx64.efi)"
+    fi
+    if [[ ! -f "${SB_DIR}/mmx64.efi" ]]; then
+        log_error "MokManager (mmx64.efi) not found under ${SB_DIR}"
+        return 1
+    fi
+    chown -R www-data:www-data "$TFTP_DIR" 2>/dev/null || true
+    return 0
+}
 
-# Create grubx64.efi from ipxe.efi for shim compatibility
-if [ -f "$TFTP_DIR/ipxe.efi" ]; then
-    log_info "Creating grubx64.efi from ipxe.efi..."
-    cp "$TFTP_DIR/ipxe.efi" "$TFTP_DIR/grubx64.efi"
-    log_info "✓ grubx64.efi created successfully"
-fi
+sign_fos_kernels() {
+    local key_file="${KEYS_DIR}/fog.key"
+    local cert_pem="${CERT_DIR}/fog.crt"
+    local failed=0
 
-# Create FAT32 image for MOK certificate
-log_info "Creating FAT32 image for MOK certificate..."
-MOK_IMG="${FOG_SECURE_BOOT_MOK_IMG:-/opt/fog/secure-boot/mok-certs.img}"
+    if [[ ! -f "$key_file" || ! -f "$cert_pem" ]]; then
+        log_error "Signing key or certificate missing under ${KEYS_DIR} / ${CERT_DIR}"
+        return 1
+    fi
+    if ! command -v sbsign >/dev/null 2>&1 || ! command -v sbverify >/dev/null 2>&1; then
+        log_warn "sbsign/sbverify not available; kernels will remain unsigned"
+        return 1
+    fi
+    if ! openssl x509 -in "$cert_pem" -inform pem -noout >/dev/null 2>&1; then
+        log_error "Certificate is not valid PEM: ${cert_pem}"
+        return 1
+    fi
 
-if ! dd if=/dev/zero of="$MOK_IMG" bs=1M count=10 2>/dev/null; then
-    log_error "Failed to create FAT32 image"
-    exit 1
-fi
+    log_info "Signing FOS kernels for Secure Boot..."
+    sign_one() {
+        local kpath="$1"
+        [[ -f "$kpath" ]] || return 0
+        if sbverify --cert "$cert_pem" "$kpath" >/dev/null 2>&1; then
+            log_info "Already signed: $(basename "$kpath")"
+            return 0
+        fi
+        cp -af "$kpath" "${kpath}.unsigned"
+        if sbsign --key "$key_file" --cert "$cert_pem" \
+            --output "$kpath" "${kpath}.unsigned" >/dev/null 2>&1; then
+            chown www-data:www-data "$kpath" 2>/dev/null || true
+            log_info "Signed: $(basename "$kpath")"
+        else
+            log_error "Failed to sign: $(basename "$kpath")"
+            failed=1
+        fi
+    }
+    local kernel
+    for kernel in bzImage bzImage32 arm_Image mt86plus_x86_64 mt86plus_i586; do
+        sign_one "${IPXE_DIR}/${kernel}"
+    done
+    [[ $failed -eq 0 ]]
+}
 
-if ! mkfs.fat -F 32 "$MOK_IMG" >/dev/null 2>&1; then
-    log_error "Failed to format FAT32 image"
-    rm -f "$MOK_IMG"
-    exit 1
-fi
+publish_enrollment_kit() {
+    local enroll_cert="${CERT_DIR}/fog.crt"
+    local mmsrc="${TFTP_DIR}/secureboot"
 
-# Mount the image and copy MOK certificate
-MOK_MOUNT="/mnt/mok"
-mkdir -p "$MOK_MOUNT"
+    if [[ ! -f "$enroll_cert" ]]; then
+        log_error "Enrollment certificate not found: $enroll_cert"
+        return 1
+    fi
 
-if ! mount -o loop "$MOK_IMG" "$MOK_MOUNT" 2>/dev/null; then
-    log_error "Failed to mount FAT32 image"
-    rm -f "$MOK_IMG"
-    rmdir "$MOK_MOUNT"
-    exit 1
-fi
+    log_info "Publishing Secure Boot enrollment kit to ${KITDIR}..."
+    rm -rf "$KITDIR"
+    mkdir -p "$KITDIR"
 
-# Copy MOK certificate
-if [ ! -f "$CERT_DIR/fog.mok.crt" ]; then
-    log_error "MOK certificate not found: $CERT_DIR/fog.mok.crt"
-    umount "$MOK_MOUNT"
-    rmdir "$MOK_MOUNT"
-    exit 1
-fi
+    if [[ -f "${CERT_DIR}/fog.der" ]]; then
+        cp -f "${CERT_DIR}/fog.der" "${KITDIR}/MOK.der"
+    elif openssl x509 -in "$enroll_cert" -inform pem -noout >/dev/null 2>&1; then
+        openssl x509 -in "$enroll_cert" -outform der -out "${KITDIR}/MOK.der"
+    elif openssl x509 -in "$enroll_cert" -inform der -noout >/dev/null 2>&1; then
+        cp -f "$enroll_cert" "${KITDIR}/MOK.der"
+    else
+        log_error "Could not read ${enroll_cert} as a certificate"
+        return 1
+    fi
 
-cp "$CERT_DIR/fog.mok.crt" "$MOK_MOUNT/"
+    if [[ -f "${mmsrc}/mmx64.efi" ]]; then
+        cp -f "${mmsrc}/mmx64.efi" "${KITDIR}/"
+    else
+        log_error "MokManager binary missing: ${mmsrc}/mmx64.efi"
+        return 1
+    fi
 
-# Unmount
-umount "$MOK_MOUNT"
-rmdir "$MOK_MOUNT"
+    if [[ -f "${mmsrc}/arm64-efi/mmaa64.efi" ]]; then
+        mkdir -p "${KITDIR}/arm64-efi"
+        cp -f "${mmsrc}/arm64-efi/mmaa64.efi" "${KITDIR}/arm64-efi/"
+    fi
 
-# Make MOK certificate accessible via TFTP
-log_info "Making MOK certificate accessible via TFTP..."
-cp "$CERT_DIR/fog.mok.crt" "$TFTP_DIR/fog.mok.crt"
-cp "$MOK_IMG" "$TFTP_DIR/mok-certs.img"
+    local pkg="${FOG_SRC_DIR}/packages/secureboot"
+    if [[ -d "$pkg" ]]; then
+        local f
+        for f in fog-enroll-mok.sh fog-enroll-mok.desktop; do
+            [[ -f "${pkg}/${f}" ]] && cp -f "${pkg}/${f}" "${KITDIR}/"
+        done
+    fi
 
-# Also make it accessible via HTTP for web-based enrollment
-WEB_MOK_DIR="/var/www/html/fog/mok"
-mkdir -p "$WEB_MOK_DIR"
-cp "$CERT_DIR/fog.mok.crt" "$WEB_MOK_DIR/fog.mok.crt"
-cp "$MOK_IMG" "$WEB_MOK_DIR/mok-certs.img"
+    echo '<?php header("HTTP/1.1 404 Not Found");' > "${KITDIR}/index.php"
+    chmod 0644 "${KITDIR}/MOK.der" "${KITDIR}/index.php" 2>/dev/null || true
+    [[ -f "${KITDIR}/mmx64.efi" ]] && chmod 0644 "${KITDIR}/mmx64.efi"
+    [[ -f "${KITDIR}/arm64-efi/mmaa64.efi" ]] && chmod 0644 "${KITDIR}/arm64-efi/mmaa64.efi"
+    [[ -f "${KITDIR}/fog-enroll-mok.sh" ]] && chmod 0755 "${KITDIR}/fog-enroll-mok.sh"
+    [[ -f "${KITDIR}/fog-enroll-mok.desktop" ]] && chmod 0644 "${KITDIR}/fog-enroll-mok.desktop"
+    chown -R www-data:www-data "$KITDIR" 2>/dev/null || true
+    log_info "Enrollment kit published (MOK.der + mmx64.efi)"
+}
 
-# Set proper permissions
-chown -R www-data:www-data "$TFTP_DIR"
-chmod -R 755 "$TFTP_DIR"
+print_next_steps() {
+    local web_host="${FOG_WEB_HOST:-your-fog-server}"
+    local proto="${FOG_HTTP_PROTOCOL:-https}"
+    echo ""
+    echo "Secure Boot setup (FOG 1.6 network enrollment):"
+    echo "  1. Point DHCP option 67 (UEFI x64) at: secureboot/snponly-shimx64.efi"
+    echo "     (ARM64: secureboot/arm64-efi/snponly-shimaa64.efi)"
+    echo "  2. PXE boot the client and choose: Enroll Secure Boot Key (MOK attended setup)"
+    echo "  3. In MokManager: Enroll key from disk → select MOK.der (often under iPXE)"
+    echo "  4. Reboot; capture/deploy works with Secure Boot left ON"
+    echo ""
+    echo "Verify enrollment files:"
+    echo "  ${proto}://${web_host}/fog/service/secureboot/MOK.der"
+    echo "  ${proto}://${web_host}/fog/service/secureboot/mmx64.efi"
+    echo ""
+    echo "If MOK.der does not appear in MokManager, use a FAT32 USB stick with MOK.der as fallback."
+    echo ""
+}
 
-log_info "✓ Secure Boot setup completed successfully!"
-echo ""
-echo "Next steps:"
-echo "1. Configure your DHCP server to point to this TFTP server"
-echo "2. Prepare MOK certificate for enrollment:"
-echo "   - Download the FAT32 image: http://$FOG_WEB_HOST/fog/mok/mok-certs.img"
-echo "   - Copy the image to a USB drive (FAT32 formatted)"
-echo "   - OR download the certificate: http://$FOG_WEB_HOST/fog/mok/fog.mok.crt"
-echo "   - Copy the certificate to a USB drive (FAT32 formatted)"
-echo "3. Boot a client machine and enroll the MOK certificate:"
-echo "   - Insert the USB drive with the certificate"
-echo "   - Boot the machine - MOK Manager will appear"
-echo "   - Select 'Enroll MOK' and navigate to the USB drive"
-echo "   - Choose the FOG certificate (fog.mok.crt)"
-echo "   - Confirm enrollment and reboot"
-echo ""
-echo "IMPORTANT: MOK Manager cannot access network shares!"
-echo "The certificate must be on local storage (USB drive) for enrollment."
-echo ""
-echo "MOK certificate locations:"
-echo "  - TFTP: $TFTP_DIR/fog.mok.crt"
-echo "  - HTTP: /var/www/html/fog/mok/fog.mok.crt"
-echo "  - FAT32 Image: $TFTP_DIR/mok-certs.img"
-echo "  - Original Image: $MOK_IMG"
+main() {
+    check_pxe_chain
+    if ! sign_fos_kernels; then
+        log_warn "FOS kernel signing failed or was skipped — Secure Boot clients may fail after iPXE loads the kernel"
+    fi
+    publish_enrollment_kit
+    print_next_steps
+    log_info "Secure Boot setup completed"
+}
+
+main "$@"

@@ -29,6 +29,13 @@ Configure your existing DHCP server with these options:
 - **UEFI 64-bit clients (Arch:00007, 00008, 00009)**: `snponly.efi`
 - **UEFI ARM64 clients (Arch:00011)**: `arm64-efi/snponly.efi`
 
+**UEFI with Secure Boot enabled** (after `FOG_SECURE_BOOT_ENABLED=true` on the server):
+
+- **UEFI 64-bit**: `secureboot/snponly-shimx64.efi`
+- **UEFI ARM64**: `secureboot/arm64-efi/snponly-shimaa64.efi`
+
+See **[Secure Boot](secure-boot.md)** for enrollment and verification.
+
 ### For FOG's Built-in DHCP
 
 **Docker users:** see **[Internal DHCP in Docker](internal-dhcp-docker.md)** before enabling this. Default Compose bridge mode will not answer LAN DHCP requests without host networking (or macvlan).

@@ -119,6 +119,7 @@ Our comprehensive documentation covers:
 
 ### Advanced Topics
 - **[SSL/HTTPS Setup](https://88fingerslukee.github.io/fog-docker/ssl-https)** - SSL certificate configuration
+- **[Secure Boot](https://88fingerslukee.github.io/fog-docker/secure-boot)** - UEFI Secure Boot enrollment (FOG 1.6 PXE flow)
 - **[Reverse Proxy Setup](https://88fingerslukee.github.io/fog-docker/reverse-proxy)** - Deploy behind Traefik, Nginx, Apache, or Caddy
 - **[Network Boot Setup](https://88fingerslukee.github.io/fog-docker/network-boot)** - PXE and HTTPBoot configuration
 - **[DHCP Integration](https://88fingerslukee.github.io/fog-docker/dhcp-integration)** - Integrate with existing DHCP servers

@@ -83,11 +83,13 @@ Complete reference for all FOG Docker environment variables.
 
 | Variable | Description | Example | Default |
 |----------|-------------|---------|---------|
-| `FOG_SECURE_BOOT_ENABLED` | Enable Secure Boot support | `true` | `false` |
+| `FOG_SECURE_BOOT_ENABLED` | Sign FOS kernels and publish FOG 1.6 enrollment kit (`service/secureboot/`) | `true` | `false` |
 | `FOG_SECURE_BOOT_KEYS_DIR` | Secure Boot keys directory | `/opt/fog/secure-boot/keys` | `/opt/fog/secure-boot/keys` |
 | `FOG_SECURE_BOOT_CERT_DIR` | Secure Boot certificates directory | `/opt/fog/secure-boot/certs` | `/opt/fog/secure-boot/certs` |
-| `FOG_SECURE_BOOT_SHIM_DIR` | Secure Boot shim directory | `/opt/fog/secure-boot/shim` | `/opt/fog/secure-boot/shim` |
-| `FOG_SECURE_BOOT_MOK_IMG` | Secure Boot MOK image file | `/opt/fog/secure-boot/mok-certs.img` | `/opt/fog/secure-boot/mok-certs.img` |
+| `FOG_SECURE_BOOT_SHIM_DIR` | Fallback MokManager source if TFTP tree lacks `secureboot/mmx64.efi` | `/opt/fog/secure-boot/shim` | `/opt/fog/secure-boot/shim` |
+| `FOG_SECURE_BOOT_MOK_IMG` | Legacy optional path (unused by default 1.6 PXE enrollment) | `/opt/fog/secure-boot/mok-certs.img` | `/opt/fog/secure-boot/mok-certs.img` |
+
+See **[Secure Boot](secure-boot.md)** for DHCP boot files and PXE enrollment steps.
 
 ## DHCP Configuration
 

@@ -9,6 +9,7 @@
 # Features:
 # - Generates MOK private key and certificate
 # - Creates ESP (EFI System Partition) certificate
+# - fog.crt / fog.der are used to sign FOS kernels and as MOK.der for PXE enrollment
 # - Validates key generation with comprehensive error handling
 # - Supports custom key directories via environment variables
 #
@@ -252,8 +253,6 @@ validate_generated_files() {
         "$KEYS_DIR/fog.key"
         "$CERT_DIR/fog.crt"
         "$CERT_DIR/fog.der"
-        "$CERT_DIR/fog.esp"
-        "$CERT_DIR/fog.esp.signed"
         "$CERT_DIR/fog.mok.crt"
     )
     
@@ -284,8 +283,6 @@ main() {
     generate_private_key
     generate_certificate
     generate_der_certificate
-    generate_esp_certificate
-    sign_esp_certificate
     generate_mok_certificate
     validate_generated_files
     
@@ -295,8 +292,6 @@ main() {
     echo "  Private Key: $KEYS_DIR/fog.key"
     echo "  Certificate: $CERT_DIR/fog.crt"
     echo "  DER Certificate: $CERT_DIR/fog.der"
-    echo "  ESP Certificate: $CERT_DIR/fog.esp"
-    echo "  Signed ESP: $CERT_DIR/fog.esp.signed"
     echo "  MOK Certificate: $CERT_DIR/fog.mok.crt"
 }
 

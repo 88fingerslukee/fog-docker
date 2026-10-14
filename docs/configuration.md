@@ -242,6 +242,11 @@ FOG_DHCP_BOOTFILE_UEFI=ipxe.efi
 - `FOG_FTP_PASV_MIN_PORT` - FTP passive mode minimum port
 - `FOG_FTP_PASV_MAX_PORT` - FTP passive mode maximum port
 
+### Secure Boot
+- `FOG_SECURE_BOOT_ENABLED` - Sign kernels and publish FOG 1.6 PXE enrollment files
+
+Persist the **`/opt/fog/secure-boot`** volume when enabled so keys and enrollments stay valid across rebuilds. Full steps: **[Secure Boot](secure-boot.md)**.
+
 ### SSL Configuration
 - `FOG_INTERNAL_HTTPS_ENABLED` - Enable internal HTTPS
 - `FOG_APACHE_SSL_CERT_FILE` - Apache SSL certificate file
@@ -261,5 +266,6 @@ FOG_DHCP_BOOTFILE_UEFI=ipxe.efi
 After configuration:
 
 1. **[SSL/HTTPS Setup](ssl-https.md)** - Configure SSL certificates (optional)
-2. **[Network Boot Setup](network-boot.md)** - Set up PXE and HTTPBoot
-3. **[Troubleshooting Guide](troubleshooting.md)** - Common issues and solutions
+2. **[Secure Boot](secure-boot.md)** - UEFI Secure Boot enrollment (optional)
+3. **[Network Boot Setup](network-boot.md)** - Set up PXE and HTTPBoot
+4. **[Troubleshooting Guide](troubleshooting.md)** - Common issues and solutions

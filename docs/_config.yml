@@ -24,6 +24,8 @@ navigation:
     children:
       - title: SSL/HTTPS Setup
         url: /ssl-https
+      - title: Secure Boot
+        url: /secure-boot
       - title: Reverse Proxy
         url: /reverse-proxy
   - title: Integration
