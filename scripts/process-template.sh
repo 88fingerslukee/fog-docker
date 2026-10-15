@@ -48,16 +48,14 @@ process_template() {
         sed -i '/{{#FOG_INTERNAL_HTTPS_ENABLED}}/,/{{\/FOG_INTERNAL_HTTPS_ENABLED}}/d' "$temp_file"
     fi
     
-    # Handle FOG_HTTP_PROTOCOL_IS_HTTPS conditional
-    if [[ "$FOG_HTTP_PROTOCOL" = "https" ]]; then
-        echo "  - Enabling HTTPS server variable (FOG_HTTP_PROTOCOL=https)"
-        # Remove conditional markers and keep the content
-        sed -i 's/{{#FOG_HTTP_PROTOCOL_IS_HTTPS}}//g' "$temp_file"
-        sed -i 's/{{\/FOG_HTTP_PROTOCOL_IS_HTTPS}}//g' "$temp_file"
+    # Handle FOG_APACHE_SETENV_HTTPS_ON_HTTP_VHOST conditional (reverse-proxy mode)
+    if [[ "$FOG_APACHE_SETENV_HTTPS_ON_HTTP_VHOST" = "true" ]]; then
+        echo "  - Enabling SetEnv HTTPS on HTTP vhost (reverse-proxy mode)"
+        sed -i 's/{{#FOG_APACHE_SETENV_HTTPS_ON_HTTP_VHOST}}//g' "$temp_file"
+        sed -i 's/{{\/FOG_APACHE_SETENV_HTTPS_ON_HTTP_VHOST}}//g' "$temp_file"
     else
-        echo "  - Disabling HTTPS server variable (FOG_HTTP_PROTOCOL=http)"
-        # Remove the entire conditional block
-        sed -i '/{{#FOG_HTTP_PROTOCOL_IS_HTTPS}}/,/{{\/FOG_HTTP_PROTOCOL_IS_HTTPS}}/d' "$temp_file"
+        echo "  - Omitting SetEnv HTTPS on HTTP vhost"
+        sed -i '/{{#FOG_APACHE_SETENV_HTTPS_ON_HTTP_VHOST}}/,/{{\/FOG_APACHE_SETENV_HTTPS_ON_HTTP_VHOST}}/d' "$temp_file"
     fi
     
     # Handle FOG_WEB_HOST_IS_FQDN conditional
@@ -90,6 +88,9 @@ process_template() {
         "FOG_APACHE_SSL_PORT"
         "FOG_INTERNAL_HTTPS_ENABLED"
         "FOG_HTTP_PROTOCOL"
+        "FOG_WEB_PROTOCOL"
+        "FOG_BOOT_PROTOCOL"
+        "FOG_APACHE_SETENV_HTTPS_ON_HTTP_VHOST"
         "FOG_APACHE_SSL_CERT_FILE"
         "FOG_APACHE_SSL_KEY_FILE"
         "FOG_USER"

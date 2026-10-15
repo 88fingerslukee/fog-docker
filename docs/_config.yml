@@ -22,6 +22,8 @@ navigation:
         url: /network-boot
   - title: SSL & Security
     children:
+      - title: TLS Modes
+        url: /tls-modes
       - title: SSL/HTTPS Setup
         url: /ssl-https
       - title: Secure Boot

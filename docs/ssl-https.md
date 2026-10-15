@@ -8,55 +8,47 @@ permalink: /ssl-https
 
 # SSL/HTTPS Configuration
 
-This guide covers configuring SSL/HTTPS for FOG Docker in various scenarios.
+This guide covers certificate files and mounts. **Start with [TLS Modes](tls-modes.md)** — set `FOG_TLS_MODE` once (`standard`, `reverse-proxy`, `mounted-certs`, etc.) instead of juggling `FOG_HTTP_PROTOCOL` and `FOG_INTERNAL_HTTPS_ENABLED`.
 
 ## Overview
 
-FOG Docker supports multiple SSL configurations to accommodate different deployment scenarios. **Important**: FOG client certificates are always generated automatically for client authentication, regardless of your Apache SSL configuration.
+FOG client certificates are always generated automatically for client authentication, regardless of Apache SSL configuration.
 
-## Configuration Options
+## Configuration by mode
 
-### Option 1: External Certificates (Recommended)
+| Goal | `FOG_TLS_MODE` | Certificate |
+|------|----------------|-------------|
+| Default direct access | `standard` | Auto self-signed in container |
+| Your certs on Apache | `mounted-certs` or `public-cert` | Mount into `/opt/fog/snapins/ssl/` |
+| Traefik / external TLS | `reverse-proxy` | Certs on the proxy, not in container |
+| No TLS | `http-only` | None |
+
+### Mounted certificates
 
 ```bash
-FOG_INTERNAL_HTTPS_ENABLED=true
-FOG_HTTP_PROTOCOL=https
+FOG_TLS_MODE=mounted-certs
 FOG_APACHE_SSL_CERT_FILE=fullchain.pem
 FOG_APACHE_SSL_KEY_FILE=privkey.pem
 ```
 
-Mount your certificates:
 ```bash
-# Add to docker-compose.yml volumes:
+# docker-compose.yml volumes:
 - /path/to/certs:/opt/fog/snapins/ssl:ro
 ```
 
-### Option 2: Self-signed Certificates (default for new installs)
+### Self-signed (default)
 
 ```bash
-FOG_INTERNAL_HTTPS_ENABLED=true
-FOG_HTTP_PROTOCOL=https
+FOG_TLS_MODE=standard
 # FOG_APACHE_SSL_CN defaults to FOG_WEB_HOST if unset
 FOG_APACHE_SSL_SAN=alt1.domain.com,alt2.domain.com
 ```
 
-Browse `https://your-host/fog/management/` and accept the browser certificate warning.
+Browse `https://your-host/fog/management/` and accept the certificate warning. Netboot uses HTTP to `boot.php` (see [TLS Modes](tls-modes.md)).
 
-### Option 3: Reverse Proxy (No SSL in Container)
+### Reverse proxy
 
-**Use only when all web access goes through a reverse proxy that terminates TLS.** Do not browse `http://container-ip:80` directly with this configuration — login will loop. See [Troubleshooting](troubleshooting.md#login-loops-back-to-empty-form-no-error).
-
-```bash
-FOG_INTERNAL_HTTPS_ENABLED=false
-FOG_HTTP_PROTOCOL=https
-```
-
-### Option 4: HTTP Only
-
-```bash
-FOG_INTERNAL_HTTPS_ENABLED=false
-FOG_HTTP_PROTOCOL=http
-```
+See [Reverse Proxy Setup](reverse-proxy.md). Use `FOG_TLS_MODE=reverse-proxy` — do not browse plain HTTP to the container for admin login.
 
 ## FOG Client Certificates
 
@@ -150,8 +142,7 @@ services:
   fog-server:
     image: ghcr.io/88fingerslukee/fog-docker:latest
     environment:
-      - FOG_INTERNAL_HTTPS_ENABLED=${FOG_INTERNAL_HTTPS_ENABLED}
-      - FOG_HTTP_PROTOCOL=${FOG_HTTP_PROTOCOL}
+      - FOG_TLS_MODE=${FOG_TLS_MODE:-mounted-certs}
       - FOG_APACHE_SSL_CERT_FILE=${FOG_APACHE_SSL_CERT_FILE}
       - FOG_APACHE_SSL_KEY_FILE=${FOG_APACHE_SSL_KEY_FILE}
     volumes:
@@ -160,8 +151,7 @@ services:
 
 **Required .env variables:**
 ```bash
-FOG_INTERNAL_HTTPS_ENABLED=true
-FOG_HTTP_PROTOCOL=https
+FOG_TLS_MODE=mounted-certs
 FOG_APACHE_SSL_CERT_FILE=fullchain.pem
 FOG_APACHE_SSL_KEY_FILE=privkey.pem
 ```
@@ -173,16 +163,14 @@ services:
   fog-server:
     image: ghcr.io/88fingerslukee/fog-docker:latest
     environment:
-      - FOG_INTERNAL_HTTPS_ENABLED=${FOG_INTERNAL_HTTPS_ENABLED}
-      - FOG_HTTP_PROTOCOL=${FOG_HTTP_PROTOCOL}
+      - FOG_TLS_MODE=${FOG_TLS_MODE:-standard}
       - FOG_APACHE_SSL_CN=${FOG_APACHE_SSL_CN}
       - FOG_APACHE_SSL_SAN=${FOG_APACHE_SSL_SAN}
 ```
 
 **Required .env variables:**
 ```bash
-FOG_INTERNAL_HTTPS_ENABLED=true
-FOG_HTTP_PROTOCOL=https
+FOG_TLS_MODE=standard
 FOG_APACHE_SSL_CN=fog.example.com
 FOG_APACHE_SSL_SAN=alt1.example.com,alt2.example.com
 ```
@@ -228,7 +216,7 @@ openssl verify -CAfile /path/to/ca.pem /path/to/cert.pem
    - Ensure proper certificate chain
 
 3. **Mixed content warnings**
-   - Set `FOG_HTTP_PROTOCOL=https`
+   - Use an HTTPS TLS mode and browse via `https://` — see [TLS Modes](tls-modes.md)
    - Check for hardcoded HTTP URLs in configuration
 
 4. **FOG client certificate issues**

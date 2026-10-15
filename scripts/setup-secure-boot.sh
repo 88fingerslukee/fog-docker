@@ -145,7 +145,7 @@ publish_enrollment_kit() {
 
 print_next_steps() {
     local web_host="${FOG_WEB_HOST:-your-fog-server}"
-    local proto="${FOG_HTTP_PROTOCOL:-https}"
+    local proto="${FOG_BOOT_PROTOCOL:-${FOG_HTTP_PROTOCOL:-https}}"
     echo ""
     echo "Secure Boot setup (FOG 1.6 network enrollment):"
     echo "  1. Point DHCP option 67 (UEFI x64) at: secureboot/snponly-shimx64.efi"

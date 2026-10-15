@@ -2,11 +2,11 @@
     ServerName {{FOG_WEB_HOST}}
     DocumentRoot /var/www/html/fog
     
-    # Set HTTPS server variable when FOG_HTTP_PROTOCOL=https
-    # This ensures FOG detects HTTPS correctly for boot URL generation
-    {{#FOG_HTTP_PROTOCOL_IS_HTTPS}}
+    # Reverse-proxy mode only: PHP must see HTTPS on the backend HTTP vhost.
+    # Do not set on :80 for standard mode (HTTPS UI on :443, HTTP netboot on :80).
+    {{#FOG_APACHE_SETENV_HTTPS_ON_HTTP_VHOST}}
     SetEnv HTTPS on
-    {{/FOG_HTTP_PROTOCOL_IS_HTTPS}}
+    {{/FOG_APACHE_SETENV_HTTPS_ON_HTTP_VHOST}}
     
     <Directory /var/www/html/fog>
         Options Indexes FollowSymLinks

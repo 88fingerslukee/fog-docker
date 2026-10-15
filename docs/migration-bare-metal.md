@@ -76,8 +76,7 @@ rsync -avz FOG_MIGRATION_DUMP.sql user@docker-host:/path/to/fog-docker/
      fog-server:
        environment:
          - FOG_WEB_HOST=${FOG_WEB_HOST}
-         - FOG_HTTP_PROTOCOL=${FOG_HTTP_PROTOCOL}
-         - FOG_INTERNAL_HTTPS_ENABLED=${FOG_INTERNAL_HTTPS_ENABLED}
+         - FOG_TLS_MODE=${FOG_TLS_MODE}
          - FOG_APACHE_EXPOSED_PORT=${FOG_APACHE_EXPOSED_PORT}
          - FOG_DB_MIGRATION_ENABLED=${FOG_DB_MIGRATION_ENABLED}
          - FOG_DB_MIGRATION_FORCE=${FOG_DB_MIGRATION_FORCE}
@@ -91,8 +90,7 @@ rsync -avz FOG_MIGRATION_DUMP.sql user@docker-host:/path/to/fog-docker/
    **Required .env variables:**
    ```bash
    FOG_WEB_HOST=fog.example.com
-   FOG_HTTP_PROTOCOL=https
-   FOG_INTERNAL_HTTPS_ENABLED=false
+   FOG_TLS_MODE=reverse-proxy
    FOG_APACHE_EXPOSED_PORT=8080
    FOG_DB_MIGRATION_ENABLED=true
    FOG_DB_MIGRATION_FORCE=false
@@ -138,7 +136,7 @@ The container will automatically:
 | `FOG_STORAGE_HOST` | Storage node hostname/IP | `192.168.1.100` | `FOG_WEB_HOST` |
 | `FOG_TFTP_HOST` | TFTP server hostname/IP | `192.168.1.100` | `FOG_WEB_HOST` |
 | `FOG_WOL_HOST` | Wake-on-LAN server hostname/IP | `192.168.1.100` | `FOG_WEB_HOST` |
-| `FOG_HTTP_PROTOCOL` | Protocol (http/https) | `https` | `http` |
+| `FOG_TLS_MODE` | TLS preset | `standard` | `standard` |
 
 ## Post-Migration Steps
 

@@ -130,13 +130,12 @@ FOG_STORAGE_HOST=192.168.1.100
 FOG_TFTP_HOST=192.168.1.100
 FOG_WOL_HOST=192.168.1.100
 FOG_DHCP_ENABLED=false  # Use existing DHCP server
-FOG_INTERNAL_HTTPS_ENABLED=true
-FOG_HTTP_PROTOCOL=https
+FOG_TLS_MODE=standard
 ```
 
-Browse `https://192.168.1.100/fog/management/` and accept the certificate warning.
+Browse `https://192.168.1.100/fog/management/` and accept the certificate warning. PXE uses HTTP to `boot.php` — see [TLS Modes](tls-modes.md).
 
-For HTTP-only access instead, set `FOG_HTTP_PROTOCOL=http` and `FOG_INTERNAL_HTTPS_ENABLED=false`, then browse `http://...`. **Do not** mix `FOG_HTTP_PROTOCOL=https` with plain HTTP in the browser — see [Troubleshooting](troubleshooting.md#login-loops-back-to-empty-form-no-error).
+For HTTP-only access instead, set `FOG_TLS_MODE=http-only`. **Do not** open the wrong URL for your mode — see [Troubleshooting](troubleshooting.md#login-loops-back-to-empty-form-no-error).
 
 **DHCP Configuration:** Configure your existing DHCP server with:
 - Option 66 (next-server): `192.168.1.100`
@@ -152,8 +151,7 @@ FOG_STORAGE_HOST=fog.example.com
 FOG_TFTP_HOST=fog.example.com
 FOG_WOL_HOST=fog.example.com
 FOG_DHCP_ENABLED=false  # Use existing DHCP server
-FOG_INTERNAL_HTTPS_ENABLED=false
-FOG_HTTP_PROTOCOL=https
+FOG_TLS_MODE=reverse-proxy
 ```
 
 **DHCP Configuration:** Configure your existing DHCP server with:
@@ -219,7 +217,8 @@ FOG_DHCP_BOOTFILE_UEFI=ipxe.efi
 - `FOG_STORAGE_HOST` - Server IP/FQDN for storage access
 - `FOG_TFTP_HOST` - Server IP/FQDN for TFTP access
 - `FOG_WOL_HOST` - Server IP/FQDN for Wake-on-LAN
-- `FOG_HTTP_PROTOCOL` - Protocol (http/https)
+- `FOG_TLS_MODE` - TLS preset (`standard`, `http-only`, `reverse-proxy`, etc.) — see [TLS Modes](tls-modes.md)
+- `FOG_WEB_PROTOCOL` / `FOG_BOOT_PROTOCOL` - Optional overrides (web UI vs netboot)
 - `FOG_NFS_MODE` - `kernel` (default) or `unfs3`
 - `FOG_PRIVILEGED` - Compose privileged mode (`true` by default; `false` with `unfs3`)
 
@@ -247,8 +246,8 @@ FOG_DHCP_BOOTFILE_UEFI=ipxe.efi
 
 Persist the **`/opt/fog/secure-boot`** volume when enabled so keys and enrollments stay valid across rebuilds. Full steps: **[Secure Boot](secure-boot.md)**.
 
-### SSL Configuration
-- `FOG_INTERNAL_HTTPS_ENABLED` - Enable internal HTTPS
+### SSL / TLS Configuration
+- `FOG_TLS_MODE` - Primary TLS preset (see [TLS Modes](tls-modes.md))
 - `FOG_APACHE_SSL_CERT_FILE` - Apache SSL certificate file
 - `FOG_APACHE_SSL_KEY_FILE` - Apache SSL key file
 - `FOG_APACHE_SSL_CN` - SSL certificate common name
@@ -265,7 +264,7 @@ Persist the **`/opt/fog/secure-boot`** volume when enabled so keys and enrollmen
 
 After configuration:
 
-1. **[SSL/HTTPS Setup](ssl-https.md)** - Configure SSL certificates (optional)
+1. **[TLS Modes](tls-modes.md)** and **[SSL/HTTPS Setup](ssl-https.md)** - TLS preset and certificates (optional)
 2. **[Secure Boot](secure-boot.md)** - UEFI Secure Boot enrollment (optional)
 3. **[Network Boot Setup](network-boot.md)** - Set up PXE and HTTPBoot
 4. **[Troubleshooting Guide](troubleshooting.md)** - Common issues and solutions

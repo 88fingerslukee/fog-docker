@@ -71,7 +71,7 @@ HTTPBoot is automatically available for UEFI clients. No additional configuratio
 
 HTTPBoot URLs are automatically constructed as:
 ```
-{{FOG_HTTP_PROTOCOL}}://{{FOG_WEB_HOST}}{{FOG_WEB_ROOT}}/service/ipxe/{{FOG_DHCP_BOOTFILE_UEFI}}
+{{FOG_BOOT_PROTOCOL}}://{{FOG_WEB_HOST}}{{FOG_WEB_ROOT}}/service/ipxe/{{FOG_DHCP_BOOTFILE_UEFI}}
 ```
 
 **Examples:**
@@ -166,7 +166,7 @@ tftp> quit
 ### HTTPBoot Issues
 
 1. **Verify iPXE files are accessible** via HTTP/HTTPS
-2. **Check protocol matches** your `FOG_HTTP_PROTOCOL` setting
+2. **Check protocol matches** your `FOG_TLS_MODE` / netboot URL (see [TLS Modes](tls-modes.md))
 3. **Test URLs directly** in a browser
 4. **Verify reverse proxy** configuration (if using)
 

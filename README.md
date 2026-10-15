@@ -66,9 +66,8 @@ FOG_STORAGE_HOST=192.168.1.100
 FOG_TFTP_HOST=192.168.1.100
 FOG_WOL_HOST=192.168.1.100
 
-# Protocol configuration (default: self-signed HTTPS — see .env.example scenarios)
-FOG_HTTP_PROTOCOL=https
-FOG_INTERNAL_HTTPS_ENABLED=true
+# TLS mode (default: HTTPS UI + HTTP netboot — see docs/tls-modes.md)
+FOG_TLS_MODE=standard
 
 # FTP passive mode (default: 21100-21110)
 FOG_FTP_PASV_MIN_PORT=21100
@@ -118,6 +117,7 @@ Our comprehensive documentation covers:
 - **[Environment Variables](https://88fingerslukee.github.io/fog-docker/environment-variables)** - All 50+ variables explained
 
 ### Advanced Topics
+- **[TLS Modes](https://88fingerslukee.github.io/fog-docker/tls-modes)** - `FOG_TLS_MODE` (web UI vs PXE presets)
 - **[SSL/HTTPS Setup](https://88fingerslukee.github.io/fog-docker/ssl-https)** - SSL certificate configuration
 - **[Secure Boot](https://88fingerslukee.github.io/fog-docker/secure-boot)** - UEFI Secure Boot enrollment (FOG 1.6 PXE flow)
 - **[Reverse Proxy Setup](https://88fingerslukee.github.io/fog-docker/reverse-proxy)** - Deploy behind Traefik, Nginx, Apache, or Caddy
@@ -132,21 +132,19 @@ Our comprehensive documentation covers:
 
 ## Common Use Cases
 
-### Single Server Setup (default — self-signed HTTPS)
+### Single Server Setup (default — `standard`)
 ```bash
 FOG_WEB_HOST=192.168.1.100
 FOG_DB_ROOT_PASSWORD=your-secure-password
-FOG_HTTP_PROTOCOL=https
-FOG_INTERNAL_HTTPS_ENABLED=true
-# Browse https://192.168.1.100/fog/management/
+FOG_TLS_MODE=standard
+# Browse https://192.168.1.100/fog/management/ — PXE uses http://…/boot.php
 ```
 
 ### HTTP Only (lab/testing)
 ```bash
 FOG_WEB_HOST=192.168.1.100
 FOG_DB_ROOT_PASSWORD=your-secure-password
-FOG_HTTP_PROTOCOL=http
-FOG_INTERNAL_HTTPS_ENABLED=false
+FOG_TLS_MODE=http-only
 # Browse http://192.168.1.100/fog/management/
 ```
 
@@ -154,17 +152,16 @@ FOG_INTERNAL_HTTPS_ENABLED=false
 ```bash
 FOG_WEB_HOST=fog.example.com
 FOG_DB_ROOT_PASSWORD=your-secure-password
-FOG_HTTP_PROTOCOL=https
-FOG_INTERNAL_HTTPS_ENABLED=false
+FOG_TLS_MODE=reverse-proxy
 ```
 
-### Internal HTTPS with custom certificate
+### Mounted certificate (Let's Encrypt on Apache)
 ```bash
-FOG_WEB_HOST=192.168.1.100
+FOG_WEB_HOST=fog.example.com
 FOG_DB_ROOT_PASSWORD=your-secure-password
-FOG_HTTP_PROTOCOL=https
-FOG_INTERNAL_HTTPS_ENABLED=true
-FOG_APACHE_SSL_CN=192.168.1.100
+FOG_TLS_MODE=mounted-certs
+FOG_APACHE_SSL_CERT_FILE=fullchain.pem
+FOG_APACHE_SSL_KEY_FILE=privkey.pem
 ```
 
 ## Troubleshooting
@@ -191,7 +188,7 @@ docker compose logs fog-server
 - Verify `FOG_WEB_HOST` resolves correctly from clients
 
 **Default admin login (fog/password) loops back to empty form:**
-This usually means the URL in your browser does not match `FOG_HTTP_PROTOCOL` / `FOG_INTERNAL_HTTPS_ENABLED`. See the [Troubleshooting Guide](https://88fingerslukee.github.io/fog-docker/troubleshooting#login-loops-back-to-empty-form-no-error).
+This usually means the URL in your browser does not match your `FOG_TLS_MODE`. See [TLS Modes](https://88fingerslukee.github.io/fog-docker/tls-modes) and the [Troubleshooting Guide](https://88fingerslukee.github.io/fog-docker/troubleshooting#login-loops-back-to-empty-form-no-error).
 
 **Default admin login (fog/password) doesn't work:**
 If the default credentials `fog` / `password` don't work, verify the admin user was created:

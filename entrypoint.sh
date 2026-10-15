@@ -48,20 +48,22 @@ esac
 # Apache Configuration
 FOG_APACHE_PORT="${FOG_APACHE_PORT:-80}"
 FOG_APACHE_SSL_PORT="${FOG_APACHE_SSL_PORT:-443}"
-FOG_INTERNAL_HTTPS_ENABLED="${FOG_INTERNAL_HTTPS_ENABLED:-true}"
-FOG_HTTP_PROTOCOL="${FOG_HTTP_PROTOCOL:-https}"
+
+# SSL Configuration (filenames; mode resolved below)
+FOG_APACHE_SSL_CERT_FILE="${FOG_APACHE_SSL_CERT_FILE:-server.crt}"
+FOG_APACHE_SSL_KEY_FILE="${FOG_APACHE_SSL_KEY_FILE:-server.key}"
+FOG_APACHE_SSL_CN="${FOG_APACHE_SSL_CN:-${FOG_WEB_HOST}}"
+FOG_APACHE_SSL_SAN="${FOG_APACHE_SSL_SAN:-}"
+
+# FOG_TLS_MODE → FOG_WEB_PROTOCOL, FOG_BOOT_PROTOCOL, FOG_INTERNAL_HTTPS_ENABLED, etc.
+# shellcheck source=/opt/fog/scripts/resolve-tls-mode.sh
+source /opt/fog/scripts/resolve-tls-mode.sh
 
 # FTP Configuration
 FOG_USER="${FOG_USER:-fogproject}"
 FOG_PASS="${FOG_PASS:-fogftp123}"
 FOG_FTP_PASV_MIN_PORT="${FOG_FTP_PASV_MIN_PORT:-21100}"
 FOG_FTP_PASV_MAX_PORT="${FOG_FTP_PASV_MAX_PORT:-21110}"
-
-# SSL Configuration
-FOG_APACHE_SSL_CERT_FILE="${FOG_APACHE_SSL_CERT_FILE:-server.crt}"
-FOG_APACHE_SSL_KEY_FILE="${FOG_APACHE_SSL_KEY_FILE:-server.key}"
-FOG_APACHE_SSL_CN="${FOG_APACHE_SSL_CN:-${FOG_WEB_HOST}}"
-FOG_APACHE_SSL_SAN="${FOG_APACHE_SSL_SAN:-}"
 
 # Secure Boot Configuration
 FOG_SECURE_BOOT_ENABLED="${FOG_SECURE_BOOT_ENABLED:-false}"
@@ -886,10 +888,8 @@ configureiPXE() {
         echo "TFTP boot files copied successfully."
     }
     
-    if [ "$FOG_INTERNAL_HTTPS_ENABLED" = "true" ]; then
-        echo "Recompiling iPXE with self-signed certificate trust..."
-        
-        # Check if we have the build script
+    if [ "$FOG_BOOT_REBUILD_IPXE" = "true" ]; then
+        echo "Recompiling iPXE with embedded CA (FOG_TLS_MODE=embed-ca)..."
         if [ -f "/opt/fog/utils/FOGiPXE/buildipxe.sh" ] || \
            [ -f "${FOG_SRC_DIR}/utils/FOGiPXE/buildipxe.sh" ]; then
             if [ -f "/opt/fog/utils/FOGiPXE/buildipxe.sh" ]; then
@@ -897,29 +897,21 @@ configureiPXE() {
             else
                 cd "${FOG_SRC_DIR}/utils/FOGiPXE"
             fi
-            
-            # Make sure the script is executable
             chmod +x buildipxe.sh
-            
-            # Run the build script with the FOG CA certificate
             ./buildipxe.sh "/opt/fog/snapins/ssl/CA/.fogCA.pem"
-            
             if [ $? -eq 0 ]; then
                 echo "✓ iPXE recompilation completed successfully."
                 copyTFTPFiles || exit 1
             else
-                echo "Warning: iPXE recompilation failed, using pre-built binaries."
-                echo "This may cause SSL certificate trust issues with self-signed certificates."
-                copyTFTPFiles || exit 1
+                echo "ERROR: iPXE recompilation failed."
+                exit 1
             fi
         else
-            echo "Warning: iPXE build script not found, using pre-built binaries."
-            echo "This may cause SSL certificate trust issues with self-signed certificates."
-            copyTFTPFiles || exit 1
+            echo "ERROR: iPXE build script not found; cannot satisfy embed-ca mode."
+            exit 1
         fi
     else
-        echo "iPXE recompilation not needed (HTTP or external certificates)."
-        # Always copy TFTP files to handle volume mount overwrites
+        echo "Using pre-built iPXE binaries (FOG_BOOT_PROTOCOL=${FOG_BOOT_PROTOCOL})."
         copyTFTPFiles || exit 1
     fi
     

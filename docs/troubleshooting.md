@@ -137,33 +137,47 @@ docker exec fog-server mysql -h fog-db -u fogmaster -pfogmaster123 -e "SELECT 1;
 
 If submitting `fog` / `password` returns you to blank login fields with no error message, the admin user may exist and credentials may be correct — the session cookie is not sticking.
 
-**Cause:** `FOG_HTTP_PROTOCOL` and how you open the UI in the browser do not match.
+**Cause:** The URL in your browser does not match your **`FOG_TLS_MODE`**. See [TLS Modes](tls-modes.md).
 
-| You browse | Required `.env` |
-|------------|-----------------|
-| `https://host/...` (direct or proxy) | `FOG_HTTP_PROTOCOL=https` and either `FOG_INTERNAL_HTTPS_ENABLED=true` (direct HTTPS) or reverse-proxy setup (Scenario 3) |
-| `http://host:port/...` | `FOG_HTTP_PROTOCOL=http` and `FOG_INTERNAL_HTTPS_ENABLED=false` |
+| You browse | Set |
+|------------|-----|
+| `https://host/...` direct (self-signed) | `FOG_TLS_MODE=standard` |
+| `https://fqdn/...` via Traefik only | `FOG_TLS_MODE=reverse-proxy` |
+| `http://host:port/...` | `FOG_TLS_MODE=http-only` |
 
-The previous `.env.example` default (`FOG_HTTP_PROTOCOL=https` + `FOG_INTERNAL_HTTPS_ENABLED=false`) is **reverse-proxy only**. Browsing plain HTTP to the container with those settings makes FOG set **Secure** session cookies while your connection is not HTTPS — the browser drops the cookie and login loops.
+Using **`reverse-proxy`** but opening plain `http://container-ip:80/...` makes FOG set **Secure** cookies while the browser connection is not HTTPS — login loops.
 
 **Fix for HTTP access (e.g. custom port 89):**
 ```bash
-FOG_HTTP_PROTOCOL=http
-FOG_INTERNAL_HTTPS_ENABLED=false
+FOG_TLS_MODE=http-only
 FOG_APACHE_EXPOSED_PORT=89
 ```
-Recreate the container, then use `http://your-host:89/fog/management/`.
 
-**Fix for direct HTTPS (recommended default):**
+**Fix for direct HTTPS (default):**
 ```bash
-FOG_HTTP_PROTOCOL=https
-FOG_INTERNAL_HTTPS_ENABLED=true
+FOG_TLS_MODE=standard
 ```
 Recreate the container, then use `https://your-host/fog/management/` and accept the self-signed certificate.
 
 **Verify:** Browser devtools → Network → login POST → `Set-Cookie: PHPSESSID` with **Secure** on an `http://` URL confirms the mismatch.
 
 Also ensure `FOG_STORAGE_HOST` matches `FOG_WEB_HOST` for single-server setups (do not leave a placeholder FQDN from the example).
+
+### iPXE Fails Chaining to `boot.php` (HTTPS / certificate errors)
+
+**Symptom:** PXE loads iPXE, then fails on `https://…/fog/service/ipxe/boot.php` (e.g. iPXE error `0216eb8f`, or “permission denied”).
+
+**Cause:** Netboot was using HTTPS while the certificate is not trusted by stock iPXE (typical with self-signed Apache certs).
+
+**Fix:** Use the default mode (matches upstream FOG 1.6 `standard`):
+
+```bash
+FOG_TLS_MODE=standard
+```
+
+Recreate the container and confirm `/tftpboot/default.ipxe` chains to **`http://`** your host. Open the UI at **`https://`**. See [TLS Modes](tls-modes.md).
+
+For HTTPS netboot, use `FOG_TLS_MODE=reverse-proxy` or `public-cert` with an FQDN and a publicly trusted certificate.
 
 ## Network Issues
 
@@ -235,7 +249,7 @@ Also ensure `FOG_STORAGE_HOST` matches `FOG_WEB_HOST` for single-server setups (
 ### HTTPBoot Issues
 
 1. **Verify iPXE files are accessible** via HTTP/HTTPS
-2. **Check protocol matches** your `FOG_HTTP_PROTOCOL` setting
+2. **Check protocol matches** your [TLS mode](tls-modes.md) (`FOG_TLS_MODE`)
 3. **Test URLs directly** in a browser
 4. **Verify reverse proxy** configuration (if using)
 
@@ -343,7 +357,7 @@ Usually indicates passive mode configuration issues:
 
 ### Mixed Content Warnings
 
-1. **Set `FOG_HTTP_PROTOCOL=https`**
+1. **Use a TLS mode with HTTPS for the UI** (`FOG_TLS_MODE=standard`, `mounted-certs`, `public-cert`, or `reverse-proxy`) and open the matching URL — see [TLS Modes](tls-modes.md)
 2. **Check for hardcoded HTTP URLs** in configuration
 
 ## Image Management Issues

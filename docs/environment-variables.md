@@ -43,7 +43,10 @@ Complete reference for all FOG Docker environment variables.
 | `FOG_STORAGE_HOST` | Server IP/FQDN for storage access | `192.168.1.100` | `FOG_WEB_HOST` |
 | `FOG_TFTP_HOST` | Server IP/FQDN for TFTP access | `192.168.1.100` | `FOG_WEB_HOST` |
 | `FOG_WOL_HOST` | Server IP/FQDN for Wake-on-LAN | `192.168.1.100` | `FOG_WEB_HOST` |
-| `FOG_HTTP_PROTOCOL` | Protocol (http/https) | `https` | `http` |
+| `FOG_TLS_MODE` | TLS preset: `standard`, `http-only`, `mounted-certs`, `public-cert`, `reverse-proxy` | `standard` | unset → legacy infer; `.env.example` uses `standard` |
+| `FOG_WEB_PROTOCOL` | Web UI protocol (override) | `https` | (from mode) |
+| `FOG_BOOT_PROTOCOL` | Netboot / `boot.php` chain (override) | `http` | (from mode) |
+| `FOG_HTTP_PROTOCOL` | Legacy; mirrors `FOG_WEB_PROTOCOL` when mode is set | `https` | (derived) |
 | `FOG_MULTICAST_INTERFACE` | Network interface for multicast | `eth0` | `eth0` |
 | `FOG_NFS_MODE` | NFS server: `kernel` or userland `unfs3` | `unfs3` | `kernel` |
 | `FOG_PRIVILEGED` | Compose privileged mode. Set `false` when using `unfs3` | `false` | `true` |
@@ -139,7 +142,6 @@ See **[Secure Boot](secure-boot.md)** for DHCP boot files and PXE enrollment ste
 
 | Variable | Description | Example | Default |
 |----------|-------------|---------|---------|
-| `FOG_INTERNAL_HTTPS_ENABLED` | Enable internal HTTPS | `true` | `true` |
 | `FOG_APACHE_SSL_CERT_FILE` | Apache SSL certificate file | `server.crt` | - |
 | `FOG_APACHE_SSL_KEY_FILE` | Apache SSL key file | `server.key` | - |
 | `FOG_APACHE_SSL_CN` | SSL certificate common name | `fog.example.com` | - |
@@ -183,35 +185,20 @@ Apache port variables control internal and external port mappings:
 - **`FOG_APACHE_EXPOSED_PORT`** - External HTTP port mapping
 - **`FOG_APACHE_EXPOSED_SSL_PORT`** - External HTTPS port mapping
 
-### SSL Configuration Scenarios
-Choose one of these SSL scenarios:
+### TLS modes
 
-**Scenario 1: Self-signed Certificates (default in `.env.example`)**
+Set **`FOG_TLS_MODE`** once. See **[TLS Modes](tls-modes.md)** for the full table.
+
 ```bash
-FOG_INTERNAL_HTTPS_ENABLED=true
-FOG_HTTP_PROTOCOL=https
-# FOG_APACHE_SSL_CN defaults to FOG_WEB_HOST
+FOG_TLS_MODE=standard          # default: HTTPS UI, HTTP netboot
+FOG_TLS_MODE=reverse-proxy     # Traefik / external TLS
+FOG_TLS_MODE=mounted-certs     # mount fullchain.pem + privkey.pem
+FOG_TLS_MODE=http-only
 ```
 
-**Scenario 2: External Certificates (Let's Encrypt, etc.)**
-```bash
-FOG_INTERNAL_HTTPS_ENABLED=true
-FOG_HTTP_PROTOCOL=https
-FOG_APACHE_SSL_CERT_FILE=fullchain.pem
-FOG_APACHE_SSL_KEY_FILE=privkey.pem
-```
+| `FOG_INTERNAL_HTTPS_ENABLED` | Legacy; used only when `FOG_TLS_MODE` is unset | `true` | — |
 
-**Scenario 3: Reverse Proxy (No Apache SSL — access via proxy only)**
-```bash
-FOG_INTERNAL_HTTPS_ENABLED=false
-FOG_HTTP_PROTOCOL=https
-```
-
-**Scenario 4: HTTP Only**
-```bash
-FOG_INTERNAL_HTTPS_ENABLED=false
-FOG_HTTP_PROTOCOL=http
-```
+Prefer **`FOG_TLS_MODE`**. See [TLS Modes](tls-modes.md). `FOG_HTTP_PROTOCOL` (network table above) is filled from `FOG_WEB_PROTOCOL` after resolve.
 
 ### Database Configuration
 Database variables work together for connection:
@@ -253,9 +240,7 @@ FOG_STORAGE_HOST=192.168.1.100
 FOG_TFTP_HOST=192.168.1.100
 FOG_WOL_HOST=192.168.1.100
 
-# Protocol (default: self-signed HTTPS)
-FOG_HTTP_PROTOCOL=https
-FOG_INTERNAL_HTTPS_ENABLED=true
+FOG_TLS_MODE=standard
 
 # DHCP (use existing)
 FOG_DHCP_ENABLED=false
@@ -273,9 +258,7 @@ FOG_STORAGE_HOST=fog.example.com
 FOG_TFTP_HOST=fog.example.com
 FOG_WOL_HOST=fog.example.com
 
-# Protocol (HTTPS via reverse proxy)
-FOG_HTTP_PROTOCOL=https
-FOG_INTERNAL_HTTPS_ENABLED=false
+FOG_TLS_MODE=reverse-proxy
 
 # DHCP (use existing)
 FOG_DHCP_ENABLED=false
@@ -293,9 +276,7 @@ FOG_STORAGE_HOST=192.168.1.101
 FOG_TFTP_HOST=192.168.1.102
 FOG_WOL_HOST=192.168.1.100
 
-# Protocol
-FOG_HTTP_PROTOCOL=http
-FOG_INTERNAL_HTTPS_ENABLED=false
+FOG_TLS_MODE=http-only
 
 # DHCP (use existing)
 FOG_DHCP_ENABLED=false
@@ -313,9 +294,7 @@ FOG_STORAGE_HOST=192.168.1.100
 FOG_TFTP_HOST=192.168.1.100
 FOG_WOL_HOST=192.168.1.100
 
-# Protocol
-FOG_HTTP_PROTOCOL=http
-FOG_INTERNAL_HTTPS_ENABLED=false
+FOG_TLS_MODE=http-only
 
 # DHCP configuration
 FOG_DHCP_ENABLED=true
@@ -345,9 +324,7 @@ FOG_STORAGE_HOST=fog.example.com
 FOG_TFTP_HOST=fog.example.com
 FOG_WOL_HOST=fog.example.com
 
-# Protocol
-FOG_HTTP_PROTOCOL=https
-FOG_INTERNAL_HTTPS_ENABLED=true
+FOG_TLS_MODE=mounted-certs
 
 # SSL configuration
 FOG_APACHE_SSL_CERT_FILE=fullchain.pem
@@ -369,9 +346,7 @@ FOG_STORAGE_HOST=192.168.1.100
 FOG_TFTP_HOST=192.168.1.100
 FOG_WOL_HOST=192.168.1.100
 
-# Protocol
-FOG_HTTP_PROTOCOL=https
-FOG_INTERNAL_HTTPS_ENABLED=true
+FOG_TLS_MODE=standard
 
 # SSL configuration
 FOG_APACHE_SSL_CN=192.168.1.100
@@ -406,7 +381,8 @@ echo "Web Host: $FOG_WEB_HOST"
 echo "Storage Host: ${FOG_STORAGE_HOST:-$FOG_WEB_HOST}"
 echo "TFTP Host: ${FOG_TFTP_HOST:-$FOG_WEB_HOST}"
 echo "WOL Host: ${FOG_WOL_HOST:-$FOG_WEB_HOST}"
-echo "Protocol: ${FOG_HTTP_PROTOCOL:-http}"
+echo "TLS mode: ${FOG_TLS_MODE:-(infer from legacy)}"
+echo "Web protocol: ${FOG_WEB_PROTOCOL:-${FOG_HTTP_PROTOCOL:-http}}"
 ```
 
 ## Best Practices

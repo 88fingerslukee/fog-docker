@@ -34,19 +34,15 @@ This guide covers:
 Configure FOG Docker for reverse proxy mode:
 
 ```bash
-# Reverse proxy configuration
+FOG_TLS_MODE=reverse-proxy
 FOG_WEB_HOST=fog.example.com
 FOG_STORAGE_HOST=fog.example.com
 FOG_TFTP_HOST=fog.example.com
 FOG_WOL_HOST=fog.example.com
-
-# Protocol settings
-FOG_HTTP_PROTOCOL=https
-FOG_INTERNAL_HTTPS_ENABLED=false  # SSL handled by reverse proxy
-
-# Network settings
 FOG_WEB_ROOT=/fog
 ```
+
+See [TLS Modes](tls-modes.md) for how this sets web vs netboot protocols.
 
 ### Docker Compose Configuration
 
@@ -56,8 +52,7 @@ services:
     image: ghcr.io/88fingerslukee/fog-docker:latest
     environment:
       - FOG_WEB_HOST=fog.example.com
-      - FOG_HTTP_PROTOCOL=https
-      - FOG_INTERNAL_HTTPS_ENABLED=false
+      - FOG_TLS_MODE=reverse-proxy
       - FOG_APACHE_EXPOSED_PORT=8080  # Map to different external port
     ports:
       - "8080:80"  # Internal HTTP only
@@ -96,8 +91,7 @@ services:
     image: ghcr.io/88fingerslukee/fog-docker:latest
     environment:
       - FOG_WEB_HOST=${FOG_WEB_HOST}
-      - FOG_HTTP_PROTOCOL=${FOG_HTTP_PROTOCOL}
-      - FOG_INTERNAL_HTTPS_ENABLED=${FOG_INTERNAL_HTTPS_ENABLED}
+      - FOG_TLS_MODE=${FOG_TLS_MODE:-reverse-proxy}
       - FOG_APACHE_EXPOSED_PORT=${FOG_APACHE_EXPOSED_PORT}
     labels:
       - "traefik.enable=true"
@@ -117,8 +111,7 @@ networks:
 **Required .env variables:**
 ```bash
 FOG_WEB_HOST=fog.example.com
-FOG_HTTP_PROTOCOL=https
-FOG_INTERNAL_HTTPS_ENABLED=false
+FOG_TLS_MODE=reverse-proxy
 FOG_APACHE_EXPOSED_PORT=80
 LETSENCRYPT_EMAIL=your-email@example.com
 ```
@@ -499,8 +492,7 @@ services:
     image: ghcr.io/88fingerslukee/fog-docker:latest
     environment:
       - FOG_WEB_HOST=fog.example.com
-      - FOG_HTTP_PROTOCOL=https
-      - FOG_INTERNAL_HTTPS_ENABLED=false
+      - FOG_TLS_MODE=reverse-proxy
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.fog.rule=Host(`fog.example.com`)"
@@ -536,8 +528,7 @@ services:
     image: ghcr.io/88fingerslukee/fog-docker:latest
     environment:
       - FOG_WEB_HOST=${FOG_WEB_HOST}
-      - FOG_HTTP_PROTOCOL=${FOG_HTTP_PROTOCOL}
-      - FOG_INTERNAL_HTTPS_ENABLED=${FOG_INTERNAL_HTTPS_ENABLED}
+      - FOG_TLS_MODE=${FOG_TLS_MODE:-reverse-proxy}
       - FOG_APACHE_EXPOSED_PORT=${FOG_APACHE_EXPOSED_PORT}
     expose:
       - "80"
@@ -552,8 +543,7 @@ networks:
 **Required .env variables:**
 ```bash
 FOG_WEB_HOST=fog.example.com
-FOG_HTTP_PROTOCOL=https
-FOG_INTERNAL_HTTPS_ENABLED=false
+FOG_TLS_MODE=reverse-proxy
 FOG_APACHE_EXPOSED_PORT=80
 FOG_APACHE_EXPOSED_SSL_PORT=443
 ```

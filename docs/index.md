@@ -45,7 +45,7 @@ FOG Docker is a complete containerization of the FOG Project, providing:
 - **📦 Docker Containerization**: Easy deployment and management
 - **🔧 Automatic Configuration**: Environment-based setup
 - **🌐 Network Boot**: PXE and HTTPBoot support
-- **🔒 SSL/HTTPS**: Multiple SSL configuration options
+- **🔒 TLS modes**: One `FOG_TLS_MODE` preset for UI, PXE, and reverse proxy
 - **🔄 Migration Support**: Import from existing FOG installations
 
 ## Documentation Sections
@@ -56,6 +56,7 @@ FOG Docker is a complete containerization of the FOG Project, providing:
 - **[Network Boot Setup](network-boot.md)** - PXE and HTTPBoot configuration
 
 ### SSL & Security
+- **[TLS Modes](tls-modes.md)** - `FOG_TLS_MODE` presets (web UI vs PXE)
 - **[SSL/HTTPS Setup](ssl-https.md)** - SSL certificate configuration
 - **[Reverse Proxy Setup](reverse-proxy.md)** - Deploy behind Traefik, Nginx, Apache, or Caddy
 
@@ -75,8 +76,7 @@ Perfect for small to medium environments — self-signed HTTPS, no reverse proxy
 ```bash
 FOG_WEB_HOST=192.168.1.100
 FOG_DB_ROOT_PASSWORD=your-secure-password
-FOG_HTTP_PROTOCOL=https
-FOG_INTERNAL_HTTPS_ENABLED=true
+FOG_TLS_MODE=standard
 ```
 
 ### Production with Reverse Proxy
@@ -84,26 +84,21 @@ For production environments where a proxy terminates TLS (access FOG via the pro
 ```bash
 FOG_WEB_HOST=fog.example.com
 FOG_DB_ROOT_PASSWORD=your-secure-password
-FOG_HTTP_PROTOCOL=https
-FOG_INTERNAL_HTTPS_ENABLED=false
+FOG_TLS_MODE=reverse-proxy
 ```
 
 ### HTTP Only (lab/testing)
 ```bash
 FOG_WEB_HOST=192.168.1.100
 FOG_DB_ROOT_PASSWORD=your-secure-password
-FOG_HTTP_PROTOCOL=http
-FOG_INTERNAL_HTTPS_ENABLED=false
+FOG_TLS_MODE=http-only
 ```
 
-### Internal HTTPS with custom certificate
-For secure internal networks with your own cert:
+### Mounted certificate (Let's Encrypt on Apache)
 ```bash
-FOG_WEB_HOST=192.168.1.100
+FOG_WEB_HOST=fog.example.com
 FOG_DB_ROOT_PASSWORD=your-secure-password
-FOG_HTTP_PROTOCOL=https
-FOG_INTERNAL_HTTPS_ENABLED=true
-FOG_APACHE_SSL_CN=192.168.1.100
+FOG_TLS_MODE=mounted-certs
 ```
 
 ## Support
