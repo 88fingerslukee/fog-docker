@@ -12,11 +12,80 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
+  resolve-versions:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+    - name: Resolve FOG versions to build
+      id: set-matrix
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        set -euo pipefail
+
+        API_RESPONSE=$(curl -sS -w "\n%{http_code}" \
+          -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+          "https://api.github.com/repos/FOGProject/fogproject/releases?per_page=100")
+        HTTP_CODE=$(echo "$API_RESPONSE" | tail -n1)
+        API_BODY=$(echo "$API_RESPONSE" | sed '$d')
+
+        if [ "$HTTP_CODE" != "200" ]; then
+          echo "Error: GitHub API returned HTTP $HTTP_CODE"
+          exit 1
+        fi
+
+        FINAL_TAG=$(echo "$API_BODY" | jq -r '
+          [
+            .[]
+            | select(.draft == false and .prerelease == false)
+            | .tag_name
+            | select(test("(?i)(rc|alpha|beta|preview)") | not)
+          ][0] // empty
+        ')
+
+        if [ -z "$FINAL_TAG" ]; then
+          echo "Error: Could not find a final FOG release tag"
+          exit 1
+        fi
+
+        RC_TAG=$(echo "$API_BODY" | jq -r '
+          [
+            .[]
+            | select(.draft == false)
+            | .tag_name
+            | select(test("(?i)rc"))
+            | select(test("(?i)(alpha|beta|preview)") | not)
+          ][0] // empty
+        ')
+
+        MATRIX=$(jq -nc --arg v "$FINAL_TAG" \
+          '[{"fog-version": $v, "is-rc": "false"}]')
+
+        # On main pushes, also rebuild the newest RC so :rc and fog-<RC> stay current with fog-docker.
+        if [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref }}" = "refs/heads/main" ] && [ -n "$RC_TAG" ]; then
+          echo "Also rebuilding latest FOG RC: $RC_TAG"
+          MATRIX=$(echo "$MATRIX" | jq -c --arg v "$RC_TAG" \
+            '. + [{"fog-version": $v, "is-rc": "true"}]')
+        elif [ -n "$RC_TAG" ]; then
+          echo "Latest FOG RC is $RC_TAG (skipped on PR/tag events; final only)"
+        else
+          echo "No FOG RC release found"
+        fi
+
+        echo "Build matrix: $MATRIX"
+        echo "matrix=$MATRIX" >> "$GITHUB_OUTPUT"
+
   build-and-push:
+    needs: resolve-versions
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.resolve-versions.outputs.matrix) }}
 
     steps:
     - name: Checkout repository
@@ -32,52 +101,19 @@ jobs:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Resolve latest final FOG release
-      id: fog-version
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: |
-        API_RESPONSE=$(curl -sS -w "\n%{http_code}" \
-          -H "Authorization: Bearer ${GITHUB_TOKEN}" \
-          "https://api.github.com/repos/FOGProject/fogproject/releases?per_page=100")
-        HTTP_CODE=$(echo "$API_RESPONSE" | tail -n1)
-        API_BODY=$(echo "$API_RESPONSE" | sed '$d')
-
-        if [ "$HTTP_CODE" != "200" ]; then
-          echo "Error: GitHub API returned HTTP $HTTP_CODE"
-          exit 1
-        fi
-
-        # Release candidates such as 1.6.0-RC-3 are not always flagged
-        # as prereleases, so exclude them by tag name too.
-        FOG_VERSION=$(echo "$API_BODY" | jq -r '
-          [
-            .[]
-            | select(.draft == false and .prerelease == false)
-            | .tag_name
-            | select(test("(?i)(rc|alpha|beta|preview)") | not)
-          ][0] // empty
-        ')
-
-        if [ -z "$FOG_VERSION" ]; then
-          echo "Error: Could not find a final FOG release tag"
-          exit 1
-        fi
-
-        echo "fog-version=$FOG_VERSION" >> "$GITHUB_OUTPUT"
-        echo "Building final FOG release: $FOG_VERSION"
-
     - name: Extract metadata
       id: meta
       uses: docker/metadata-action@v6
       with:
         images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
         tags: |
-          type=ref,event=branch
-          type=ref,event=pr
-          type=semver,pattern={{version}}
-          type=semver,pattern={{major}}.{{minor}}
-          type=raw,value=latest,enable={{is_default_branch}}
+          type=raw,value=fog-${{ matrix.fog-version }}
+          type=raw,value=latest,enable=${{ matrix.is-rc == 'false' && github.ref == 'refs/heads/main' && github.event_name == 'push' }}
+          type=raw,value=rc,enable=${{ matrix.is-rc == 'true' && github.ref == 'refs/heads/main' && github.event_name == 'push' }}
+          type=ref,event=branch,enable=${{ matrix.is-rc == 'false' }}
+          type=ref,event=pr,enable=${{ matrix.is-rc == 'false' }}
+          type=semver,pattern={{version}},enable=${{ matrix.is-rc == 'false' }}
+          type=semver,pattern={{major}}.{{minor}},enable=${{ matrix.is-rc == 'false' }}
 
     - name: Build and push Docker image
       uses: docker/build-push-action@v7
@@ -86,10 +122,10 @@ jobs:
         # Note: Building only for AMD64 due to architecture-specific dependencies
         # (Secure Boot tools, shim files, etc.) that are not available for ARM64
         platforms: linux/amd64
-        push: true
+        push: ${{ github.event_name != 'pull_request' }}
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
         build-args: |
-          FOG_GIT_REF=${{ steps.fog-version.outputs.fog-version }}
+          FOG_GIT_REF=${{ matrix.fog-version }}

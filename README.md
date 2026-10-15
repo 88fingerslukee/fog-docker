@@ -110,6 +110,8 @@ Published images use **generic tags only** (see [GitHub Releases](https://github
 
 To build an arbitrary FOG git ref (branch, RC tag, SHA), use **`docker-compose-dev.yml`** and set `FOG_VERSION` in `.env` — that path builds from source and does not use these registry tags.
 
+Pushes to this repo’s **`main`** branch rebuild `:latest` (final FOG) and `:rc` (newest upstream RC) automatically.
+
 ## Documentation
 
 **👉 [View Complete Documentation](https://88fingerslukee.github.io/fog-docker/)**

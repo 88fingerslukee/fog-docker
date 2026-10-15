@@ -86,6 +86,7 @@ This project automatically builds and publishes new Docker images when the FOG P
 - **Automatic Detection**: Checks for new FOG releases every 6 hours
 - **Final releases**: Tagged `fog-<upstream-tag>` and `:latest`
 - **Release candidates**: Tagged `fog-<upstream-tag>` and `:rc`; published as a GitHub **pre-release** (**not** `:latest`)
+- **Every push to `main`**: CI rebuilds **both** the newest final release (`:latest`) and the newest RC (`:rc` + `fog-<RC>`), so pinned and rolling tags pick up fog-docker fixes without waiting for a new upstream FOG tag
 - **Not auto-built**: alpha / beta / preview tags (use the dev compose file or a manual workflow dispatch if needed)
 - **Manual Trigger**: You can manually trigger builds for specific FOG versions
 
