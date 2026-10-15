@@ -34,6 +34,9 @@ This guide will help you get FOG Docker up and running quickly.
    # Required settings
    FOG_WEB_HOST=192.168.1.100
    FOG_DB_ROOT_PASSWORD=your-secure-password
+
+   # FOG 1.6 capture finalize (default; keep for single-container installs)
+   FOG_STORAGE_NODE_SSH_HOST=127.0.0.1
    ```
 
 3. **Start FOG:**
@@ -128,7 +131,9 @@ If you encounter issues during installation:
    netstat -tulpn | grep -E ':(80|443|69|21|2049)'
    ```
 
-4. **See [Troubleshooting Guide](troubleshooting.md)** for common issues and solutions.
+4. **Capture stuck on “Updating Database” or task Failed after upload:** see [Post_Stage2 / SSH finalize](troubleshooting.md#capture-finishes-but-task-fails-on-updating-database-post_stage2-http-500).
+
+5. **See [Troubleshooting Guide](troubleshooting.md)** for other common issues and solutions.
 
 ## Security Notes
 

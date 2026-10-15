@@ -81,6 +81,7 @@ Complete reference for all FOG Docker environment variables.
 |----------|-------------|---------|---------|
 | `FOG_FTP_PASV_MIN_PORT` | FTP passive mode minimum port | `21100` | `21100` |
 | `FOG_FTP_PASV_MAX_PORT` | FTP passive mode maximum port | `21110` | `21110` |
+| `FOG_STORAGE_NODE_SSH_HOST` | Master storage node SSH hostname for Post_Stage2 SFTP moves | `127.0.0.1` | `127.0.0.1` |
 
 ## Secure Boot Configuration
 
@@ -219,12 +220,17 @@ DHCP variables define PXE boot configuration:
 - **`FOG_DHCP_BOOTFILE_ARM64`** - Used for DHCP Option 67 (UEFI ARM64 clients, Arch:00011)
 - **`FOG_DHCP_BOOTFILE_UEFI`** - Legacy variable (maps to UEFI64 for backward compatibility)
 
-### FTP Configuration
+### FTP and capture finalize (FOG 1.6)
+
 FTP passive mode requires port range configuration:
 
 - **`FOG_FTP_PASV_MIN_PORT`** - Minimum passive port
 - **`FOG_FTP_PASV_MAX_PORT`** - Maximum passive port
 - **`FOG_WEB_HOST`** - Used for passive mode address resolution
+
+After upload, **`Post_Stage2.php`** moves captures from **`/images/dev/`** via **SSH/SFTP** using **`FOG_USER`** / **`FOG_PASS`**. fog-docker runs **sshd** in the container and sets the master storage node SSH hostname from:
+
+- **`FOG_STORAGE_NODE_SSH_HOST`** — default **`127.0.0.1`**. Use your public **`FOG_WEB_HOST`** here only if that machine’s SSH accepts the FOG storage credentials. See [Configuration — Capture finalize](configuration.md#capture-finalize-fog-16--post_stage2).
 
 ## Configuration Examples
 
@@ -241,6 +247,7 @@ FOG_TFTP_HOST=192.168.1.100
 FOG_WOL_HOST=192.168.1.100
 
 FOG_TLS_MODE=standard
+FOG_STORAGE_NODE_SSH_HOST=127.0.0.1
 
 # DHCP (use existing)
 FOG_DHCP_ENABLED=false

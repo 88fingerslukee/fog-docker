@@ -41,7 +41,7 @@ Get FOG Docker up and running in minutes:
 
 FOG Docker is a complete containerization of the FOG Project, providing:
 
-- **🖥️ Computer Imaging**: Capture and deploy disk images across your network
+- **🖥️ Computer Imaging**: Capture and deploy disk images (FOG 1.6 finalize via in-container SSH/SFTP)
 - **📦 Docker Containerization**: Easy deployment and management
 - **🔧 Automatic Configuration**: Environment-based setup
 - **🌐 Network Boot**: PXE and HTTPBoot support

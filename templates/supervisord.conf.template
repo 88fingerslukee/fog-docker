@@ -33,6 +33,20 @@ stderr_logfile_maxbytes=10MB
 stderr_logfile_backups=5
 environment=TZ="{{TZ}}"
 
+[program:sshd]
+command=/usr/sbin/sshd -D -e
+user=root
+autostart=true
+autorestart=true
+priority=90
+stdout_logfile=/opt/fog/log/sshd.log
+stdout_logfile_maxbytes=10MB
+stdout_logfile_backups=5
+stderr_logfile=/opt/fog/log/sshd_error.log
+stderr_logfile_maxbytes=10MB
+stderr_logfile_backups=5
+environment=TZ="{{TZ}}"
+
 [program:tftpd-hpa]
 command=/usr/sbin/in.tftpd -L -s -a 0.0.0.0:69 /tftpboot
 user=root

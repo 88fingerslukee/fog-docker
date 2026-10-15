@@ -57,6 +57,7 @@ FOG_PASS=fogftp123
 
 **What the FOG user is used for:**
 - **FTP access** to image storage directories
+- **SSH/SFTP** (FOG 1.6) when **`Post_Stage2.php`** moves a finished capture from `/images/dev/` into the image directory
 - **Service operations** for FOG background services
 - **File permissions** for images, snapins, and logs
 - **General FOG functionality** throughout the system
@@ -88,6 +89,27 @@ FOG_FTP_PASV_MAX_PORT=21110
 - **Automatic Configuration**: Passive mode is automatically configured based on your `FOG_WEB_HOST` setting
 
 **Important**: Make sure to open the passive port range (21100-21110 by default) in your firewall for FTP image transfers to work properly.
+
+## Capture finalize (FOG 1.6 — Post_Stage2)
+
+After a capture upload, FOG runs **`Post_Stage2.php`** (“Updating Database” on the client). That step **SSH/SFTP**-renames **`/images/dev/<mac>/`** into the image path (for example **`/images/ASSISTANT/`**).
+
+The fog-docker image includes:
+
+- **PHP `ssh2`** (PECL)
+- **`openssh-server`** managed by supervisor
+- **`FOG_STORAGE_NODE_SSH_HOST`** (default **`127.0.0.1`**) — on each start, the entrypoint sets the master storage node’s **`nfsGroupMembers.ngmHostname`** to this value so finalize talks to **in-container sshd**, not your public FQDN.
+
+```bash
+# Single-container Docker (default — leave unset or use 127.0.0.1)
+FOG_STORAGE_NODE_SSH_HOST=127.0.0.1
+FOG_USER=fogproject
+FOG_PASS=fogftp123   # same credentials storage node SSH uses
+```
+
+**Do not** point storage SSH at **`FOG_WEB_HOST`** unless that host’s SSH daemon accepts **`FOG_USER`/`FOG_PASS`**. Clients still use **`FOG_STORAGE_HOST`** / **`FOG_WEB_HOST`** for imaging URLs; only the **internal SFTP move** uses **`FOG_STORAGE_NODE_SSH_HOST`**.
+
+If capture data appears under **`/images/dev/`** but the task shows **Failed**, see [Troubleshooting — Post_Stage2](troubleshooting.md#capture-finishes-but-task-fails-on-updating-database-post_stage2-http-500).
 
 ## DHCP Configuration (Optional)
 
@@ -131,6 +153,7 @@ FOG_TFTP_HOST=192.168.1.100
 FOG_WOL_HOST=192.168.1.100
 FOG_DHCP_ENABLED=false  # Use existing DHCP server
 FOG_TLS_MODE=standard
+FOG_STORAGE_NODE_SSH_HOST=127.0.0.1
 ```
 
 Browse `https://192.168.1.100/fog/management/` and accept the certificate warning. PXE uses HTTP to `boot.php` — see [TLS Modes](tls-modes.md).
@@ -152,7 +175,10 @@ FOG_TFTP_HOST=fog.example.com
 FOG_WOL_HOST=fog.example.com
 FOG_DHCP_ENABLED=false  # Use existing DHCP server
 FOG_TLS_MODE=reverse-proxy
+FOG_STORAGE_NODE_SSH_HOST=127.0.0.1
 ```
+
+Keep **`FOG_STORAGE_NODE_SSH_HOST=127.0.0.1`** even when **`FOG_WEB_HOST`** is a public FQDN — see [Capture finalize](#capture-finalize-fog-16--post_stage2).
 
 **DHCP Configuration:** Configure your existing DHCP server with:
 - Option 66 (next-server): `fog.example.com`
@@ -237,9 +263,11 @@ FOG_DHCP_BOOTFILE_UEFI=ipxe.efi
 - `FOG_APACHE_EXPOSED_PORT` - External HTTP port mapping
 - `FOG_APACHE_EXPOSED_SSL_PORT` - External HTTPS port mapping
 
-### FTP Configuration
+### FTP and capture finalize
 - `FOG_FTP_PASV_MIN_PORT` - FTP passive mode minimum port
 - `FOG_FTP_PASV_MAX_PORT` - FTP passive mode maximum port
+- `FOG_STORAGE_NODE_SSH_HOST` - SSH hostname for Post_Stage2 SFTP moves (default `127.0.0.1` in Docker)
+- `FOG_USER` / `FOG_PASS` - FTP and storage-node SSH credentials
 
 ### Secure Boot
 - `FOG_SECURE_BOOT_ENABLED` - Sign kernels and publish FOG 1.6 PXE enrollment files

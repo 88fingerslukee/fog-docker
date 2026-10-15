@@ -102,6 +102,8 @@ services:
       FOG_PASS: "${FOG_PASS:-fogftp123}"
       FOG_FTP_PASV_MIN_PORT: "${FOG_FTP_PASV_MIN_PORT:-21100}"
       FOG_FTP_PASV_MAX_PORT: "${FOG_FTP_PASV_MAX_PORT:-21110}"
+      # SSH hostname for Post_Stage2 SFTP moves (default: in-container sshd)
+      FOG_STORAGE_NODE_SSH_HOST: "${FOG_STORAGE_NODE_SSH_HOST:-127.0.0.1}"
       
       # Secure Boot Configuration
       FOG_SECURE_BOOT_ENABLED: "${FOG_SECURE_BOOT_ENABLED:-false}"

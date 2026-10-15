@@ -64,6 +64,8 @@ FOG_USER="${FOG_USER:-fogproject}"
 FOG_PASS="${FOG_PASS:-fogftp123}"
 FOG_FTP_PASV_MIN_PORT="${FOG_FTP_PASV_MIN_PORT:-21100}"
 FOG_FTP_PASV_MAX_PORT="${FOG_FTP_PASV_MAX_PORT:-21110}"
+# SSH target for Post_Stage2 image moves (FOG 1.6). Use 127.0.0.1 in Docker; FQDN hits host sshd.
+FOG_STORAGE_NODE_SSH_HOST="${FOG_STORAGE_NODE_SSH_HOST:-127.0.0.1}"
 
 # Secure Boot Configuration
 FOG_SECURE_BOOT_ENABLED="${FOG_SECURE_BOOT_ENABLED:-false}"
@@ -760,6 +762,41 @@ configureFTP() {
     echo "FTP configuration completed."
 }
 
+configureSSH() {
+    echo "Configuring SSH for storage-node image moves (FOG 1.6 Post_Stage2)..."
+
+    mkdir -p /run/sshd
+    if [ ! -f /etc/ssh/ssh_host_rsa_key ]; then
+        ssh-keygen -A
+    fi
+
+    if grep -q '^PasswordAuthentication[[:space:]]*no' /etc/ssh/sshd_config 2>/dev/null; then
+        sed -i 's/^PasswordAuthentication[[:space:]]*no/PasswordAuthentication yes/' /etc/ssh/sshd_config
+    elif ! grep -q '^PasswordAuthentication[[:space:]]*yes' /etc/ssh/sshd_config 2>/dev/null; then
+        echo 'PasswordAuthentication yes' >> /etc/ssh/sshd_config
+    fi
+
+    echo "SSH configuration completed."
+}
+
+syncStorageNodeSshHost() {
+    local host="${FOG_STORAGE_NODE_SSH_HOST:-}"
+    [ -n "$host" ] || return 0
+    if ! [[ "$host" =~ ^[a-zA-Z0-9._-]+$ ]]; then
+        echo "WARNING: Invalid FOG_STORAGE_NODE_SSH_HOST (${host}); skipping nfsGroupMembers sync."
+        return 0
+    fi
+
+    if ! mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" -p"$DB_PASS" --ssl=0 -e "USE $DB_NAME;" 2>/dev/null; then
+        echo "Skipping storage-node SSH host sync (database not ready)."
+        return 0
+    fi
+
+    mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" -p"$DB_PASS" --ssl=0 "$DB_NAME" -e \
+        "UPDATE nfsGroupMembers SET ngmHostname='${host}' WHERE ngmIsMasterNode=1;" 2>/dev/null || true
+    echo "Storage-node SSH host set to ${host} (master nfsGroupMembers.ngmHostname)."
+}
+
 configureDHCP() {
     if [ "$FOG_DHCP_ENABLED" = "true" ]; then
         echo "Configuring DHCP server..."
@@ -1091,6 +1128,7 @@ staticConfiguration() {
     configureTFTP
     configureNFS
     configureFTP
+    configureSSH
     configureDHCP
     configureSecureBoot
     configureSupervisor
@@ -1309,6 +1347,7 @@ ensureFOGDatabaseSchema() {
     fi
 
     echo "✓ Database schema check/update completed successfully ($current)."
+    syncStorageNodeSshHost
 
     # Fresh installs should have the default admin; warn only (upgrade DBs may use another name).
     local user_exists

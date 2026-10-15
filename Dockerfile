@@ -158,6 +158,10 @@ RUN apt-get -q update && \
         php-zip \
         php-bcmath \
         libapache2-mod-php \
+        php-dev \
+        php-pear \
+        libssh2-1-dev \
+        openssh-server \
         # Database
         mariadb-client \
         # Network services
@@ -216,6 +220,11 @@ RUN apt-get -q update && \
         cron \
         bind9-dnsutils \
         && rm -rf /var/lib/apt/lists/*
+
+# FOG 1.6 moves captured images from /images/dev/ via SSH/SFTP (Post_Stage2.php).
+RUN printf '\n' | pecl install ssh2-1.4.1 && \
+    echo 'extension=ssh2.so' > /etc/php/8.4/mods-available/ssh2.ini && \
+    phpenmod ssh2
 
 # Optional userland NFSv3 server. Kernel NFS remains the default.
 ARG UNFS3_VERSION=0.11.0

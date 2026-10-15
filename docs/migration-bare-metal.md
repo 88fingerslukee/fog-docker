@@ -279,7 +279,7 @@ docker compose logs fog-server
 ### After Migration
 
 1. **Verify all hosts are accessible** in the new system
-2. **Test image capture and deployment**
+2. **Test image capture and deployment** — on FOG 1.6, confirm captures complete (not Failed on Post_Stage2); set **`FOG_STORAGE_NODE_SSH_HOST=127.0.0.1`** for single-container Docker ([troubleshooting](troubleshooting.md#capture-finishes-but-task-fails-on-updating-database-post_stage2-http-500))
 3. **Update documentation** with new server details
 4. **Monitor system performance** for any issues
 

@@ -72,6 +72,9 @@ FOG_TLS_MODE=standard
 # FTP passive mode (default: 21100-21110)
 FOG_FTP_PASV_MIN_PORT=21100
 FOG_FTP_PASV_MAX_PORT=21110
+
+# FOG 1.6 capture finalize — SSH/SFTP move from /images/dev/ (default for Docker)
+FOG_STORAGE_NODE_SSH_HOST=127.0.0.1
 ```
 
 ## Ports
@@ -160,6 +163,7 @@ FOG_TLS_MODE=http-only
 FOG_WEB_HOST=fog.example.com
 FOG_DB_ROOT_PASSWORD=your-secure-password
 FOG_TLS_MODE=reverse-proxy
+FOG_STORAGE_NODE_SSH_HOST=127.0.0.1
 ```
 
 ### Mounted certificate (Let's Encrypt on Apache)

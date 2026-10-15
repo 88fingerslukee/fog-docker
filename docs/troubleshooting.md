@@ -246,6 +246,32 @@ For HTTPS netboot, use `FOG_TLS_MODE=reverse-proxy` or `public-cert` with an FQD
    Restart the container so DHCP config is regenerated.
 4. **Spanning tree** — enable PortFast/edge on the switch port if DHCP timeouts occur ([forum reference](https://forums.fogproject.org/topic/16631/no-configuration-methods-succeeded)).
 
+### Capture finishes but task fails on “Updating Database” (Post_Stage2 HTTP 500)
+
+FOG 1.6 **`Post_Stage2.php`** moves the capture from **`/images/dev/<mac>/`** into the image directory over **SSH/SFTP**. If that step fails, the upload data may still be on disk under `dev/` while the task shows **Failed**.
+
+**Check Apache/PHP error log:**
+
+```bash
+docker exec fog-server grep Post_Stage2 /opt/fog/log/apache2_error.log | tail -5
+```
+
+| Log message | Fix |
+|-------------|-----|
+| `Call to undefined function ... ssh2_connect()` | Image missing **PHP ssh2** — rebuild/pull current `fog-docker` (includes `pecl ssh2`). |
+| `Unable to connect to ssh during move upload` | **openssh-server** not running in the container, or storage node hostname wrong. |
+| SSH auth failure | Storage node **IP/Hostname** in FOG must match a host where **`FOG_USER`/`FOG_PASS`** work over SSH. |
+
+**Docker (single container):**
+
+```bash
+FOG_STORAGE_NODE_SSH_HOST=127.0.0.1
+```
+
+On startup, fog-docker sets the master **`nfsGroupMembers.ngmHostname`** to that value and runs **sshd** under supervisor. The FOG UI may still show your public FQDN for clients; SSH moves use `127.0.0.1` inside the container.
+
+**Manual finalize** (if capture data remains under `dev/` and task failed): fix ssh2/sshd/hostname, set the task back to **In-Progress** in the DB if needed, then retry from the client or POST `Post_Stage2.php` with `mac=` and `type=up`. Success body is **`##`**.
+
 ### HTTPBoot Issues
 
 1. **Verify iPXE files are accessible** via HTTP/HTTPS
