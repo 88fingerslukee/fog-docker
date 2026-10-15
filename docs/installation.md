@@ -84,17 +84,20 @@ For development, testing, or custom FOG versions:
 This project automatically builds and publishes new Docker images when the FOG Project releases new versions:
 
 - **Automatic Detection**: Checks for new FOG releases every 6 hours
-- **Final releases**: Versioned tag (e.g. `fog-1.5.10.2482`) and also tagged `latest`
-- **Release candidates**: Versioned tag only (e.g. `fog-1.6.0-RC-6`); published as a GitHub **pre-release** and **not** tagged `latest`
+- **Final releases**: Tagged `fog-<upstream-tag>` and `:latest`
+- **Release candidates**: Tagged `fog-<upstream-tag>` and `:rc`; published as a GitHub **pre-release** (**not** `:latest`)
 - **Not auto-built**: alpha / beta / preview tags (use the dev compose file or a manual workflow dispatch if needed)
 - **Manual Trigger**: You can manually trigger builds for specific FOG versions
 
 ### Available Image Tags
 
-- `ghcr.io/88fingerslukee/fog-docker:latest` - Latest final FOG release
-- `ghcr.io/88fingerslukee/fog-docker:fog-1.5.10.2482` - Specific FOG version
-- `ghcr.io/88fingerslukee/fog-docker:fog-1.6.0-RC-6` - Release candidate (pre-release; not `:latest`)
-- `ghcr.io/88fingerslukee/fog-docker:fog-dev-branch` - Development branch
+| Tag | Meaning |
+|-----|---------|
+| `:latest` | Newest final FOG release |
+| `:fog-<release>` | Pin to a specific published build (see [GitHub Releases](https://github.com/88fingerslukee/fog-docker/releases)) |
+| `:rc` | Newest release candidate (pre-release channel) |
+
+Full image reference: `ghcr.io/88fingerslukee/fog-docker:<tag>`. Custom FOG refs are built locally with `docker-compose-dev.yml` and `FOG_VERSION`.
 
 ## Next Steps
 

@@ -107,7 +107,7 @@ jobs:
           FINAL_TAG=$(echo "$API_BODY" | jq -r '
             [
               .[]
-              | select(.draft == false)
+              | select(.draft == false and .prerelease == false)
               | .tag_name
               | select(test("(?i)(rc|alpha|beta|preview)") | not)
             ][0] // empty
@@ -242,6 +242,7 @@ jobs:
         tags: |
           type=raw,value=fog-${{ steps.fog-version.outputs.fog-version }}
           type=raw,value=latest,enable=${{ steps.fog-version.outputs.is-rc != 'true' }}
+          type=raw,value=rc,enable=${{ steps.fog-version.outputs.is-rc == 'true' }}
 
     - name: Build and push Docker image
       uses: docker/build-push-action@v7
@@ -307,9 +308,11 @@ jobs:
         body: |
           Built with FOG Project **${{ steps.fog-version.outputs.fog-version }}** (release candidate).
 
-          **Image:** `ghcr.io/88fingerslukee/fog-docker:fog-${{ steps.fog-version.outputs.fog-version }}`
+          **Images:**
+          - `ghcr.io/88fingerslukee/fog-docker:fog-${{ steps.fog-version.outputs.fog-version }}` (pinned)
+          - `ghcr.io/88fingerslukee/fog-docker:rc` (rolling pointer to the newest RC)
 
-          This is a **pre-release**. It is **not** tagged as `:latest`. Use the versioned tag above if you want to try this RC.
+          This is a **pre-release**. RC images are **not** tagged as `:latest`.
 
           ## fog-docker changes${{ steps.changelog.outputs.since-tag && format(' (since {0})', steps.changelog.outputs.since-tag) || '' }}
           ${{ steps.changelog.outputs.notes }}
