@@ -96,7 +96,7 @@ After a capture upload, FOG runs **`Post_Stage2.php`** (“Updating Database” 
 
 The fog-docker image includes:
 
-- **PHP `ssh2`** (PECL)
+- **PHP `ssh2`** (`php8.4-ssh2`)
 - **`openssh-server`** managed by supervisor
 - **`FOG_STORAGE_NODE_SSH_HOST`** (default **`127.0.0.1`**) — on each start, the entrypoint sets the master storage node’s **`nfsGroupMembers.ngmHostname`** to this value so finalize talks to **in-container sshd**, not your public FQDN.
 

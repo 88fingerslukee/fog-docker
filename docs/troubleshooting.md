@@ -258,7 +258,7 @@ docker exec fog-server grep Post_Stage2 /opt/fog/log/apache2_error.log | tail -5
 
 | Log message | Fix |
 |-------------|-----|
-| `Call to undefined function ... ssh2_connect()` | Image missing **PHP ssh2** — rebuild/pull current `fog-docker` (includes `pecl ssh2`). |
+| `Call to undefined function ... ssh2_connect()` | Image missing **PHP ssh2** — rebuild/pull current `fog-docker` (Debian **`php8.4-ssh2`** package). |
 | `Unable to connect to ssh during move upload` | **openssh-server** not running in the container, or storage node hostname wrong. |
 | SSH auth failure | Storage node **IP/Hostname** in FOG must match a host where **`FOG_USER`/`FOG_PASS`** work over SSH. |
 

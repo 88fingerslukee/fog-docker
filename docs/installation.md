@@ -72,7 +72,9 @@ For development, testing, or custom FOG versions:
    ```bash
    cp .env.example .env
    # Edit .env: set FOG_WEB_HOST, FOG_DB_ROOT_PASSWORD, and optionally FOG_VERSION
-   # FOG_VERSION is any FOG git ref (stable, working-1.6, 1.6.0-RC-6, …)
+   # FOG_VERSION is any FOG git ref (stable, 1.6.0-RC-11, working-1.6, …)
+   # working-1.6 = upstream 1.6 dev branch (moving); pin 1.6.0-RC-11 to match a release candidate.
+   # Production without local builds: use docker-compose.yml + ghcr image tags (see below).
    ```
 
 3. **Build and start the containers:**
