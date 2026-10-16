@@ -80,6 +80,7 @@ process_template() {
         "TZ"
         "FOG_TFTP_HOST"
         "FOG_STORAGE_HOST"
+        "FOG_STORAGE_NODE_SSH_HOST"
         "FOG_WOL_HOST"
         "FOG_MULTICAST_INTERFACE"
         "FOG_WEB_HOST"

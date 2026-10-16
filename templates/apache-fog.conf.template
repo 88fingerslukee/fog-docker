@@ -7,6 +7,7 @@
     {{#FOG_APACHE_SETENV_HTTPS_ON_HTTP_VHOST}}
     SetEnv HTTPS on
     {{/FOG_APACHE_SETENV_HTTPS_ON_HTTP_VHOST}}
+    SetEnv FOG_STORAGE_NODE_SSH_HOST {{FOG_STORAGE_NODE_SSH_HOST}}
     
     <Directory /var/www/html/fog>
         Options Indexes FollowSymLinks

@@ -779,22 +779,47 @@ configureSSH() {
     echo "SSH configuration completed."
 }
 
-syncStorageNodeSshHost() {
-    local host="${FOG_STORAGE_NODE_SSH_HOST:-}"
+# FOG 1.6 kernel args ftp=/storage=/storageip= come from nfsGroupMembers.ngmHostname (StorageNode "ip").
+# Keep that client-reachable (FOG_STORAGE_HOST), not FOG_STORAGE_NODE_SSH_HOST (loopback for Post_Stage2).
+syncStorageNodeClientHostname() {
+    local host
+    host=$(echo "${FOG_STORAGE_HOST:-${FOG_WEB_HOST}}" | sed 's/[}]*$//')
     [ -n "$host" ] || return 0
     if ! [[ "$host" =~ ^[a-zA-Z0-9._-]+$ ]]; then
-        echo "WARNING: Invalid FOG_STORAGE_NODE_SSH_HOST (${host}); skipping nfsGroupMembers sync."
+        echo "WARNING: Invalid FOG_STORAGE_HOST (${host}); skipping nfsGroupMembers sync."
         return 0
     fi
 
     if ! mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" -p"$DB_PASS" --ssl=0 -e "USE $DB_NAME;" 2>/dev/null; then
-        echo "Skipping storage-node SSH host sync (database not ready)."
+        echo "Skipping storage-node client hostname sync (database not ready)."
         return 0
     fi
 
     mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" -p"$DB_PASS" --ssl=0 "$DB_NAME" -e \
         "UPDATE nfsGroupMembers SET ngmHostname='${host}' WHERE ngmIsMasterNode=1;" 2>/dev/null || true
-    echo "Storage-node SSH host set to ${host} (master nfsGroupMembers.ngmHostname)."
+    echo "Storage-node client hostname set to ${host} (master nfsGroupMembers.ngmHostname)."
+}
+
+patchFogPostStageSshHost() {
+    local file="/var/www/html/fog/src/TaskHandling/TaskQueue.php"
+    [ -f "$file" ] || return 0
+    if grep -q 'FOG_STORAGE_NODE_SSH_HOST' "$file" 2>/dev/null; then
+        return 0
+    fi
+    python3 <<'PY'
+from pathlib import Path
+path = Path("/var/www/html/fog/src/TaskHandling/TaskQueue.php")
+text = path.read_text()
+old = "self::$FOGSSH->host = $this->StorageNode->get('ip');"
+new = (
+    "self::$FOGSSH->host = (($h = getenv('FOG_STORAGE_NODE_SSH_HOST')) "
+    "&& $h !== false && $h !== '') ? $h : $this->StorageNode->get('ip');"
+)
+if old not in text:
+    raise SystemExit("TaskQueue.php SSH host assignment not found; Post_Stage2 patch skipped.")
+path.write_text(text.replace(old, new, 1))
+print("Patched TaskQueue.php: Post_Stage2 SSH uses FOG_STORAGE_NODE_SSH_HOST when set.")
+PY
 }
 
 configureDHCP() {
@@ -1120,6 +1145,7 @@ staticConfiguration() {
     echo "=== Begin Static Configuration Phase ==="
     prepareDirectories
     configureFOGConfig
+    patchFogPostStageSshHost
     configureApache
     configureSSL
     ensureWebCACertificate
@@ -1347,7 +1373,7 @@ ensureFOGDatabaseSchema() {
     fi
 
     echo "✓ Database schema check/update completed successfully ($current)."
-    syncStorageNodeSshHost
+    syncStorageNodeClientHostname
 
     # Fresh installs should have the default admin; warn only (upgrade DBs may use another name).
     local user_exists

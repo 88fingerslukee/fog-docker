@@ -265,10 +265,21 @@ docker exec fog-server grep Post_Stage2 /opt/fog/log/apache2_error.log | tail -5
 **Docker (single container):**
 
 ```bash
-FOG_STORAGE_NODE_SSH_HOST=127.0.0.1
+FOG_STORAGE_HOST=<IP or FQDN clients use for NFS/FTP>   # often same as FOG_WEB_HOST
+FOG_STORAGE_NODE_SSH_HOST=127.0.0.1                    # Post_Stage2 SFTP only (not on clients)
 ```
 
-On startup, fog-docker sets the master **`nfsGroupMembers.ngmHostname`** to that value and runs **sshd** under supervisor. The FOG UI may still show your public FQDN for clients; SSH moves use `127.0.0.1` inside the container.
+Restart the container after upgrading fog-docker so **`ngmHostname`** is synced from **`FOG_STORAGE_HOST`** and **`TaskQueue.php`** uses **`FOG_STORAGE_NODE_SSH_HOST`** for SSH without overwriting the client storage IP.
+
+### NFS mount fails: `storageip=127.0.0.1` / Connection refused
+
+FOG builds **`ftp=`**, **`storage=`**, and **`storageip=`** from the master storage node **`nfsGroupMembers.ngmHostname`**. If that value is **`127.0.0.1`**, each imaging client tries to NFS-mount **its own** loopback and fails before upload.
+
+**Fix:** set **`FOG_STORAGE_HOST`** (and **`FOG_WEB_HOST`**) to the server IP or FQDN **clients can route to**, pull a current fog-docker image (Post_Stage2 SSH override), restart, then re-PXE or refresh **`boot.php`** so kernel args update. One-off SQL:
+
+```sql
+UPDATE nfsGroupMembers SET ngmHostname='your.imaging.host' WHERE ngmIsMasterNode=1;
+```
 
 **Manual finalize** (if capture data remains under `dev/` and task failed): fix ssh2/sshd/hostname, set the task back to **In-Progress** in the DB if needed, then retry from the client or POST `Post_Stage2.php` with `mac=` and `type=up`. Success body is **`##`**.
 

@@ -98,16 +98,18 @@ The fog-docker image includes:
 
 - **PHP `ssh2`** (`php8.4-ssh2`)
 - **`openssh-server`** managed by supervisor
-- **`FOG_STORAGE_NODE_SSH_HOST`** (default **`127.0.0.1`**) — on each start, the entrypoint sets the master storage node’s **`nfsGroupMembers.ngmHostname`** to this value so finalize talks to **in-container sshd**, not your public FQDN.
+- **`FOG_STORAGE_NODE_SSH_HOST`** (default **`127.0.0.1`**) — **server-side only**: PHP **`Post_Stage2`** SFTP connects here (in-container **sshd**). It does **not** appear on the client kernel line.
+- On each start, the entrypoint sets the master storage node’s **`nfsGroupMembers.ngmHostname`** from **`FOG_STORAGE_HOST`** (defaults to **`FOG_WEB_HOST`**). FOG 1.6 uses that field for client **`ftp=`**, **`storage=`**, and **`storageip=`** — it must be an address **imaging clients can reach**, never **`127.0.0.1`**.
 
 ```bash
-# Single-container Docker (default — leave unset or use 127.0.0.1)
-FOG_STORAGE_NODE_SSH_HOST=127.0.0.1
+FOG_WEB_HOST=fog.example.com          # web= kernel arg (FOG web service)
+FOG_STORAGE_HOST=fog.example.com      # same in most installs; or a dedicated imaging IP
+FOG_STORAGE_NODE_SSH_HOST=127.0.0.1   # Post_Stage2 SFTP inside the container only
 FOG_USER=fogproject
-FOG_PASS=fogftp123   # same credentials storage node SSH uses
+FOG_PASS=fogftp123
 ```
 
-**Do not** point storage SSH at **`FOG_WEB_HOST`** unless that host’s SSH daemon accepts **`FOG_USER`/`FOG_PASS`**. Clients still use **`FOG_STORAGE_HOST`** / **`FOG_WEB_HOST`** for imaging URLs; only the **internal SFTP move** uses **`FOG_STORAGE_NODE_SSH_HOST`**.
+**Do not** set **`FOG_STORAGE_NODE_SSH_HOST`** on **`nfsGroupMembers.ngmHostname`** (older fog-docker builds did this and broke NFS with **`storageip=127.0.0.1`**). **`web=`** comes from **`FOG_WEB_HOST`** + boot protocol; **`ftp=` / `storage=` / `storageip=`** come from **`FOG_STORAGE_HOST`** via the storage node record.
 
 If capture data appears under **`/images/dev/`** but the task shows **Failed**, see [Troubleshooting — Post_Stage2](troubleshooting.md#capture-finishes-but-task-fails-on-updating-database-post_stage2-http-500).
 
