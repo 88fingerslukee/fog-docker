@@ -53,7 +53,11 @@ FOG_APACHE_SSL_PORT="${FOG_APACHE_SSL_PORT:-443}"
 FOG_APACHE_SSL_CERT_FILE="${FOG_APACHE_SSL_CERT_FILE:-server.crt}"
 FOG_APACHE_SSL_KEY_FILE="${FOG_APACHE_SSL_KEY_FILE:-server.key}"
 FOG_APACHE_SSL_CN="${FOG_APACHE_SSL_CN:-${FOG_WEB_HOST}}"
-FOG_APACHE_SSL_SAN="${FOG_APACHE_SSL_SAN:-}"
+FOG_CERT_SAN="${FOG_CERT_SAN:-}"
+if [ -z "$FOG_CERT_SAN" ] && [ -n "${FOG_APACHE_SSL_SAN:-}" ]; then
+    FOG_CERT_SAN="$FOG_APACHE_SSL_SAN"
+    echo "WARNING: FOG_APACHE_SSL_SAN is deprecated; use FOG_CERT_SAN (comma-separated extra names/IPs)."
+fi
 
 # FOG_TLS_MODE → FOG_WEB_PROTOCOL, FOG_BOOT_PROTOCOL, FOG_INTERNAL_HTTPS_ENABLED, etc.
 # shellcheck source=/opt/fog/scripts/resolve-tls-mode.sh
@@ -519,6 +523,128 @@ configureApache() {
 }
 
 
+_normalize_cert_name() {
+    echo "$1" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//;s/[}]*$//'
+}
+
+_cert_name_is_ip() {
+    local n="$1"
+    if [[ "$n" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]]; then
+        return 0
+    fi
+    # Basic IPv6 (contains colon, no spaces)
+    if [[ "$n" == *:* ]] && [[ "$n" != *" "* ]]; then
+        return 0
+    fi
+    return 1
+}
+
+# Append [alt_names] to $1: FOG_WEB_HOST, optional FOG_APACHE_SSL_CN if different, then FOG_CERT_SAN list.
+write_fog_cert_alt_names() {
+    local out_file="$1"
+    local -a names=()
+    local -a seen=()
+    local primary cn extra n s dup
+
+    primary=$(_normalize_cert_name "${FOG_WEB_HOST:-localhost}")
+    cn=$(_normalize_cert_name "${FOG_APACHE_SSL_CN:-$primary}")
+    [ -n "$primary" ] && names+=("$primary")
+    if [ -n "$cn" ] && [ "$cn" != "$primary" ]; then
+        names+=("$cn")
+    fi
+    if [ -n "$FOG_CERT_SAN" ]; then
+        IFS=',' read -ra _cert_san_extras <<< "$FOG_CERT_SAN"
+        for extra in "${_cert_san_extras[@]}"; do
+            extra=$(_normalize_cert_name "$extra")
+            [ -n "$extra" ] && names+=("$extra")
+        done
+    fi
+
+    {
+        echo "[alt_names]"
+        local dns_i=1 ip_i=1
+        for n in "${names[@]}"; do
+            dup=0
+            for s in "${seen[@]}"; do
+                if [ "$s" = "$n" ]; then
+                    dup=1
+                    break
+                fi
+            done
+            [ "$dup" -eq 1 ] && continue
+            seen+=("$n")
+            if _cert_name_is_ip "$n"; then
+                echo "IP.${ip_i} = ${n}"
+                ip_i=$((ip_i + 1))
+            else
+                echo "DNS.${dns_i} = ${n}"
+                dns_i=$((dns_i + 1))
+            fi
+        done
+    } >> "$out_file"
+}
+
+# Persisted on /opt/fog/config (volume): when FOG_WEB_HOST / FOG_CERT_SAN / generation logic changes, regen certs.
+FOG_CERT_SPEC_FILE="${FOG_CERT_SPEC_FILE:-/opt/fog/config/fog-auto-cert.sha256}"
+FOG_CERT_GENERATION_VERSION=1
+FOG_APACHE_TLS_MANAGED_MARKER="${FOG_APACHE_TLS_MANAGED_MARKER:-/opt/fog/config/.fog-managed-apache-tls}"
+
+_fog_auto_cert_spec_line() {
+    local web cn san
+    web=$(_normalize_cert_name "${FOG_WEB_HOST:-localhost}")
+    cn=$(_normalize_cert_name "${FOG_APACHE_SSL_CN:-$web}")
+    san=$(_normalize_cert_name "${FOG_CERT_SAN:-}")
+    printf 'v%s|web=%s|cn=%s|san=%s' "$FOG_CERT_GENERATION_VERSION" "$web" "$cn" "$san"
+}
+
+_fog_auto_cert_fingerprint() {
+    _fog_auto_cert_spec_line | sha256sum | awk '{print $1}'
+}
+
+persist_fog_auto_cert_fingerprint() {
+    mkdir -p "$(dirname "$FOG_CERT_SPEC_FILE")"
+    _fog_auto_cert_fingerprint > "$FOG_CERT_SPEC_FILE"
+}
+
+# Drop auto-generated certs when env fingerprint differs from last successful boot (container recreate keeps volume).
+maybe_regenerate_fog_auto_certs() {
+    local webdirdest="/var/www/html/fog"
+    local sslpath="/opt/fog/snapins/ssl/"
+    local srvpublic="$webdirdest/management/other/ssl/srvpublic.crt"
+    local current stored
+
+    mkdir -p "$(dirname "$FOG_CERT_SPEC_FILE")"
+    current=$(_fog_auto_cert_fingerprint)
+    stored=""
+    if [ -f "$FOG_CERT_SPEC_FILE" ]; then
+        stored=$(tr -d '[:space:]' < "$FOG_CERT_SPEC_FILE")
+    fi
+
+    if [ -z "$stored" ]; then
+        if [ -f "$srvpublic" ]; then
+            echo "Recording FOG auto-cert fingerprint (existing srvpublic.crt kept; change FOG_WEB_HOST or FOG_CERT_SAN to regenerate)."
+            persist_fog_auto_cert_fingerprint
+        fi
+        return 0
+    fi
+
+    if [ "$stored" = "$current" ]; then
+        return 0
+    fi
+
+    echo "FOG_WEB_HOST, FOG_CERT_SAN, or cert generation version changed — regenerating auto-generated certificates..."
+
+    rm -f "$srvpublic"
+    rm -f "$sslpath/fog.csr" "$sslpath/req.cnf" "$sslpath/ca.cnf"
+
+    if [ -f "$FOG_APACHE_TLS_MANAGED_MARKER" ]; then
+        rm -f "/opt/fog/snapins/ssl/$FOG_APACHE_SSL_CERT_FILE" \
+            "/opt/fog/snapins/ssl/$FOG_APACHE_SSL_KEY_FILE" \
+            "/opt/fog/snapins/ssl/apache-ssl.conf" \
+            "$FOG_APACHE_TLS_MANAGED_MARKER"
+    fi
+}
+
 ensureWebCACertificate() {
     echo "Ensuring CA certificate is available for FOG client download..."
     
@@ -585,7 +711,7 @@ ensureServerPublicCertificate() {
         mkdir -p "$sslpath"
         openssl genrsa -out "$sslprivkey" 4096
         
-        # Create certificate signing request
+        # Create certificate signing request (SANs: FOG_WEB_HOST + FOG_CERT_SAN)
         cat > "$sslpath/req.cnf" << EOF
 [req]
 distinguished_name = req_distinguished_name
@@ -595,9 +721,8 @@ prompt = yes
 CN = $hostname
 [v3_req]
 subjectAltName = @alt_names
-[alt_names]
-DNS.1 = $hostname
 EOF
+        write_fog_cert_alt_names "$sslpath/req.cnf"
         
         openssl req -new -sha512 -key "$sslprivkey" -out "$sslpath/fog.csr" -config "$sslpath/req.cnf" << EOF
 $hostname
@@ -613,9 +738,8 @@ EOF
         cat > "$sslpath/ca.cnf" << EOF
 [v3_ca]
 subjectAltName = @alt_names
-[alt_names]
-DNS.1 = $hostname
 EOF
+        write_fog_cert_alt_names "$sslpath/ca.cnf"
         
         openssl x509 -req -in "$sslpath/fog.csr" -CA "$sslpath/CA/.fogCA.pem" \
             -CAkey "$sslpath/CA/.fogCA.key" -CAcreateserial \
@@ -627,8 +751,10 @@ EOF
         chown -R "$apacheuser:$apacheuser" "$sslpath"
         
         echo "Server public certificate created using FOG source process."
+        persist_fog_auto_cert_fingerprint
     else
         echo "Server public certificate already exists."
+        persist_fog_auto_cert_fingerprint
     fi
 }
 
@@ -642,10 +768,8 @@ configureSSL() {
         else
             echo "Generating self-signed Apache SSL certificate..."
             mkdir -p "/opt/fog/snapins/ssl"
-            
-            if [ -n "$FOG_APACHE_SSL_SAN" ]; then
-                # Create OpenSSL config file for SAN support
-                cat > "/opt/fog/snapins/ssl/apache-ssl.conf" << EOF
+
+            cat > "/opt/fog/snapins/ssl/apache-ssl.conf" << EOF
 [req]
 distinguished_name = req_distinguished_name
 req_extensions = v3_req
@@ -663,30 +787,18 @@ keyUsage = keyEncipherment, dataEncipherment
 extendedKeyUsage = serverAuth
 subjectAltName = @alt_names
 
-[alt_names]
 EOF
-                
-                # Add SAN entries
-                IFS=',' read -ra SAN_ARRAY <<< "$FOG_APACHE_SSL_SAN"
-                for i in "${!SAN_ARRAY[@]}"; do
-                    echo "DNS.$((i+1)) = ${SAN_ARRAY[$i]}" >> "/opt/fog/snapins/ssl/apache-ssl.conf"
-                done
-                
-                # Generate certificate with SAN
-                openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-                    -keyout "/opt/fog/snapins/ssl/$FOG_APACHE_SSL_KEY_FILE" \
-                    -out "/opt/fog/snapins/ssl/$FOG_APACHE_SSL_CERT_FILE" \
-                    -config "/opt/fog/snapins/ssl/apache-ssl.conf" \
-                    -extensions v3_req
-            else
-                # Generate simple certificate
-                openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-                    -keyout "/opt/fog/snapins/ssl/$FOG_APACHE_SSL_KEY_FILE" \
-                    -out "/opt/fog/snapins/ssl/$FOG_APACHE_SSL_CERT_FILE" \
-                    -subj "/C=US/ST=State/L=City/O=Organization/CN=$FOG_APACHE_SSL_CN"
-            fi
+            write_fog_cert_alt_names "/opt/fog/snapins/ssl/apache-ssl.conf"
+
+            openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+                -keyout "/opt/fog/snapins/ssl/$FOG_APACHE_SSL_KEY_FILE" \
+                -out "/opt/fog/snapins/ssl/$FOG_APACHE_SSL_CERT_FILE" \
+                -config "/opt/fog/snapins/ssl/apache-ssl.conf" \
+                -extensions v3_req
             
             chown -R www-data:www-data "/opt/fog/snapins/ssl"
+            mkdir -p "$(dirname "$FOG_APACHE_TLS_MANAGED_MARKER")"
+            touch "$FOG_APACHE_TLS_MANAGED_MARKER"
             echo "Self-signed Apache certificate generated."
         fi
     else
@@ -1147,9 +1259,10 @@ staticConfiguration() {
     configureFOGConfig
     patchFogPostStageSshHost
     configureApache
-    configureSSL
+    maybe_regenerate_fog_auto_certs
     ensureWebCACertificate
     ensureServerPublicCertificate
+    configureSSL
     configureiPXE
     configureTFTP
     configureNFS

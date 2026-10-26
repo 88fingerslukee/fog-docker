@@ -89,7 +89,7 @@ services:
       FOG_APACHE_SSL_CERT_FILE: "${FOG_APACHE_SSL_CERT_FILE:-server.crt}"
       FOG_APACHE_SSL_KEY_FILE: "${FOG_APACHE_SSL_KEY_FILE:-server.key}"
       FOG_APACHE_SSL_CN: "${FOG_APACHE_SSL_CN:-}"
-      FOG_APACHE_SSL_SAN: "${FOG_APACHE_SSL_SAN:-}"
+      FOG_CERT_SAN: "${FOG_CERT_SAN:-${FOG_APACHE_SSL_SAN:-}}"
       
       # Network Configuration
       FOG_STORAGE_HOST: "${FOG_STORAGE_HOST:-${FOG_WEB_HOST}}"

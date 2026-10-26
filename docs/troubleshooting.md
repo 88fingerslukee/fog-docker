@@ -413,6 +413,15 @@ Usually indicates passive mode configuration issues:
 2. **Check CA certificate** is accessible at `/fog/management/other/ca.cert.der`
 3. **Verify server public certificate** at `/fog/management/other/ssl/srvpublic.crt`
 
+### FOG Agent enrollment / certificate name errors
+
+FOG Agent checks that **`srvpublic.crt`** matches the server name you use to enroll (stricter than the legacy FOG Client).
+
+1. Set **`FOG_WEB_HOST`** to the primary FQDN or IP clients/agents use.
+2. Add any other names (short hostname, extra DNS zone, LAN IP) to **`FOG_CERT_SAN`** as a comma-separated list — see [SSL/HTTPS — FOG Client Certificates](ssl-https.md#fog-client-certificates).
+3. Enroll using a name that appears on the cert (same string as in the URL).
+4. Change **`FOG_WEB_HOST`** or **`FOG_CERT_SAN`** and restart/recreate the container — fog-docker compares a saved fingerprint on **`/opt/fog/config`** and regenerates **`srvpublic.crt`** when the values changed (see [SSL/HTTPS](ssl-https.md#fog-client-certificates)).
+
 ## Common Error Messages
 
 ### "Cannot create file line 709"

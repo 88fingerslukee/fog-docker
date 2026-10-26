@@ -146,7 +146,7 @@ See **[Secure Boot](secure-boot.md)** for DHCP boot files and PXE enrollment ste
 | `FOG_APACHE_SSL_CERT_FILE` | Apache SSL certificate file | `server.crt` | - |
 | `FOG_APACHE_SSL_KEY_FILE` | Apache SSL key file | `server.key` | - |
 | `FOG_APACHE_SSL_CN` | SSL certificate common name | `fog.example.com` | - |
-| `FOG_APACHE_SSL_SAN` | SSL certificate SAN | `alt1.example.com,alt2.example.com` | - |
+| `FOG_CERT_SAN` | Extra subject alternative names (comma-separated) on **`srvpublic.crt`** and self-signed Apache certs | `shortname,fog.local,192.168.1.10` | - |
 
 ## Migration Configuration
 
@@ -355,7 +355,7 @@ FOG_TLS_MODE=standard
 
 # SSL configuration
 FOG_APACHE_SSL_CN=192.168.1.100
-FOG_APACHE_SSL_SAN=alt1.domain.com,alt2.domain.com
+FOG_CERT_SAN=shortname,alt1.domain.com,192.168.1.10
 
 # DHCP (use existing)
 FOG_DHCP_ENABLED=false

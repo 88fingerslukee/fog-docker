@@ -41,7 +41,7 @@ FOG_APACHE_SSL_KEY_FILE=privkey.pem
 ```bash
 FOG_TLS_MODE=standard
 # FOG_APACHE_SSL_CN defaults to FOG_WEB_HOST if unset
-FOG_APACHE_SSL_SAN=alt1.domain.com,alt2.domain.com
+FOG_CERT_SAN=shortname,alt1.domain.com,192.168.1.10
 ```
 
 Browse `https://your-host/fog/management/` and accept the certificate warning. Netboot uses HTTP to `boot.php` (see [TLS Modes](tls-modes.md)).
@@ -63,7 +63,11 @@ See [Reverse Proxy Setup](reverse-proxy.md). Use `FOG_TLS_MODE=reverse-proxy` �
 - **Server Public Certificate**: `/var/www/html/fog/management/other/ssl/srvpublic.crt`
 - **Private Keys**: `/opt/fog/snapins/ssl/` (internal use only)
 
-**No Configuration Required**: These certificates are generated automatically during container startup and require no additional configuration.
+**Subject alternative names**: **`FOG_WEB_HOST`** is always placed on **`srvpublic.crt`** (as DNS or IP SAN). Add more names with **`FOG_CERT_SAN`** (comma-separated hostnames and/or IPs) — used for **FOG Agent** enrollment, legacy FOG Client, and self-signed **Apache** HTTPS when the container generates certs.
+
+**Changing names**: On each container start, fog-docker stores a fingerprint of **`FOG_WEB_HOST`**, **`FOG_APACHE_SSL_CN`**, and **`FOG_CERT_SAN`** under **`/opt/fog/config/fog-auto-cert.sha256`** (persist **`./config`** on the host). If those values change and you recreate/restart the container, **`srvpublic.crt`** is regenerated automatically. Self-signed Apache certs are regenerated only when fog-docker created them (not when you mount your own **`fullchain.pem`** / **`privkey.pem`**). The first boot after upgrade may only **record** a fingerprint if an old **`srvpublic.crt`** already exists — change a cert-related env var once to force regen with the new SAN logic.
+
+**Deprecated**: **`FOG_APACHE_SSL_SAN`** is accepted as a fallback with a startup warning; use **`FOG_CERT_SAN`** instead.
 
 ## Reverse Proxy Setup
 
@@ -165,14 +169,14 @@ services:
     environment:
       - FOG_TLS_MODE=${FOG_TLS_MODE:-standard}
       - FOG_APACHE_SSL_CN=${FOG_APACHE_SSL_CN}
-      - FOG_APACHE_SSL_SAN=${FOG_APACHE_SSL_SAN}
+      - FOG_CERT_SAN=${FOG_CERT_SAN}
 ```
 
 **Required .env variables:**
 ```bash
 FOG_TLS_MODE=standard
 FOG_APACHE_SSL_CN=fog.example.com
-FOG_APACHE_SSL_SAN=alt1.example.com,alt2.example.com
+FOG_CERT_SAN=shortname,alt1.example.com,192.168.1.10
 ```
 
 ## Testing SSL Configuration

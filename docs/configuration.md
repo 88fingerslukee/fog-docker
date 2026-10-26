@@ -281,7 +281,7 @@ Persist the **`/opt/fog/secure-boot`** volume when enabled so keys and enrollmen
 - `FOG_APACHE_SSL_CERT_FILE` - Apache SSL certificate file
 - `FOG_APACHE_SSL_KEY_FILE` - Apache SSL key file
 - `FOG_APACHE_SSL_CN` - SSL certificate common name
-- `FOG_APACHE_SSL_SAN` - SSL certificate subject alternative names
+- `FOG_CERT_SAN` - Extra DNS names/IPs on auto-generated certs (`srvpublic.crt`, self-signed Apache)
 
 ### Network Configuration
 - `FOG_MULTICAST_INTERFACE` - Network interface for multicast operations
