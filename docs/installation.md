@@ -58,6 +58,10 @@ cp .env.example .env
 docker compose up -d
 ```
 
+## Windows (WSL2)
+
+To run fog-docker on **Windows** for lab work (Web UI, FOG Agent trials), see **[Windows (WSL2)](wsl.md)**. Full LAN PXE/imaging on WSL is limited; use a Linux server or VM for production imaging.
+
 ## Development Setup
 
 For development, testing, or custom FOG versions:

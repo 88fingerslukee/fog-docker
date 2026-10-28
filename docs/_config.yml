@@ -16,6 +16,8 @@ navigation:
     children:
       - title: Installation
         url: /installation
+      - title: Windows (WSL2)
+        url: /wsl
       - title: Configuration
         url: /configuration
       - title: Network Boot

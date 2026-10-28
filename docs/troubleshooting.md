@@ -392,6 +392,14 @@ Usually indicates passive mode configuration issues:
 2. **Ensure proper certificate chain**
 3. **Verify SSL configuration** in Apache
 
+### Edge/Chrome: `ERR_SSL_KEY_USAGE_INCOMPATIBLE` (standard TLS / self-signed)
+
+The browser reached HTTPS but rejected the **Apache `server.crt`** Key Usage (common on **WSL** and **`FOG_TLS_MODE=standard`**). **Pull a current fog-docker image** and **recreate** the container so managed **`server.crt`** is regenerated with **`digitalSignature`**. See [SSL/HTTPS — self-signed](ssl-https.md#self-signed-default) and [Windows (WSL2)](wsl.md).
+
+### WSL2 on Windows
+
+See **[Windows (WSL2)](wsl.md)** for ports, **`FOG_WEB_HOST`**, HTTPS vs HTTP, and PXE limitations.
+
 ### Mixed Content Warnings
 
 1. **Use a TLS mode with HTTPS for the UI** (`FOG_TLS_MODE=standard`, `mounted-certs`, `public-cert`, or `reverse-proxy`) and open the matching URL — see [TLS Modes](tls-modes.md)

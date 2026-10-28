@@ -123,6 +123,7 @@ Our comprehensive documentation covers:
 
 ### Quick Reference
 - **[Installation Guide](https://88fingerslukee.github.io/fog-docker/installation)** - Detailed installation instructions
+- **[Windows (WSL2)](https://88fingerslukee.github.io/fog-docker/wsl)** - Run fog-docker on WSL for lab and UI testing
 - **[Configuration Guide](https://88fingerslukee.github.io/fog-docker/configuration)** - Complete configuration options
 - **[Environment Variables](https://88fingerslukee.github.io/fog-docker/environment-variables)** - All 50+ variables explained
 
@@ -237,7 +238,7 @@ This project is licensed under the GPL v3 License - see the [LICENSE](LICENSE) f
 - [@Cpasjuste](https://github.com/Cpasjuste) for the userland NFS approach in [docker-fog](https://github.com/Cpasjuste/docker-fog)
 - [@MonolithicRamone](https://github.com/MonolithicRamone) for testing and issue reporting
 - [@LuukBlankenstijn](https://github.com/LuukBlankenstijn) for UDP Casting testing and fix
-- [@IMazarithI](https://github.com/IMazarithI) for iPXE boot file and storage node testing
+- [@IMazarithI](https://github.com/IMazarithI) for extensive ongoing testing — FOG 1.6 on Docker, internal DHCP, storage node and iPXE behavior, FOG Agent/certificates, and WSL2 lab setups
 - [@derricklee88](https://github.com/derricklee88) for tftpboot testing
 - [@craiggc-hub](https://github.com/craiggc-hub) for boot file and login testing
 - [@Toratoru](https://github.com/Toratoru) for login testing

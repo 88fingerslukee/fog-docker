@@ -52,6 +52,7 @@ FOG Docker is a complete containerization of the FOG Project, providing:
 
 ### Getting Started
 - **[Installation Guide](installation.md)** - Detailed installation instructions
+- **[Windows (WSL2)](wsl.md)** - Lab testing on Windows with WSL and Docker
 - **[Configuration Guide](configuration.md)** - Complete configuration options
 - **[Network Boot Setup](network-boot.md)** - PXE and HTTPBoot configuration
 
