@@ -586,7 +586,7 @@ write_fog_cert_alt_names() {
 
 # Persisted on /opt/fog/config (volume): when FOG_WEB_HOST / FOG_CERT_SAN / generation logic changes, regen certs.
 FOG_CERT_SPEC_FILE="${FOG_CERT_SPEC_FILE:-/opt/fog/config/fog-auto-cert.sha256}"
-FOG_CERT_GENERATION_VERSION=1
+FOG_CERT_GENERATION_VERSION=2
 FOG_APACHE_TLS_MANAGED_MARKER="${FOG_APACHE_TLS_MANAGED_MARKER:-/opt/fog/config/.fog-managed-apache-tls}"
 
 _fog_auto_cert_spec_line() {
@@ -783,7 +783,9 @@ O = Organization
 CN = $FOG_APACHE_SSL_CN
 
 [v3_req]
-keyUsage = keyEncipherment, dataEncipherment
+basicConstraints = CA:FALSE
+# Edge/Chrome (TLS 1.3): need digitalSignature; RSA HTTPS also uses keyEncipherment (see ERR_SSL_KEY_USAGE_INCOMPATIBLE).
+keyUsage = critical, digitalSignature, keyEncipherment
 extendedKeyUsage = serverAuth
 subjectAltName = @alt_names
 

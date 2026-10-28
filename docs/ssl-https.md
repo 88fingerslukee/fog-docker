@@ -46,6 +46,8 @@ FOG_CERT_SAN=shortname,alt1.domain.com,192.168.1.10
 
 Browse `https://your-host/fog/management/` and accept the certificate warning. Netboot uses HTTP to `boot.php` (see [TLS Modes](tls-modes.md)).
 
+Self-signed Apache certs include **`digitalSignature`** and **`keyEncipherment`** so current Chrome/Edge accept TLS 1.3 (avoids **`ERR_SSL_KEY_USAGE_INCOMPATIBLE`**). After upgrading fog-docker, recreate the container so managed **`server.crt`** is regenerated (fingerprint / generation version change).
+
 ### Reverse proxy
 
 See [Reverse Proxy Setup](reverse-proxy.md). Use `FOG_TLS_MODE=reverse-proxy` — do not browse plain HTTP to the container for admin login.
