@@ -510,11 +510,22 @@ EOF
 configureApache() {
     echo "Configuring Apache..."
     
+    # URL-path prefix for Apache rewrite/LocationMatch (upstream normalizeWebroot).
+    local _fog_webroot="${FOG_WEB_ROOT:-/fog}"
+    [[ "$_fog_webroot" != */ ]] && _fog_webroot="${_fog_webroot}/"
+    export FOG_WEB_ROOT_RE
+    FOG_WEB_ROOT_RE=$(printf '%s' "$_fog_webroot" | sed 's/[.[\*^$()+?{|]/\\&/g')
+    
     # Generate ports.conf from template (idempotent)
     /opt/fog/scripts/process-template.sh /opt/fog/templates/ports.conf.template /etc/apache2/ports.conf
     
     # Generate site config from template
     /opt/fog/scripts/process-template.sh /opt/fog/templates/apache-fog.conf.template "$APACHE_CONFIG_FILE"
+    
+    # Default site can steal /fog/api before our rewrite rules (FOGProject GH / commit 2ac7df0).
+    if [ -f /etc/apache2/sites-enabled/000-default.conf ] || [ -L /etc/apache2/sites-enabled/000-default.conf ]; then
+        a2dissite 000-default >/dev/null 2>&1 || true
+    fi
     
     # Enable the site
     a2ensite fog

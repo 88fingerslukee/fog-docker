@@ -8,18 +8,41 @@
     SetEnv HTTPS on
     {{/FOG_APACHE_SETENV_HTTPS_ON_HTTP_VHOST}}
     SetEnv FOG_STORAGE_NODE_SSH_HOST {{FOG_STORAGE_NODE_SSH_HOST}}
+
+    # API basic auth: proxy_fcgi drops Authorization; SetEnvIf works under mod_php too.
+    SetEnvIf Authorization "(.+)" HTTP_AUTHORIZATION=$1
+
+    # Installer-only maintenance endpoints — same-machine only (upstream fog.conf).
+    <LocationMatch "^{{FOG_WEB_ROOT_RE}}maintenance/">
+        Require local
+    </LocationMatch>
     
     <Directory /var/www/html/fog>
-        Options Indexes FollowSymLinks
+        Options +FollowSymLinks
         AllowOverride All
         Require all granted
+        DirectoryIndex index.php index.html index.htm
+    </Directory>
+
+    # GH-529: Alias path is not covered by the real-tree Directory block alone.
+    <Directory /var/www/html/fog/fog>
+        Options +FollowSymLinks
+        AllowOverride All
+        Require all granted
+        DirectoryIndex index.php index.html index.htm
     </Directory>
     
     # FOG specific configuration
     Alias {{FOG_WEB_ROOT}} /var/www/html/fog
     
-    # Enable rewrite engine
+    Timeout 600
+
     RewriteEngine On
+    RewriteCond %{REQUEST_METHOD} ^(TRACE|TRACK)
+    RewriteRule .* - [F]
+    RewriteCond %{DOCUMENT_ROOT}/%{REQUEST_FILENAME} !-f
+    RewriteCond %{DOCUMENT_ROOT}/%{REQUEST_FILENAME} !-d
+    RewriteRule ^{{FOG_WEB_ROOT_RE}}(.*)$ /var/www/html/fog/api/index.php [QSA,L]
     
     # Logging
     ErrorLog ${APACHE_LOG_DIR}/fog_error.log
@@ -30,18 +53,39 @@
 <VirtualHost *:{{FOG_APACHE_SSL_PORT}}>
     ServerName {{FOG_WEB_HOST}}
     DocumentRoot /var/www/html/fog
+
+    SetEnv FOG_STORAGE_NODE_SSH_HOST {{FOG_STORAGE_NODE_SSH_HOST}}
+    SetEnvIf Authorization "(.+)" HTTP_AUTHORIZATION=$1
+
+    <LocationMatch "^{{FOG_WEB_ROOT_RE}}maintenance/">
+        Require local
+    </LocationMatch>
     
     <Directory /var/www/html/fog>
-        Options Indexes FollowSymLinks
+        Options +FollowSymLinks
         AllowOverride All
         Require all granted
+        DirectoryIndex index.php index.html index.htm
+    </Directory>
+
+    <Directory /var/www/html/fog/fog>
+        Options +FollowSymLinks
+        AllowOverride All
+        Require all granted
+        DirectoryIndex index.php index.html index.htm
     </Directory>
     
     # FOG specific configuration
     Alias {{FOG_WEB_ROOT}} /var/www/html/fog
     
-    # Enable rewrite engine
+    Timeout 600
+
     RewriteEngine On
+    RewriteCond %{REQUEST_METHOD} ^(TRACE|TRACK)
+    RewriteRule .* - [F]
+    RewriteCond %{DOCUMENT_ROOT}/%{REQUEST_FILENAME} !-f
+    RewriteCond %{DOCUMENT_ROOT}/%{REQUEST_FILENAME} !-d
+    RewriteRule ^{{FOG_WEB_ROOT_RE}}(.*)$ /var/www/html/fog/api/index.php [QSA,L]
     
     # SSL Configuration
     SSLEngine on

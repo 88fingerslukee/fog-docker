@@ -85,6 +85,7 @@ process_template() {
         "FOG_MULTICAST_INTERFACE"
         "FOG_WEB_HOST"
         "FOG_WEB_ROOT"
+        "FOG_WEB_ROOT_RE"
         "FOG_APACHE_PORT"
         "FOG_APACHE_SSL_PORT"
         "FOG_INTERNAL_HTTPS_ENABLED"
