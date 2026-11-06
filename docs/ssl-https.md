@@ -18,7 +18,7 @@ FOG client certificates are always generated automatically for client authentica
 
 | Goal | `FOG_TLS_MODE` | Certificate |
 |------|----------------|-------------|
-| Default direct access | `standard` | Auto self-signed in container |
+| Default direct access | `standard` | Apache certificate signed by the container FOG CA |
 | Your certs on Apache | `mounted-certs` or `public-cert` | Mount into `/opt/fog/snapins/ssl/` |
 | Traefik / external TLS | `reverse-proxy` | Certs on the proxy, not in container |
 | No TLS | `http-only` | None |
@@ -44,9 +44,9 @@ FOG_TLS_MODE=standard
 FOG_CERT_SAN=shortname,alt1.domain.com,192.168.1.10
 ```
 
-Browse `https://your-host/fog/management/` and accept the certificate warning. Netboot uses HTTP to `boot.php` (see [TLS Modes](tls-modes.md)).
+Browse `https://your-host/fog/management/` and accept the certificate warning until you trust `ca.cert.pem`. Netboot uses HTTP to `boot.php` (see [TLS Modes](tls-modes.md)).
 
-Self-signed Apache certs include **`digitalSignature`** and **`keyEncipherment`** so current Chrome/Edge accept TLS 1.3 (avoids **`ERR_SSL_KEY_USAGE_INCOMPATIBLE`**). After upgrading fog-docker, recreate the container so managed **`server.crt`** is regenerated (fingerprint / generation version change).
+In `standard` mode the Apache certificate is signed by the FOG CA published at `/fog/management/other/ca.cert.pem`. FOG Agent enrollment checks that those match. The certificate includes **`digitalSignature`** and **`keyEncipherment`** so current Chrome/Edge accept TLS 1.3 (avoids **`ERR_SSL_KEY_USAGE_INCOMPATIBLE`**). After upgrading fog-docker, recreate the container so managed **`server.crt`** is regenerated.
 
 ### Reverse proxy
 

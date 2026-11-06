@@ -15,7 +15,7 @@ One setting configures **how you open the web UI**, **how iPXE reaches `boot.php
 
 | `FOG_TLS_MODE` | Open the UI at | PXE / `default.ipxe` chain | Apache `:443` in container |
 |----------------|----------------|----------------------------|----------------------------|
-| **`standard`** (default) | `https://FOG_WEB_HOST/...` (accept self-signed) | **`http://…/boot.php`** | Yes (auto self-signed) |
+| **`standard`** (default) | `https://FOG_WEB_HOST/...` (trust the FOG CA, or accept the warning) | **`http://…/boot.php`** | Yes (signed by the container FOG CA) |
 | **`http-only`** | `http://FOG_WEB_HOST/...` | `http://…/boot.php` | No |
 | **`mounted-certs`** | `https://…` (your cert files) | **`http://…/boot.php`** | Yes (mounted) |
 | **`public-cert`** | `https://FQDN/...` | **`https://FQDN/.../boot.php`** | Yes (mounted public cert) |
@@ -33,7 +33,7 @@ On container start, the entrypoint prints the resolved **Browse** and **Netboot*
 
 ### `standard`
 
-Default single-server install: **HTTPS management UI**, **HTTP netboot** (same as upstream FOG 1.6 `standard`). PXE does not need to trust your self-signed Apache certificate.
+Default single-server install: **HTTPS management UI**, **HTTP netboot** (same as upstream FOG 1.6 `standard`). The Apache certificate is signed by the FOG CA at `/fog/management/other/ca.cert.pem`, which is what FOG Agent enrollment trusts. PXE stays on HTTP, so iPXE does not need that CA.
 
 ### `http-only`
 

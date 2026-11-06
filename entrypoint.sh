@@ -597,7 +597,7 @@ write_fog_cert_alt_names() {
 
 # Persisted on /opt/fog/config (volume): when FOG_WEB_HOST / FOG_CERT_SAN / generation logic changes, regen certs.
 FOG_CERT_SPEC_FILE="${FOG_CERT_SPEC_FILE:-/opt/fog/config/fog-auto-cert.sha256}"
-FOG_CERT_GENERATION_VERSION=2
+FOG_CERT_GENERATION_VERSION=3
 FOG_APACHE_TLS_MANAGED_MARKER="${FOG_APACHE_TLS_MANAGED_MARKER:-/opt/fog/config/.fog-managed-apache-tls}"
 
 _fog_auto_cert_spec_line() {
@@ -777,10 +777,21 @@ configureSSL() {
         if [ -f "/opt/fog/snapins/ssl/$FOG_APACHE_SSL_CERT_FILE" ] && [ -f "/opt/fog/snapins/ssl/$FOG_APACHE_SSL_KEY_FILE" ]; then
             echo "Using external Apache SSL certificates."
         else
-            echo "Generating self-signed Apache SSL certificate..."
-            mkdir -p "/opt/fog/snapins/ssl"
+            local sslpath="/opt/fog/snapins/ssl"
+            local ca_pem="$sslpath/CA/.fogCA.pem"
+            local ca_key="$sslpath/CA/.fogCA.key"
+            local cert_file="$sslpath/$FOG_APACHE_SSL_CERT_FILE"
+            local key_file="$sslpath/$FOG_APACHE_SSL_KEY_FILE"
 
-            cat > "/opt/fog/snapins/ssl/apache-ssl.conf" << EOF
+            if [ ! -f "$ca_pem" ] || [ ! -f "$ca_key" ]; then
+                echo "ERROR: FOG CA is missing, so the Apache certificate cannot be signed."
+                exit 1
+            fi
+
+            echo "Signing Apache certificate with the FOG CA..."
+            mkdir -p "$sslpath"
+
+            cat > "$sslpath/apache-ssl.conf" << EOF
 [req]
 distinguished_name = req_distinguished_name
 req_extensions = v3_req
@@ -801,18 +812,28 @@ extendedKeyUsage = serverAuth
 subjectAltName = @alt_names
 
 EOF
-            write_fog_cert_alt_names "/opt/fog/snapins/ssl/apache-ssl.conf"
+            write_fog_cert_alt_names "$sslpath/apache-ssl.conf"
 
-            openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-                -keyout "/opt/fog/snapins/ssl/$FOG_APACHE_SSL_KEY_FILE" \
-                -out "/opt/fog/snapins/ssl/$FOG_APACHE_SSL_CERT_FILE" \
-                -config "/opt/fog/snapins/ssl/apache-ssl.conf" \
-                -extensions v3_req
-            
-            chown -R www-data:www-data "/opt/fog/snapins/ssl"
+            openssl genrsa -out "$key_file" 2048
+            openssl req -new -key "$key_file" \
+                -out "$sslpath/apache.csr" \
+                -config "$sslpath/apache-ssl.conf"
+            openssl x509 -req -in "$sslpath/apache.csr" \
+                -CA "$ca_pem" -CAkey "$ca_key" -CAcreateserial \
+                -out "$cert_file" -days 3650 \
+                -extensions v3_req -extfile "$sslpath/apache-ssl.conf"
+            cat "$ca_pem" >> "$cert_file"
+            rm -f "$sslpath/apache.csr"
+
+            if ! openssl verify -CAfile "$ca_pem" "$cert_file" >/dev/null; then
+                echo "ERROR: Apache certificate was not issued by the FOG CA."
+                exit 1
+            fi
+
+            chown -R www-data:www-data "$sslpath"
             mkdir -p "$(dirname "$FOG_APACHE_TLS_MANAGED_MARKER")"
             touch "$FOG_APACHE_TLS_MANAGED_MARKER"
-            echo "Self-signed Apache certificate generated."
+            echo "Apache certificate signed by the FOG CA."
         fi
     else
         echo "Apache HTTPS disabled, skipping Apache SSL configuration."
